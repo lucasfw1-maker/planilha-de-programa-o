@@ -1,0 +1,111 @@
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+const dir=mkdtempSync(join(tmpdir(),'concresuper-test-'));
+let child, base, admin, seller, other, manager, controller, pumpId, appointmentId, requestId;
+const password='Teste-Apenas-2027!';
+async function request(path, {method='GET',data,cookie,origin}={}) {
+ const res=await fetch(base+path,{method,headers:{...(data?{'Content-Type':'application/json'}:{}),...(cookie?{Cookie:cookie}:{}),...(origin?{Origin:origin}:{})},body:data?JSON.stringify(data):undefined});
+ return {status:res.status,body:await res.json(),cookie:res.headers.get('set-cookie')?.split(';')[0]};
+}
+const booking={customer:'Cliente Teste',work:'Obra Centro',date:'2027-01-04',start:'07:00',duration:120,type:'bomba',planned_volume:24,gravel:'1',resistance:'30 MPa',piece:'Laje',notes:'Com fibra; slump máximo 16',trips:3};
+before(async()=>{
+ child=spawn(process.execPath,['server.mjs'],{env:{...process.env,PORT:'0',DB_PATH:join(dir,'db.sqlite')},stdio:['ignore','pipe','pipe']});
+ await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error('Servidor não iniciou')),10000);child.once('error',reject);child.stdout.on('data',chunk=>{const match=String(chunk).match(/porta (\d+)/);if(match){base='http://127.0.0.1:'+match[1]+'/api';clearTimeout(timeout);resolve();}});child.stderr.on('data',chunk=>{if(String(chunk).includes('Error'))reject(Error(String(chunk)));});});
+});
+after(()=>{child?.kill();rmSync(dir,{recursive:true,force:true});});
+
+test('cadastro inicial, sessão, senha e proteção de origem',async()=>{
+ assert.equal((await request('/appointments?from=2027-01-01&to=2027-01-31')).status,401);
+ assert.equal((await request('/session')).body.needsSetup,true);
+ const r=await request('/bootstrap',{method:'POST',data:{name:'Administrador Teste',username:'lucas.wiebbelling',password}});assert.equal(r.status,200);admin=r.cookie;assert.equal(r.body.user.role,'programador');
+ assert.equal((await request('/bootstrap',{method:'POST',data:{name:'Outro',username:'outro.usuario',password}})).status,409);
+ assert.equal((await request('/login',{method:'POST',data:{username:'lucas.wiebbelling',password:'incorreta'}})).status,401);
+ assert.equal((await request('/settings',{method:'PATCH',cookie:admin,origin:'https://externo.invalid',data:{buffer:0}})).status,403);
+});
+test('usuários, perfis e bomba são cadastrados sem senhas nas respostas',async()=>{
+ for(const role of ['vendedor','gerente','controlador']){assert.equal((await request('/users',{method:'POST',cookie:admin,data:{name:role,username:role,password,role}})).status,200);const r=await request('/login',{method:'POST',data:{username:role,password}});
+ assert.equal(r.body.user.mustChangePassword,true);
+ assert.equal((await request('/meta',{cookie:r.cookie})).status,403);
+ const changed=await request('/change-password',{method:'POST',cookie:r.cookie,data:{currentPassword:password,newPassword:password+'novo'}});assert.equal(changed.status,200);
+ if(role==='vendedor')seller={cookie:changed.cookie,id:changed.body.user.id};if(role==='gerente')manager=changed.cookie;if(role==='controlador')controller=changed.cookie;}
+ await request('/users',{method:'POST',cookie:admin,data:{name:'Outra vendedora',username:'outra.vendedora',password,role:'vendedor'}});
+ const otherLogin=await request('/login',{method:'POST',data:{username:'outra.vendedora',password}});
+ other=(await request('/change-password',{method:'POST',cookie:otherLogin.cookie,data:{currentPassword:password,newPassword:password+'novo'}})).cookie;
+ const users=await request('/users',{cookie:admin});assert(!JSON.stringify(users.body).includes('password'));
+ assert.equal((await request('/users',{cookie:seller.cookie})).status,403);
+ const p=await request('/pumps',{method:'POST',cookie:admin,data:{name:'BL216',description:'Teste'}});pumpId=p.body.id;assert.equal(p.status,200);
+});
+test('agendamento, margem de deslocamento, conflito e entrega convencional',async()=>{
+ const data={...booking,pump_id:pumpId,seller_id:seller.id};
+ const r=await request('/appointments',{method:'POST',cookie:admin,data});assert.equal(r.status,200);appointmentId=r.body.id;
+ assert.equal((await request('/appointments',{method:'POST',cookie:seller.cookie,data})).status,403);
+ const conflict=await request('/appointments',{method:'POST',cookie:manager,data:{...data,start:'09:15'}});assert.equal(conflict.status,409);assert.match(conflict.body.error,/Conflito/);
+ assert.equal((await request('/appointments',{method:'POST',cookie:controller,data:{...data,start:'09:30'}})).status,200);
+ assert.equal((await request('/appointments',{method:'POST',cookie:admin,data:{...data,type:'convencional',pump_id:null}})).status,200);
+ const available=await request('/appointments?from=2027-01-04&to=2027-01-04',{cookie:seller.cookie});assert.equal(available.body.length,3);assert(available.body.every(a=>!a.customer&&!a.seller_name&&!a.planned_volume));
+});
+test('solicitação identifica vendedor autenticado, aprovação verifica conflito e evita duplicidade',async()=>{
+ const r=await request('/requests',{method:'POST',cookie:seller.cookie,data:{...booking,date:'2027-01-05',seller_id:999}});assert.equal(r.status,200);requestId=r.body.id;
+ const list=await request('/requests',{cookie:seller.cookie});assert.equal(list.body[0].seller_id,seller.id);assert.equal(list.body[0].notes,booking.notes);
+ assert.equal((await request('/requests',{cookie:other})).body.length,0);
+ assert.equal((await request('/requests/'+requestId,{method:'PATCH',cookie:seller.cookie,data:{status:'aprovada',pump_id:pumpId}})).status,403);
+ assert.equal((await request('/requests/'+requestId,{method:'PATCH',cookie:manager,data:{status:'aprovada',pump_id:pumpId}})).status,200);
+ assert.equal((await request('/requests/'+requestId,{method:'PATCH',cookie:manager,data:{status:'aprovada',pump_id:pumpId}})).status,409);
+});
+test('volume entregue não altera programado e relatório respeita filtros e vendedor',async()=>{
+ assert.equal((await request('/appointments/'+appointmentId,{method:'PATCH',cookie:controller,data:{delivered_volume:26,status:'concluido',planned_volume:999}})).status,200);
+ const report=await request('/report?from=2027-01-04&to=2027-01-04&type=bomba&status=concluido',{cookie:admin});assert.equal(report.body.length,1);assert.equal(report.body[0].planned_volume,24);assert.equal(report.body[0].delivered_volume,26);
+ assert.equal((await request('/report?from=2027-01-01&to=2027-01-31&seller='+seller.id,{cookie:other})).body.length,0);
+ assert.equal((await request('/report?from=2027-02-01&to=2027-01-01',{cookie:admin})).status,400);
+ const all=await request('/report?from=2027-01-01&to=2027-01-31',{cookie:admin});assert(all.body.some(a=>a.delivered_volume===null));
+ const audit=await request('/audit',{cookie:admin});assert(audit.body.some(a=>a.action==='editar'&&a.user_name==='controlador'));assert(!JSON.stringify(audit.body).includes(password));
+});
+test('manutenção bloqueia reservas e datas inválidas são rejeitadas',async()=>{
+ assert.equal((await request('/pumps/'+pumpId,{method:'PATCH',cookie:manager,data:{maintenance:true}})).status,200);
+ const data={...booking,date:'2027-01-06',pump_id:pumpId,seller_id:seller.id};
+ assert.equal((await request('/appointments',{method:'POST',cookie:admin,data})).status,409);
+ assert.equal((await request('/appointments',{method:'POST',cookie:admin,data:{...data,type:'convencional',date:'2027-02-30'}})).status,400);
+ assert.equal((await request('/appointments',{method:'POST',cookie:admin,data:{...data,type:'convencional',start:'23:00',duration:120}})).status,400);
+ await request('/logout',{method:'POST',cookie:other,data:{}});
+ assert.equal((await request('/meta',{cookie:other})).status,401);
+});
+
+test('cadastro público, aprovação, redefinição e conta do Programador protegida',async()=>{
+ const signup=await request('/signup',{method:'POST',data:{name:'Novo vendedor',username:'novo.vendedor',password,role:'programador'}});assert.equal(signup.status,200);
+ assert.equal((await request('/login',{method:'POST',data:{username:'novo.vendedor',password}})).status,403);
+ const users=(await request('/users',{cookie:admin})).body;
+ const target=users.find(u=>u.username==='novo.vendedor');assert.equal(target.role,'vendedor');
+ assert.equal((await request('/users/'+target.id,{method:'PATCH',cookie:manager,data:{status:'aprovado',role:'vendedor'}})).status,403);
+ assert.equal((await request('/users/'+target.id,{method:'PATCH',cookie:admin,data:{status:'aprovado',role:'vendedor'}})).status,200);
+ const login=await request('/login',{method:'POST',data:{username:'novo.vendedor',password}});assert.equal(login.status,200);
+ assert.equal((await request('/users/'+target.id,{method:'PATCH',cookie:admin,data:{action:'reset-password',currentPassword:'errada',password:password+'temp'}})).status,403);
+ assert.equal((await request('/users/'+target.id,{method:'PATCH',cookie:admin,data:{action:'reset-password',currentPassword:password,password:password+'temp'}})).status,200);
+ assert.equal((await request('/meta',{cookie:login.cookie})).status,401);
+ const temp=await request('/login',{method:'POST',data:{username:'novo.vendedor',password:password+'temp'}});assert.equal(temp.body.user.mustChangePassword,true);
+ assert.equal((await request('/report?from=2027-01-01&to=2027-01-31',{cookie:temp.cookie})).status,403);
+ assert.equal((await request('/users',{method:'POST',cookie:admin,data:{name:'Outro Programador',username:'outro.programador',password,role:'programador'}})).status,403);
+ assert.equal((await request('/users/'+users.find(u=>u.role==='programador').id,{method:'PATCH',cookie:admin,data:{status:'bloqueado',role:'vendedor'}})).status,403);
+});
+
+test('consulta de disponibilidade não expõe clientes e respeita intervalo e manutenção',async()=>{
+ let r=await request('/availability?date=2027-01-04&start=07:00&duration=120',{cookie:seller.cookie});assert.equal(r.status,200);assert.equal(r.body.pumps[0].available,false);assert(!JSON.stringify(r.body).includes('Cliente Teste'));
+ await request('/pumps/'+pumpId,{method:'PATCH',cookie:admin,data:{maintenance:false}});
+ r=await request('/availability?date=2027-01-04&start=11:00&duration=60',{cookie:seller.cookie});assert.equal(r.body.pumps[0].available,false);
+ r=await request('/availability?date=2027-01-04&start=12:00&duration=60',{cookie:seller.cookie});assert.equal(r.body.pumps[0].available,true);
+});
+
+test('reservas concorrentes não confirmam a mesma bomba no mesmo intervalo', async () => {
+ const data={...booking,date:'2027-01-20',start:'07:00',pump_id:pumpId,seller_id:seller.id};
+ const results=await Promise.all([
+  request('/appointments',{method:'POST',cookie:admin,data}),
+  request('/appointments',{method:'POST',cookie:manager,data:{...data,customer:'Outro cliente'}})
+ ]);
+ assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);
+ const rows=await request('/appointments?from=2027-01-20&to=2027-01-20',{cookie:admin});
+ assert.equal(rows.body.length,1);
+});
