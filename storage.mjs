@@ -5,6 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { migrateHistory, migrateCustomers } from './history-migration.mjs';
 import { migrateTripEstimates } from './fleet-migration.mjs';
+import { migrateCommercial } from './commercial-migration.mjs';
 import { SCHEMA } from './schema.mjs';
 
 const context = new AsyncLocalStorage();
@@ -41,6 +42,7 @@ async function open() {
     await migrateTripEstimates(candidate);
     await migrateHistory(candidate);
     await migrateCustomers(candidate);
+    await migrateCommercial(candidate);
     client=candidate;
   }catch(error){
     candidate.close();

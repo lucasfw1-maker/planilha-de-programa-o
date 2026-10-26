@@ -47,7 +47,7 @@ test('agendamento, margem de deslocamento, conflito e entrega convencional',asyn
  const conflict=await request('/appointments',{method:'POST',cookie:manager,data:{...data,start:'09:15'}});assert.equal(conflict.status,409);assert.match(conflict.body.error,/Conflito/);
  assert.equal((await request('/appointments',{method:'POST',cookie:controller,data:{...data,start:'09:30'}})).status,200);
  assert.equal((await request('/appointments',{method:'POST',cookie:admin,data:{...data,type:'convencional',pump_id:null}})).status,200);
- const available=await request('/appointments?from=2027-01-04&to=2027-01-04',{cookie:seller.cookie});assert.equal(available.body.length,3);assert(available.body.every(a=>!a.customer&&!a.seller_name&&!a.planned_volume));
+ const available=await request('/appointments?from=2027-01-04&to=2027-01-04',{cookie:seller.cookie});assert.equal(available.body.length,3);assert(available.body.every(a=>a.own_booking&&a.customer&&a.seller_id===seller.id));
 });
 test('solicitação identifica vendedor autenticado, aprovação verifica conflito e evita duplicidade',async()=>{
  const r=await request('/requests',{method:'POST',cookie:seller.cookie,data:{...booking,date:'2027-01-05',seller_id:999}});assert.equal(r.status,200);requestId=r.body.id;
@@ -246,4 +246,31 @@ test('manutenção por período bloqueia novos serviços, alerta conflitos e pre
  const overnight=await request('/maintenance',{method:'POST',cookie:admin,data:{pump_id:pump.id,starts_at:'2030-08-10T23:00',ends_at:'2030-08-11T03:00',reason:'Manutenção noturna'}});assert.equal(overnight.status,200);
  const blocked=await request('/availability?date=2030-08-11&start=02:00&duration=60',{cookie:seller.cookie});assert.equal(blocked.body.pumps.find(p=>p.id===pump.id).maintenance,true);
  assert.equal((await request('/availability?date=2030-08-11&start=03:00&duration=60',{cookie:seller.cookie})).body.pumps.find(p=>p.id===pump.id).available,true);
+});
+
+ test('informações comerciais: vendedor só altera próprias obras e gestão altera todas',async()=>{
+ const created=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,type:'convencional',date:'2031-01-10',customer:'Dallo',seller_id:seller.id}});assert.equal(created.status,200);
+ const id=created.body.id,path='/appointments/'+id+'/information';
+ assert.equal((await request(path,{method:'PATCH',cookie:other,data:{expected_version:0,customer_code:'INVASAO'}})).status,404);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:seller.cookie,data:{planned_volume:999}})).status,403);
+ const update=await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:0,customer_code:'05310',order_code:'2020',order_item:'1',planned_volume:999,seller_id:999}});assert.equal(update.status,200);
+ let row=(await request('/appointments/'+id,{cookie:seller.cookie})).body;assert.equal(row.customer_code,'05310');assert.equal(row.order_code,'2020');assert.equal(row.order_item,'1');assert.equal(row.planned_volume,24);assert.equal(row.seller_id,seller.id);
+ assert.equal((await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:0,order_code:'stale'}})).status,409);
+ assert.equal((await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:1,order_code:'<script>'}})).status,400);
+ for(const [i,cookie]of [admin,manager,controller].entries())assert.equal((await request(path,{method:'PATCH',cookie,data:{expected_version:i+1,order_code:'2020'}})).status,200);
+ const foreign=(await request('/appointments?from=2031-01-10&to=2031-01-10',{cookie:other})).body.find(a=>a.id===id);assert.equal(foreign.status,'ocupado');assert(!foreign.customer&&!foreign.customer_code&&!foreign.own_booking);
+ const next=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,type:'convencional',date:'2031-01-11',customer:'DALLO',seller_id:seller.id}});assert.equal(next.status,200);
+ row=(await request('/appointments/'+next.body.id,{cookie:seller.cookie})).body;assert.equal(row.customer_code,'05310');assert.equal(row.order_code,'');assert.equal(row.order_item,'');
+ const customer=(await request('/customers?q=dallo',{cookie:seller.cookie})).body[0];assert.equal(customer.customer_code,'05310');
+ const report=(await request('/report?from=2031-01-10&to=2031-01-11',{cookie:admin})).body;assert.equal(report.find(a=>a.id===id).order_item,'1');
+ });
+
+test('foto de perfil é individual, rejeita conteúdo ativo e pode ser removida',async()=>{
+ assert.equal((await request('/profile/photo',{method:'PATCH',cookie:seller.cookie,data:{image:'data:image/svg+xml;base64,PHN2Zz4='}})).status,400);
+ assert.equal((await request('/profile/photo',{method:'PATCH',cookie:seller.cookie,data:{image:'data:image/jpeg;base64,YWJjZA=='}})).status,400);
+ assert.equal((await request('/profile/photo',{method:'PATCH',cookie:seller.cookie,data:{image:'data:image/jpeg;base64,'+'A'.repeat(180000)}})).status,413);
+ assert.equal((await request('/profile/photo',{method:'PATCH',cookie:seller.cookie,data:{image:null,user_id:1}})).status,200);
+ assert.equal((await request('/profile-photo/'+seller.id,{cookie:other})).status,404);
+ const meta=(await request('/meta',{cookie:seller.cookie})).body;assert(meta.profiles.every(p=>p.id===seller.id));assert.equal(meta.profiles[0].version,null);
+ assert.equal((await request('/profile/photo',{method:'PATCH',data:{image:null}})).status,401);
 });

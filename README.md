@@ -40,7 +40,7 @@ O fluxo reproduz o padrão do sistema de obras enviado: usuário e senha, mostra
 
 | Perfil | Permissões |
 | --- | --- |
-| Vendedor | Disponibilidade sem nomes/dados de clientes de outros vendedores, solicitar reserva, acompanhar seus pedidos e consultar seu relatório |
+| Vendedor | Disponibilidade sem nomes/dados de clientes de outros vendedores, solicitar reserva, acompanhar seus pedidos, adicionar códigos comerciais nas próprias obras e consultar seu relatório |
 | Controlador de logística | Agendamentos, solicitações, consulta/bloqueio por manutenção, volume entregue e relatórios da filial |
 | Gerente | Operação e relatórios, mais o módulo Gerência para cadastrar bombas, ajustar frota e metas |
 | Programador | Tudo, cadastros, aprovação/bloqueio de usuários, redefinição de senha, parâmetros e auditoria |
@@ -135,3 +135,9 @@ Manutenções que coincidam com obras existentes são registradas e apresentam e
 A agenda exibe os indicadores mensais em anéis no topo, acima dos botões: meta, programado, entregue informado e saldo a programar. Produção prevista por CB e frota disponível ficam no mesmo grupo e se referem à data/período da agenda; o arco da produção por CB mostra o entregue em relação ao previsto, e o da frota compara a disponibilidade com o padrão vigente. Valores acima de 100% permanecem nos textos e dados; o arco para em uma volta completa. Sem meta ou denominador disponível, nenhum percentual é inventado.
 
 O relatório Produção e metas também compara o programado e o entregue por vendedor, em gráfico e tabela, respeitando o mesmo mês e as mesmas regras dos totais. Vendedores sem movimento ficam em zero, e entregas não informadas são sinalizadas. A exportação CSV inclui as linhas por vendedor. A barra de rolagem do menu permanece funcional, com trilho transparente e indicador fino.
+
+### Informações comerciais e foto de perfil
+
+Na agenda, **Adicionar informações** permite preencher código do cliente, pedido e item. O vendedor altera somente suas próprias obras; obras de outros vendedores mostram apenas ocupação. Programador, gerente e controlador podem alterar qualquer agendamento. O código do cliente é reutilizado em novas agendas da mesma carteira; pedido e item pertencem exclusivamente à obra. A agenda de amanhã apresenta, por exemplo, **Dallo 5310/2020-1**, inclusive na exportação.
+
+Clique na foto ou nas iniciais no rodapé do menu para escolher ou remover sua foto. O navegador recorta a imagem centralmente e reduz para JPEG de 192 × 192; o banco persistente guarda a foto, inclusive na Vercel. Cada pessoa troca apenas a própria foto. Fotos circulares aparecem nas identificações dos vendedores em relatórios e abaixo dos nomes no gráfico de volumes, inclusive na impressão/PDF. Sem foto, aparecem as iniciais.

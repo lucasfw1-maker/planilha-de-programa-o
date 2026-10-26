@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {commercialCode,savedCustomerCode,withCustomerCodes} from './commercial.mjs';
 import {slotWindow,overlaps} from './maintenance.mjs';
 import {checkMonth,monthlyProduction} from './production.mjs';
 import {estimateTrips,fleetRange} from './fleet.mjs';
@@ -112,11 +113,12 @@ async function createAppointment(b, u, requestId = null) {
   const data = fields(b);
   if (!Number.isInteger(data.trips)) fail('Viagens devem ser um número inteiro.');
   const seller = await checkSeller(b.seller_id);
+  const customerCode=await savedCustomerCode(data.customer,seller);
   const pump = await checkPump({
     ...data,
     pump_id: b.pump_id
   });
-  const result = await run(`INSERT INTO appointments(customer,work,date,start,duration,type,pump_id,seller_id,planned_volume,gravel,resistance,piece,notes,trips,load_capacity,request_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, data.customer, data.work, data.date, data.start, data.duration, data.type, pump, seller, data.planned_volume, data.gravel, data.resistance, data.piece, data.notes, data.trips, data.load_capacity, requestId);
+  const result = await run(`INSERT INTO appointments(customer,work,date,start,duration,type,pump_id,seller_id,planned_volume,gravel,resistance,piece,notes,trips,load_capacity,request_id,customer_code) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, data.customer, data.work, data.date, data.start, data.duration, data.type, pump, seller, data.planned_volume, data.gravel, data.resistance, data.piece, data.notes, data.trips, data.load_capacity, requestId, customerCode);
   const id = Number(result.lastInsertRowid);
   await saveCustomer(data,seller);
   await audit(u, 'criar', 'agendamento', id, data);
@@ -138,12 +140,12 @@ async function throttle(req, key) {
   });
   if (!allowed) fail('Muitas tentativas. Tente novamente em 15 minutos.', 429);
 }
-async function body(req) {
+async function body(req, limit=32768) {
   if (!req.headers['content-type']?.startsWith('application/json')) fail('Envie JSON.', 415);
   let data = '';
   for await (const chunk of req) {
     data += chunk;
-    if (Buffer.byteLength(data) > 32768) fail('Requisição muito grande.', 413);
+    if (Buffer.byteLength(data) > limit) fail('Requisição muito grande.', 413);
   }
   try {
     return JSON.parse(data || '{}');
@@ -263,7 +265,24 @@ async function api(req, res, url) {
   }
   if (u.status !== 'aprovado') fail('Acesso não aprovado.', 403);
   if (u.must_change) fail('Troque a senha temporária antes de acessar os módulos.', 403);
+  if(path==='/api/profile/photo' && method==='PATCH') {
+    const b=await body(req,180000),image=b.image;
+    if(image!==null){
+      if(typeof image!=='string'||!/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(image))fail('Envie uma foto JPEG válida.');
+      const bytes=Buffer.from(image.split(',')[1],'base64');
+      if(bytes.length>120000||bytes.length<4||bytes[0]!==255||bytes[1]!==216||bytes.at(-2)!==255||bytes.at(-1)!==217)fail('Foto inválida ou maior que 120 KB.');
+      await run('INSERT INTO user_photos(user_id,image,version) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET image=excluded.image,version=excluded.version',u.id,image,randomBytes(12).toString('hex'));
+    }else await run('DELETE FROM user_photos WHERE user_id=?',u.id);
+    return {ok:true};
+  }
+  if(/^\/api\/profile-photo\/\d+$/.test(path)&&method==='GET'){
+    const id=Number(path.split('/').pop());
+    if(!manager(u)&&id!==u.id)fail('Foto não encontrada.',404);
+    const photo=await one('SELECT image FROM user_photos WHERE user_id=?',id);if(!photo)fail('Foto não encontrada.',404);
+    res.setHeader('Content-Type','image/jpeg');res.end(Buffer.from(photo.image.split(',')[1],'base64'));return;
+  }
   if (path === '/api/meta' && method === 'GET') return {
+    profiles: await query('SELECT u.id,u.name,p.version FROM users u LEFT JOIN user_photos p ON p.user_id=u.id WHERE (?=1 OR u.id=?)',manager(u)?1:0,u.id),
     pumps: await query('SELECT * FROM pumps ORDER BY name'),
     sellers: manager(u) ? await query("SELECT id,name FROM users WHERE role='vendedor' AND active=1 AND status='aprovado' ORDER BY name") : [{
       id: u.id,
@@ -366,15 +385,10 @@ async function api(req, res, url) {
   if (path === '/api/appointments' && method === 'GET') {
     const from = date(url.searchParams.get('from')), to = date(url.searchParams.get('to'));
     const rows = await query(`SELECT a.*,u.name seller_name,p.name pump_name FROM appointments a JOIN users u ON u.id=a.seller_id LEFT JOIN pumps p ON p.id=a.pump_id WHERE date BETWEEN ? AND ? ORDER BY date,start`, from, to);
-    return manager(u) ? rows : rows.filter(a => a.status !== 'cancelado').map(a => ({
-      id: a.id,
-      date: a.date,
-      start: a.start,
-      duration: a.duration,
-      type: a.type,
-      pump_id: a.pump_id,
-      status: 'ocupado'
-    }));
+    const full=await withCustomerCodes(manager(u)?rows:rows.filter(a=>a.seller_id===u.id));
+    if(manager(u))return full;
+    const own=new Map(full.map(a=>[a.id,a]));
+    return rows.filter(a=>a.status!=='cancelado').map(a=>a.seller_id===u.id?{...own.get(a.id),own_booking:true}:{id:a.id,date:a.date,start:a.start,duration:a.duration,type:a.type,pump_id:a.pump_id,status:'ocupado'});
   }
   if (path === '/api/appointments' && method === 'POST') {
     if (!manager(u)) fail('Sem permissão.', 403);
@@ -386,7 +400,7 @@ async function api(req, res, url) {
   if((/^\/api\/appointments\/\d+$/).test(path) && method==='GET') {
     const a=await one('SELECT a.*,u.name seller_name,p.name pump_name FROM appointments a JOIN users u ON u.id=a.seller_id LEFT JOIN pumps p ON p.id=a.pump_id WHERE a.id=?',Number(path.split('/').pop()));
     if(!a || (!manager(u)&&a.seller_id!==u.id))fail('Agendamento não encontrado.',404);
-    return a;
+    return (await withCustomerCodes([a]))[0];
   }
   if ((/^\/api\/appointments\/\d+$/).test(path) && method === 'PATCH') {
     if (!manager(u)) fail('Sem permissão.', 403);
@@ -426,6 +440,21 @@ async function api(req, res, url) {
       return {
         ok: true
       };
+    });
+  }
+  if((/^\/api\/appointments\/\d+\/information$/).test(path)&&method==='PATCH') {
+    const b=await body(req),id=Number(path.split('/')[3]);
+    return await transaction(async()=>{
+      const old=await one('SELECT * FROM appointments WHERE id=?',id);
+      if(!old||(!manager(u)&&old.seller_id!==u.id))fail('Agendamento não encontrado.',404);
+      if(!Number.isInteger(b.expected_version)||b.expected_version!==old.information_version)fail('As informações foram alteradas por outra pessoa. Abra a obra novamente para atualizar.',409);
+      const saved=await savedCustomerCode(old.customer,old.seller_id),previousCode=old.customer_code||saved;
+      const code=commercialCode(b.customer_code===undefined?previousCode:b.customer_code,'Código do cliente'),order=commercialCode(b.order_code===undefined?old.order_code:b.order_code,'Código do pedido'),item=commercialCode(b.order_item===undefined?old.order_item:b.order_item,'Item do pedido');
+      await run('UPDATE appointments SET customer_code=?,order_code=?,order_item=?,information_version=information_version+1 WHERE id=?',code,order,item,id);
+      if(!await one('SELECT id FROM customers WHERE seller_id=? AND name_key=?',old.seller_id,customerKey(old.customer)))await saveCustomer(old,old.seller_id);
+      if(code!==previousCode||!saved)await run('UPDATE customers SET customer_code=?,updated_at=? WHERE seller_id=? AND name_key=?',code,new Date().toISOString(),old.seller_id,customerKey(old.customer));
+      await audit(u,'adicionar informações','agendamento',id,{antes:{customer_code:old.customer_code,order_code:old.order_code,order_item:old.order_item},depois:{customer_code:code,order_code:order,order_item:item}});
+      return {ok:true,information_version:old.information_version+1};
     });
   }
   if ((/^\/api\/appointments\/\d+\/history$/).test(path) && method==='GET') {
@@ -500,7 +529,7 @@ async function api(req, res, url) {
     const seller = u.role === 'vendedor' ? u.id : Number(url.searchParams.get('seller') || 0);
     const type = url.searchParams.get('type') || '';
     const status = url.searchParams.get('status') || '';
-    return await query(`SELECT a.*,u.name seller_name,p.name pump_name FROM appointments a JOIN users u ON u.id=a.seller_id LEFT JOIN pumps p ON p.id=a.pump_id WHERE date BETWEEN ? AND ? AND (?=0 OR seller_id=?) AND (?='' OR type=?) AND ((?='' AND a.status<>'cancelado') OR a.status=?) ORDER BY date,start`, from, to, seller, seller, type, type, status, status);
+    return await withCustomerCodes(await query(`SELECT a.*,u.name seller_name,p.name pump_name FROM appointments a JOIN users u ON u.id=a.seller_id LEFT JOIN pumps p ON p.id=a.pump_id WHERE date BETWEEN ? AND ? AND (?=0 OR seller_id=?) AND (?='' OR type=?) AND ((?='' AND a.status<>'cancelado') OR a.status=?) ORDER BY date,start`, from, to, seller, seller, type, type, status, status));
   }
   if (path === '/api/users' && method === 'GET') {
     if (u.role !== 'programador') fail('Sem permissão.', 403);
@@ -598,6 +627,7 @@ async function api(req, res, url) {
   fail('Recurso não encontrado.', 404);
 }
 const assets = {
+  '/concresuper-symbol.png': ['concresuper-symbol.png', 'image/png'],
   '/logo-concresuper.png': ['logo-concresuper.png', 'image/png'],
   '/favicon.svg': ['favicon.svg', 'image/svg+xml'],
   '/': ['index.html', 'text/html; charset=utf-8'],
@@ -616,7 +646,7 @@ export async function handler(req, res) {
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store');
       const data = await api(req, res, url);
-      res.end(JSON.stringify(data));
+      if(!res.writableEnded)res.end(JSON.stringify(data));
     } else {
       const asset = assets[url.pathname];
       if (!asset || req.method !== 'GET') {
