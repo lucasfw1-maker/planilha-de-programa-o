@@ -252,7 +252,7 @@ const ROOT=require('node:path').resolve(__dirname,'..');
  await page.getByRole('button',{name:'Relatórios',exact:true}).click();
  await page.getByRole('button',{name:'Produção e metas',exact:true}).click();
  const chartPortrait=page.locator('[data-seller-photo="'+tomorrowReference+'"]');await chartPortrait.waitFor();
- assert.equal(await chartPortrait.getAttribute('width'),'36');assert((await chartPortrait.getAttribute('clip-path')).includes('seller-photo-'));
+ assert.equal(await chartPortrait.getAttribute('width'),'72');assert((await chartPortrait.getAttribute('clip-path')).includes('seller-photo-'));
  await page.waitForLoadState('networkidle');
  await page.screenshot({path:join(ROOT,'.data','review','seller-photos-report.png'),fullPage:true});
  await page.emulateMedia({media:'print'});await page.pdf({path:join(ROOT,'.data','review','seller-photos-report.pdf'),format:'A4',printBackground:true});await page.emulateMedia({media:'screen'});
