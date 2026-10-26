@@ -256,6 +256,15 @@ const ROOT=require('node:path').resolve(__dirname,'..');
  await page.waitForLoadState('networkidle');
  await page.screenshot({path:join(ROOT,'.data','review','seller-photos-report.png'),fullPage:true});
  await page.emulateMedia({media:'print'});await page.pdf({path:join(ROOT,'.data','review','seller-photos-report.pdf'),format:'A4',printBackground:true});await page.emulateMedia({media:'screen'});
+ await page.getByRole('button',{name:'Configurações',exact:true}).click();
+ await page.getByRole('heading',{name:'Equipe e acessos',exact:true}).waitFor();
+ const photographedMember=page.locator('.team-member').filter({hasText:'Mariana Silva'});
+ await photographedMember.getByText('Com foto',{exact:true}).waitFor();
+ await page.waitForFunction(()=>{const img=document.querySelector('.team-member img');return img&&img.complete&&img.naturalWidth===192;});
+ const unphotographedMember=page.locator('.team-member').filter({hasText:'Pedro Almeida'});
+ await unphotographedMember.getByText('Sem foto',{exact:true}).waitFor();
+ assert.equal(await unphotographedMember.locator('img').count(),0);
+ assert.equal(await unphotographedMember.locator('.profile-avatar').textContent(),'PA');
  assert.deepEqual(errors,[]);
  console.log('PASS navegador: primeiro acesso, sessão, agenda dia/semana/mês, registro do entregue, filtros de relatório, exportação CSV, celular sem transbordamento, favicon, coroa exclusiva, troca de senha, disponibilidade, solicitação do vendedor, clientes, cancelamento, remarcações, histórico, gráficos e nenhum erro JS/CSP.');
  }finally{await browser?.close();server.kill();rmSync(dir,{recursive:true,force:true});}
