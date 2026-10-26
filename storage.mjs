@@ -3,6 +3,7 @@ import { createClient } from '@libsql/client';
 import { mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { migrateHistory, migrateCustomers } from './history-migration.mjs';
 import { SCHEMA } from './schema.mjs';
 
 const context = new AsyncLocalStorage();
@@ -36,6 +37,8 @@ async function open() {
   try {
     if(localMode)await candidate.executeMultiple('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;');
     await candidate.executeMultiple(SCHEMA);
+    await migrateHistory(candidate);
+    await migrateCustomers(candidate);
     client=candidate;
   }catch(error){
     candidate.close();

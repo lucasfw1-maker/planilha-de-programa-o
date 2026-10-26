@@ -109,3 +109,53 @@ test('reservas concorrentes não confirmam a mesma bomba no mesmo intervalo', as
  const rows=await request('/appointments?from=2027-01-20&to=2027-01-20',{cookie:admin});
  assert.equal(rows.body.length,1);
 });
+
+test('cancelamento exige motivo, preserva recurso e libera disponibilidade',async()=>{
+ const created=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,date:'2027-03-10',customer:'José da Silva',pump_id:pumpId,seller_id:seller.id}});
+ const id=created.body.id;assert.equal(created.status,200);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:controller,data:{status:'cancelado'}})).status,400);
+ assert.equal((await request('/appointments/'+id,{cookie:admin})).body.status,'confirmado');
+ const cancel=await request('/appointments/'+id,{method:'PATCH',cookie:controller,data:{action:'cancelar',status:'cancelado',reason:'Cliente solicitou o cancelamento'}});assert.equal(cancel.status,200);
+ const current=(await request('/appointments/'+id,{cookie:admin})).body;assert.equal(current.status,'cancelado');assert.equal(current.pump_id,pumpId);
+ const free=await request('/availability?date=2027-03-10&start=07:00&duration=120',{cookie:seller.cookie});assert.equal(free.body.pumps[0].available,true);
+ const history=(await request('/appointments/'+id+'/history',{cookie:admin})).body;assert.equal(history.length,1);assert.equal(history[0].kind,'cancelado');assert.equal(history[0].actor_name,'controlador');assert.equal(history[0].before.date,'2027-03-10');assert.equal(history[0].before.pump_id,pumpId);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:admin,data:{action:'cancelar',status:'cancelado',reason:'Repetido'}})).status,409);
+ const report=await request('/changes?from=2027-03-01&to=2027-03-31&basis=before&kind=cancelado&customer=JOSE',{cookie:manager});assert.equal(report.body.length,1);assert.equal(report.body[0].reason,'Cliente solicitou o cancelamento');
+ const otherLogin=await request('/login',{method:'POST',data:{username:'outra.vendedora',password:password+'novo'}});other=otherLogin.cookie;
+ assert.equal((await request('/appointments/'+id+'/history',{cookie:other})).status,404);
+ assert.equal((await request('/changes?from=2000-01-01&to=2099-01-01&seller='+seller.id,{cookie:other})).body.length,0);
+});
+
+test('remarcações preservam cada data, filtram por cliente e não gravam conflitos',async()=>{
+ const created=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,date:'2027-03-11',customer:'José da Silva',pump_id:pumpId,seller_id:seller.id}});assert.equal(created.status,200);const id=created.body.id;
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:seller.cookie,data:{date:'2027-04-11',reason:'Teste'}})).status,403);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:admin,data:{date:'2027-04-11'}})).status,400);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:admin,data:{action:'remarcar',date:'2027-04-11',reason:'Chuva'}})).status,200);
+ const stale=(await request('/appointments/'+id,{cookie:admin})).body;
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{action:'remarcar',date:'2027-04-12',reason:'A pedido do cliente'}})).status,200);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:admin,data:{date:'2027-04-13',reason:'Concorrente',expected:stale}})).status,409);
+ const conflict=await request('/appointments/'+id,{method:'PATCH',cookie:admin,data:{date:'2027-01-20',reason:'Destino já ocupado'}});assert.equal(conflict.status,409);
+ const history=(await request('/appointments/'+id+'/history',{cookie:admin})).body;assert.equal(history.length,2);assert.equal(history[0].before.date,'2027-04-11');assert.equal(history[0].after.date,'2027-04-12');assert.equal(history[1].before.date,'2027-03-11');
+ const before=await request('/changes?from=2027-03-01&to=2027-03-31&basis=before&kind=remarcado&customer=silva',{cookie:seller.cookie});assert.equal(before.body.length,1);
+ const after=await request('/changes?from=2027-04-01&to=2027-04-30&basis=after&kind=remarcado&customer=jose',{cookie:admin});assert.equal(after.body.length,2);
+ assert.equal((await request('/appointments/'+id,{cookie:admin})).body.date,'2027-04-12');
+});
+
+test('clientes são salvos, reutilizados por nome normalizado e isolados por vendedor',async()=>{
+ let rows=(await request('/customers?q=JOSE',{cookie:seller.cookie})).body;assert.equal(rows.length,1);assert.equal(rows[0].gravel,booking.gravel);assert.equal(rows[0].notes,booking.notes);
+ assert.equal((await request('/customers?seller='+seller.id,{cookie:other})).body.length,0);
+ const requestResult=await request('/requests',{method:'POST',cookie:seller.cookie,data:{...booking,customer:'JOSÉ DA SILVA',work:'Nova obra',notes:'Com fibra especial',planned_volume:32,type:'convencional'}});assert.equal(requestResult.status,200);
+ rows=(await request('/customers?q=jose',{cookie:admin})).body;assert.equal(rows.length,1);assert.equal(rows[0].work,'Nova obra');assert.equal(rows[0].planned_volume,32);assert.equal(rows[0].notes,'Com fibra especial');
+ const old=(await request('/changes?from=2027-03-01&to=2027-03-31&basis=before&kind=cancelado&customer=jose',{cookie:admin})).body;assert.equal(old[0].work,booking.work);
+});
+
+test('reativação exige motivo e mantém cancelamento anterior no histórico',async()=>{
+ const created=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,date:'2027-05-10',customer:'Cliente Reativação',pump_id:pumpId,seller_id:seller.id}});const id=created.body.id;
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:admin,data:{action:'cancelar',status:'confirmado',reason:'Inválido'}})).status,400);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:admin,data:{action:'cancelar',status:'cancelado',reason:'Cliente suspendeu'}})).status,200);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:admin,data:{date:'2027-05-11',reason:'Alteração oculta'}})).status,400);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{status:'confirmado'}})).status,400);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{action:'remarcar',status:'confirmado',reason:'Cliente confirmou novamente'}})).status,200);
+ const events=(await request('/appointments/'+id+'/history',{cookie:admin})).body;assert.deepEqual(events.map(e=>e.kind),['remarcado','cancelado']);
+ const report=(await request('/changes?from=2027-05-01&to=2027-05-31&basis=before&kind=cancelado',{cookie:admin})).body;assert.equal(report[0].current_status,'confirmado');
+});

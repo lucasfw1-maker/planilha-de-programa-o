@@ -1,0 +1,5 @@
+import {run} from './storage.mjs';
+export const customerKey = value => String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').replace(/\s+/g,' ').trim();
+export const CUSTOMER_UPSERT = `INSERT INTO customers(seller_id,name,name_key,work,gravel,resistance,piece,notes,planned_volume,trips,duration,type,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(seller_id,name_key) DO UPDATE SET name=excluded.name,work=excluded.work,gravel=excluded.gravel,resistance=excluded.resistance,piece=excluded.piece,notes=excluded.notes,planned_volume=excluded.planned_volume,trips=excluded.trips,duration=excluded.duration,type=excluded.type,updated_at=excluded.updated_at`;
+export const customerArgs = (data,seller,stamp=new Date().toISOString()) => [seller,data.customer,customerKey(data.customer),data.work,data.gravel,data.resistance,data.piece,data.notes||'',data.planned_volume,data.trips||0,data.duration,data.type,stamp];
+export async function saveCustomer(data,seller) {await run(CUSTOMER_UPSERT,...customerArgs(data,seller));}

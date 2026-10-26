@@ -1,4 +1,6 @@
 import http from 'node:http';
+import {saveCustomer,customerKey} from './customers.mjs';
+import {changeKind,recordChange,searchName} from './changes.mjs';
 import {query, one, run, transaction, initialize} from './storage.mjs';
 import {randomBytes, scryptSync, timingSafeEqual, createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
@@ -81,7 +83,11 @@ async function checkSeller(id) {
   return user.id;
 }
 async function checkPump(b, except = 0) {
-  if (b.type === 'convencional' || b.status === 'cancelado') return null;
+  if (b.type === 'convencional') return null;
+  if (b.status === 'cancelado') {
+    const id=Number(b.pump_id||0);
+    return id && await one('SELECT id FROM pumps WHERE id=?',id) ? id : null;
+  }
   const pump = await one('SELECT * FROM pumps WHERE id=?', Number(b.pump_id || 0));
   if (!pump) fail('Selecione a bomba.');
   if (pump.maintenance) fail('Esta bomba está em manutenção.', 409);
@@ -104,6 +110,7 @@ async function createAppointment(b, u, requestId = null) {
   });
   const result = await run(`INSERT INTO appointments(customer,work,date,start,duration,type,pump_id,seller_id,planned_volume,gravel,resistance,piece,notes,trips,request_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, data.customer, data.work, data.date, data.start, data.duration, data.type, pump, seller, data.planned_volume, data.gravel, data.resistance, data.piece, data.notes, data.trips, requestId);
   const id = Number(result.lastInsertRowid);
+  await saveCustomer(data,seller);
   await audit(u, 'criar', 'agendamento', id, data);
   return id;
 }
@@ -297,6 +304,11 @@ async function api(req, res, url) {
       id: await createAppointment(b, u)
     }));
   }
+  if((/^\/api\/appointments\/\d+$/).test(path) && method==='GET') {
+    const a=await one('SELECT a.*,u.name seller_name,p.name pump_name FROM appointments a JOIN users u ON u.id=a.seller_id LEFT JOIN pumps p ON p.id=a.pump_id WHERE a.id=?',Number(path.split('/').pop()));
+    if(!a || (!manager(u)&&a.seller_id!==u.id))fail('Agendamento não encontrado.',404);
+    return a;
+  }
   if ((/^\/api\/appointments\/\d+$/).test(path) && method === 'PATCH') {
     if (!manager(u)) fail('Sem permissão.', 403);
     const b = await body(req), id = Number(path.split('/').pop());
@@ -318,6 +330,16 @@ async function api(req, res, url) {
       const delivered = b.delivered_volume === undefined ? old.delivered_volume : b.delivered_volume === null || b.delivered_volume === '' ? null : number(b.delivered_volume, 'Volume entregue');
       const trips = number(b.trips ?? old.trips, 'Viagens', 0, 10000);
       if (!Number.isInteger(trips)) fail('Viagens devem ser inteiras.');
+      if(b.action && !['cancelar','remarcar'].includes(b.action))fail('Ação de agendamento inválida.');
+      if(b.action==='cancelar' && status!=='cancelado')fail('Confirme o cancelamento do agendamento.');
+      const after={...old,...data,pump_id:pump,status,delivered_volume:delivered,trips};
+      if(old.status==='cancelado' && status==='cancelado' && ['date','start','duration','pump_id','type'].some(key=>old[key]!==after[key]))fail('Para mudar a programação de uma obra cancelada, use Remarcar agendamento.');
+      const kind=changeKind(old,after);
+      const reason=kind?text(b.reason,'o motivo do cancelamento ou da remarcação',1000):'';
+      if(b.expected && ['date','start','duration','pump_id','type','status'].some(key=>b.expected[key]!==old[key]))fail('Este agendamento foi alterado por outra pessoa. Atualize a agenda antes de tentar novamente.',409);
+      if(b.action==='cancelar' && old.status==='cancelado')fail('Este agendamento já está cancelado.',409);
+      if(b.action==='remarcar' && kind!=='remarcado')fail('Altere a data, o horário, a duração ou o recurso para remarcar.');
+      await recordChange(u,old,after,reason);
       await run('UPDATE appointments SET date=?,start=?,duration=?,type=?,pump_id=?,status=?,delivered_volume=?,trips=? WHERE id=?', data.date, data.start, data.duration, data.type, pump, status, delivered, trips, id);
       await audit(u, 'editar', 'agendamento', id, {
         antes: old,
@@ -328,6 +350,34 @@ async function api(req, res, url) {
       };
     });
   }
+  if ((/^\/api\/appointments\/\d+\/history$/).test(path) && method==='GET') {
+    const id=Number(path.split('/')[3]);
+    const appointment=await one('SELECT * FROM appointments WHERE id=?',id);
+    if(!appointment || (!manager(u)&&appointment.seller_id!==u.id))fail('Agendamento não encontrado.',404);
+    const events=await query('SELECT e.*,u.name actor_name FROM appointment_events e LEFT JOIN users u ON u.id=e.actor_id WHERE appointment_id=? ORDER BY e.id DESC',id);
+    return events.map(e=>({...e,before:JSON.parse(e.before_json),after:JSON.parse(e.after_json),before_json:undefined,after_json:undefined}));
+  }
+  if(path==='/api/changes' && method==='GET') {
+    const from=date(url.searchParams.get('from')),to=date(url.searchParams.get('to'));
+    if(from>to)fail('A data inicial deve ser anterior à final.');
+    const basis=url.searchParams.get('basis')||'event';
+    if(!['event','before','after'].includes(basis))fail('Referência de data inválida.');
+    const kind=url.searchParams.get('kind')||'';
+    if(kind && !['cancelado','remarcado'].includes(kind))fail('Tipo de ocorrência inválido.');
+    const seller=u.role==='vendedor'?u.id:Number(url.searchParams.get('seller')||0);
+    if(!Number.isInteger(seller)||seller<0)fail('Vendedor inválido.');
+    const customer=searchName((url.searchParams.get('customer')||'').slice(0,200));
+    const column={event:'e.event_date',before:"json_extract(e.before_json,'$.date')",after:"json_extract(e.after_json,'$.date')"}[basis];
+    const includeUnknown=url.searchParams.get('unknown')==='1' && basis==='event';
+    const events=await query(`SELECT e.*,u.name actor_name,s.name seller_name,a.status current_status,a.date current_date FROM appointment_events e JOIN appointments a ON a.id=e.appointment_id LEFT JOIN users u ON u.id=e.actor_id LEFT JOIN users s ON s.id=e.seller_id WHERE ((${column} BETWEEN ? AND ?) OR (?=1 AND e.event_date IS NULL)) AND (?='' OR e.kind=?) AND (?=0 OR e.seller_id=?) AND (?='' OR instr(e.customer_search,?)>0) ORDER BY e.created_at DESC,e.id DESC`,from,to,includeUnknown?1:0,kind,kind,seller,seller,customer,customer);
+    return events.map(e=>({...e,before:JSON.parse(e.before_json),after:JSON.parse(e.after_json),before_json:undefined,after_json:undefined}));
+  }
+  if(path==='/api/customers' && method==='GET') {
+    const seller=manager(u)?Number(url.searchParams.get('seller')||0):u.id;
+    if(!Number.isInteger(seller)||seller<0)fail('Vendedor inválido.');
+    const name=customerKey((url.searchParams.get('q')||'').slice(0,200));
+    return await query(`SELECT c.*,u.name seller_name FROM customers c JOIN users u ON u.id=c.seller_id WHERE (?=0 OR c.seller_id=?) AND (?='' OR instr(c.name_key,?)>0) ORDER BY c.name LIMIT 100`,seller,seller,name,name);
+  }
   if (path === '/api/requests' && method === 'GET') return manager(u) ? await query('SELECT r.*,u.name seller_name FROM requests r JOIN users u ON u.id=r.seller_id ORDER BY r.id DESC') : await query('SELECT r.*,u.name seller_name FROM requests r JOIN users u ON u.id=r.seller_id WHERE seller_id=? ORDER BY r.id DESC', u.id);
   if (path === '/api/requests' && method === 'POST') {
     const b = fields(await body(req));
@@ -335,6 +385,7 @@ async function api(req, res, url) {
     const seller = await checkSeller(u.id);
     return await transaction(async () => {
       const id = Number((await run('INSERT INTO requests(seller_id,customer,work,date,start,duration,type,planned_volume,gravel,resistance,piece,notes,trips) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', seller, b.customer, b.work, b.date, b.start, b.duration, b.type, b.planned_volume, b.gravel, b.resistance, b.piece, b.notes, b.trips)).lastInsertRowid);
+      await saveCustomer(b,seller);
       await audit(u, 'solicitar', 'solicitacao', id, b);
       return {
         id

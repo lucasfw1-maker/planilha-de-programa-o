@@ -88,3 +88,17 @@ Também foi realizada verificação com Chromium/Playwright em ambiente temporá
 Para repetir a verificação visual, execute `npm run test:browser`. Requer Chromium instalado no sistema (detecta `/usr/bin/chromium`) ou um navegador instalado por `npx playwright install chromium`. `BROWSER_EXECUTABLE` permite indicar o caminho. O teste cria e remove seu próprio banco, sem usar os dados reais. As imagens geradas em `.data/review/` contêm apenas exemplos fictícios.
 
 Após a adaptação para Vercel, os testes também cobrem a entrada serverless, ausência de fallback para disco efêmero, exigência de TLS, cadastro inicial protegido, limitação de tentativas persistente entre reinícios e reservas concorrentes. O limite de tentativas agora fica no banco, para valer entre instâncias. A conexão com um banco remoto real permanece pendente até configuração das credenciais.
+
+## Cancelamentos, remarcações e clientes
+
+Clique em uma obra na agenda para acessar **Remarcar agendamento**, **Cancelar agendamento** e **Histórico**. Cancelamentos e mudanças de data, horário, duração ou recurso exigem motivo. O cancelamento libera o horário e preserva a bomba anteriormente utilizada. A remarcação confere conflitos novamente antes de gravar; alterações concorrentes feitas a partir de uma tela desatualizada são recusadas. Uma obra cancelada pode ser reativada pelo botão Remarcar, com motivo e nova conferência de disponibilidade.
+
+Em **Relatórios → Cancelamentos e remarcações**, filtre por período, cliente (sem diferenciar acentos), vendedor e ocorrência. A referência de data pode ser a data da alteração, a data anterior da obra ou a nova data. Há indicadores, gráficos por período, ranking de clientes, volumes por vendedor, detalhes de motivo/responsável e programação anterior/nova. CSV e impressão/PDF do navegador respeitam os filtros.
+
+As contagens são de **ocorrências**, não de vendas novas. Uma obra remarcada duas vezes produz dois registros. O volume movimentado soma o volume por ocorrência; o número de obras distintas aparece separado. O relatório mostra também a situação atual da obra, pois um cancelamento antigo pode ter sido seguido por uma reativação.
+
+A atualização cria tabelas e índices de forma aditiva. Uma migração idempotente recupera os cancelamentos e remarcações que já estavam na auditoria. Motivos antigos ausentes são identificados como não registrados. Cancelamentos sem auditoria não recebem uma data inventada; podem ser incluídos no relatório pela opção de registros sem data. Datas recuperadas da auditoria são convertidas de UTC para America/Sao_Paulo.
+
+A aba **Clientes** guarda automaticamente a última configuração usada por cliente e vendedor, ao salvar uma agenda ou solicitação. No novo formulário, escolha **Preencher com cliente cadastrado** para recuperar obra, volume, brita, Fck, peça, observações, duração, tipo e viagens. **Data, horário e bomba não são reutilizados.** Revise sempre as especificações: o último pedido não garante que o próximo tenha o mesmo concreto ou aditivo. A mudança nos padrões do cliente não altera as agendas históricas.
+
+Vendedores consultam somente seus clientes, suas ocorrências e seus históricos. Gerente, controlador e Programador consultam os dados da filial. Cadastros já presentes em agendas e solicitações são recuperados pela migração inicial sem excluir ou alterar os registros originais. Por enquanto, o cadastro é por nome normalizado e vendedor; CPF/CNPJ, contatos e múltiplos padrões por obra não foram adicionados.
