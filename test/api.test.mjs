@@ -217,6 +217,7 @@ test('relatório de produção compara programado e entregue e calcula necessida
  const empty=(await request('/production?month=2040-01&reference=2040-01-01&basis=mon_sat',{cookie:admin})).body;assert.equal(empty.target,null);assert.equal(empty.required_delivery_daily,null);assert.equal(empty.programmed,0);
  await request('/appointments/'+first.id,{method:'PATCH',cookie:manager,data:{action:'cancelar',status:'cancelado',reason:'Cancelado o saldo após entrega parcial'}});
  const partial=(await request('/production?month=2030-06',{cookie:admin})).body;assert.equal(partial.delivered,50);assert(Math.abs(partial.programmed-270.2)<1e-8);
+ assert(Array.isArray(partial.sellers));assert(Math.abs(partial.sellers.reduce((n,s)=>n+s.programmed,0)-partial.programmed)<1e-8);assert.equal(partial.sellers.reduce((n,s)=>n+s.delivered,0),partial.delivered);assert.equal(partial.sellers.find(s=>s.id===seller.id).delivered,50);assert(partial.sellers.some(s=>s.programmed===0&&s.delivered===0));
 });
 
 test('gerência permite cadastro de bombas ao gerente e mantém controlador sem essa permissão',async()=>{
