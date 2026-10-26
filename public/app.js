@@ -128,6 +128,11 @@ async function load() {
   const [meta,appointments,requests] = await Promise.all([api('/meta'),api(`/appointments?from=${from}&to=${to}`),api('/requests')]);
   state.meta=meta;state.appointments=appointments;state.requests=requests;
   if(state.page==='agenda'){[state.maintenances,state.fleet,state.production]=await Promise.all([api(`/maintenance?from=${from}&to=${to}`),isManager()?api(`/fleet?from=${from}&to=${to}`):Promise.resolve(null),isManager()?api('/production?month='+(state.goalMonth||state.date.slice(0,7))):Promise.resolve(null)]);}
+  if(state.page==='agenda'&&isManager()){
+    const period=cbPeriodRange(),same=period.from===from&&period.to===to;
+    const [bookings,fleet]=same?[state.appointments,state.fleet]:await Promise.all([api(`/appointments?from=${period.from}&to=${period.to}`),api(`/fleet?from=${period.from}&to=${period.to}`)]);
+    state.cbProduction={...period,bookings,fleet};
+  }
   if (['reports','next'].includes(state.page)) await loadReport();
   if(state.page==='production'&&isManager()){const params=new URLSearchParams(state.productionFilters);const [from,to]=monthRange(state.productionFilters.month+'-01');[state.productionReport,state.productionFleet]=await Promise.all([api('/production?'+params),api(`/fleet?from=${from}&to=${to}`)]);}
   if(state.page==='management'&&canManageProduction()){const [fleet,production,maintenance]=await Promise.all([api(`/fleet?from=${state.managementDate}&to=${state.managementDate}`),api('/production?month='+state.managementMonth),api(`/maintenance?from=${state.managementDate}&to=${state.managementDate}`)]);state.management={fleet,production};state.maintenances=maintenance;}
@@ -242,6 +247,7 @@ function bindPage() {
   if($('#production-filters'))$('#production-filters').onsubmit=async e=>{e.preventDefault();state.productionFilters=Object.fromEntries(new FormData(e.target));await refresh();};
   if($('#adjust-fleet'))$('#adjust-fleet').onclick=()=>fleetForm();
   if($('#edit-goal'))$('#edit-goal').onclick=()=>goalForm(state.page==='production'?state.productionReport:state.production);
+  if($('#cb-period'))$('#cb-period').onchange=async e=>{const value=e.target.value;if(value==='custom'){e.target.value=state.cbPeriod||'today';return cbCustomPeriod();}state.cbPeriod=value;await refresh();};
   if($('#production-month'))$('#production-month').onchange=async e=>{if(e.target.value){state.goalMonth=e.target.value;await refresh();}};
   if($('#report-filters'))$('#report-filters').onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));if(data.from>data.to)return toast('A data inicial deve ser anterior à final.',true);Object.assign(state,data);await refresh();};
   $$('[data-shortcut]').forEach(b=>b.onclick=async()=>{let from=today(),to=today();const action=b.dataset.shortcut;if(action==='week'){const day=new Date(from+'T12:00:00').getDay();from=shift(from,-((day+6)%7));to=shift(from,6);}if(action==='month')[from,to]=monthRange(today());if(action==='next'){const d=new Date(today()+'T12:00:00');d.setDate(1);d.setMonth(d.getMonth()+1);[from,to]=monthRange(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`);}if(state.page==='changes'){state.changeFilters.from=from;state.changeFilters.to=to;}else{state.from=from;state.to=to;}await refresh();});
@@ -479,28 +485,29 @@ function bindTripCalculator(){
 function agendaHeader(actions,rows){
   if(!isManager()||!state.production)return heading('Agenda de obras','Planeje cada entrega. Encontre o próximo horário livre.',actions);
   const p=state.production,days=state.fleet?.days||[],truckDays=state.fleet?.truck_days||0;
-  const planned=rows.reduce((sum,a)=>sum+a.planned_volume,0),informed=state.appointments.filter(a=>a.delivered_volume!==null),delivered=informed.reduce((sum,a)=>sum+a.delivered_volume,0);
+  const cb=state.cbProduction,cbRows=cb.bookings,cbTruckDays=cb.fleet.truck_days;
+  const planned=cbRows.filter(a=>a.status!=='cancelado').reduce((sum,a)=>sum+a.planned_volume,0),informed=cbRows.filter(a=>a.delivered_volume!==null),delivered=informed.reduce((sum,a)=>sum+a.delivered_volume,0);
   const count=state.mode==='day'?(days[0]?.trucks??17):truckDays/Math.max(1,days.length);
   const base=state.mode==='day'?(days[0]?.default_trucks??17):days.reduce((sum,d)=>sum+d.default_trucks,0)/Math.max(1,days.length);
-  const unit=state.mode==='day'?'m³/CB':'m³/CB/dia',cbPlanned=truckDays?planned/truckDays:null,cbDelivered=truckDays&&informed.length?delivered/truckDays:null;
+  const unit=cb.from===cb.to?'m³/CB':'m³/CB/dia',cbPlanned=cbTruckDays?planned/cbTruckDays:null,cbDelivered=cbTruckDays&&informed.length?delivered/cbTruckDays:null;
   const agendaLabel=state.mode==='day'?fmt(state.date,{day:'2-digit',month:'2-digit'}):state.mode==='week'?'semana da agenda':'mês da agenda';
-  const cbRatio=truckDays>0&&planned>0&&informed.length?delivered/planned*100:null;
+  const cbRatio=cbTruckDays>0&&planned>0&&informed.length?delivered/planned*100:null;
   const rings=[
     metricRing('target',{label:'Meta mensal',value:p.target?num(p.target):'—',unit:'m³',percent:p.target?100:null,reference:true,detail:fmt(p.month+'-01',{month:'short',year:'numeric'}),tone:'reference'}),
     metricRing('programmed',{label:'Programado no mês',value:num(p.programmed),unit:'m³',percent:p.percent,detail:p.target?num(p.percent)+'% da meta':'Meta não definida',tone:'green'}),
     metricRing('delivered',{label:'Entregue no mês',value:num(p.delivered),unit:'m³ informados',percent:p.delivery_percent,detail:p.target?num(p.delivery_percent)+'% da meta':'Meta não definida',tone:'blue'}),
     metricRing('remaining',{label:'Falta programar',value:p.remaining===null?'—':num(p.remaining),unit:'m³',percent:p.remaining_percent,detail:p.target?(p.surplus>0?'Meta superada':num(p.remaining_percent)+'% restante'):'Meta não definida',tone:'amber'}),
-    metricRing('cb-production',{label:'Produção por CB',value:cbPlanned===null?'—':num(cbPlanned),unit:unit+' previstos',percent:cbRatio,detail:cbDelivered===null?'Agenda: '+agendaLabel:'Entregue: '+num(cbDelivered)+' '+unit,tone:'teal',description:'Produção prevista por CB da agenda selecionada. O arco indica o entregue informado em relação ao previsto.'}),
+    metricRing('cb-production',{label:'Produção por CB',value:cbPlanned===null?'—':num(cbPlanned),unit:unit+' previstos',percent:cbRatio,detail:cbDelivered===null?'Período: '+cb.label:'Entregue: '+num(cbDelivered)+' '+unit,tone:'teal',controls:cbPeriodControl(cb),description:'Produção prevista por CB no período escolhido. O cálculo considera os caminhões disponíveis em cada dia. O arco indica o entregue informado em relação ao previsto.'}),
     metricRing('fleet',{label:state.mode==='day'?'CBs disponíveis':'CBs/dia · média',value:num(count),unit:'caminhões',percent:base>0?count/base*100:null,detail:state.mode==='day'?num(count)+' caminhões disponíveis':'Agenda: '+agendaLabel,tone:'slate',description:'Frota disponível em relação ao padrão vigente.'})
   ].join('');
   const zero=days.some(d=>d.trucks===0&&rows.some(a=>a.date===d.date));
   return `<section class="agenda-header"><div class="agenda-title"><div class="eyebrow">CENTRAL DE PROGRAMAÇÃO</div><h1>Agenda de obras</h1><p class="subtitle">Planeje cada entrega. Encontre o próximo horário livre.</p></div><div class="agenda-top-metrics"><div class="ring-controls"><label>Mês dos indicadores<input type="month" id="production-month" value="${p.month}"></label>${canManageProduction()?`<button id="edit-goal">${p.target?'Alterar meta':'Definir meta'}</button><button id="adjust-fleet">Ajustar frota</button>`:''}</div><div class="metric-rings" aria-label="Indicadores de metas e produção">${rings}</div>${zero?'<p class="ring-warning">Há obra programada em dia sem caminhões disponíveis.</p>':''}</div><div class="agenda-actions actions">${actions}</div></section>`;
 }
-function metricRing(key,{label,value,unit,percent,detail,tone,reference=false,description=''}){
+function metricRing(key,{label,value,unit,percent,detail,tone,reference=false,description='',controls=''}){
   const known=percent!==null&&Number.isFinite(Number(percent)),progress=known?Math.min(100,Math.max(0,Number(percent))):0;
   const accessible=`${label}: ${value} ${unit}. ${detail}. ${description}`;
   const role=known&&!reference?`role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}" aria-valuetext="${esc(accessible)}"`:'role="img"';
-  return `<article class="ring-metric ring-${tone}" data-metric="${key}" data-percent="${known?Number(percent):''}"><div class="ring-label">${esc(label)}</div><div class="metric-ring" ${role} aria-label="${esc(accessible)}"><svg viewBox="0 0 88 88" aria-hidden="true"><circle class="metric-track" cx="44" cy="44" r="36"/>${progress>0?`<circle class="metric-arc" cx="44" cy="44" r="36" pathLength="100" stroke-dasharray="${progress} ${100-progress}" transform="rotate(-90 44 44)"/>`:''}</svg><div class="ring-value"><strong class="ring-main-value ${String(value).length>7?'ring-long-value':''}">${esc(value)}</strong><span>${esc(unit)}</span></div></div><small class="ring-detail">${esc(detail)}</small></article>`;
+  return `<article class="ring-metric ring-${tone}" data-metric="${key}" data-percent="${known?Number(percent):''}"><div class="ring-label">${esc(label)}</div><div class="metric-ring" ${role} aria-label="${esc(accessible)}"><svg viewBox="0 0 88 88" aria-hidden="true"><circle class="metric-track" cx="44" cy="44" r="36"/>${progress>0?`<circle class="metric-arc" cx="44" cy="44" r="36" pathLength="100" stroke-dasharray="${progress} ${100-progress}" transform="rotate(-90 44 44)"/>`:''}</svg><div class="ring-value"><strong class="ring-main-value ${String(value).length>7?'ring-long-value':''}">${esc(value)}</strong><span>${esc(unit)}</span></div></div><small class="ring-detail">${esc(detail)}</small>${controls}</article>`;
 }
 function goalForm(p=state.production){
   dialog('Meta mensal de volume','Gerente e Programador · Cascavel – PR',`<form><div class="form-grid"><label>Mês<input name="month" type="month" value="${p.month}" required></label><label>Meta de volume (m³)<input name="volume" type="number" min="0.1" max="100000000" step="0.1" value="${p.target??''}" placeholder="Ex.: 10000" required></label></div><div class="hint">${icon('info')} A meta vale somente para o mês escolhido. O volume programado é calculado pelas agendas confirmadas e concluídas; não é digitado manualmente.</div>${footer('Salvar meta mensal')}</form>`,async data=>{await api('/production',{method:'PATCH',body:JSON.stringify(data)});state.goalMonth=data.month;if(state.page==='production')state.productionFilters.month=data.month;if(state.page==='management')state.managementMonth=data.month;modal.close();toast('Meta mensal salva.');await refresh();});
@@ -649,4 +656,21 @@ function sellerChartPhoto(s,x,y,size=36,shadow=false){
  const profile=state.meta?.profiles?.find(p=>p.id===s.id),clip='seller-photo-'+s.id,radius=size/2,cy=y+radius,filter='seller-photo-shadow-'+s.id;
  const frame=shadow?`<defs><filter id="${filter}" x="-60%" y="-60%" width="220%" height="240%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#173e31" flood-opacity="0.22"/></filter></defs><circle cx="${x}" cy="${cy}" r="${radius+2}" fill="white" stroke="white" stroke-width="2" filter="url(#${filter})"/>`:'';
  return frame+(profile?.version?`<defs><clipPath id="${clip}"><circle cx="${x}" cy="${cy}" r="${radius}"/></clipPath></defs><image data-seller-photo="${s.id}" href="/api/profile-photo/${s.id}?v=${esc(profile.version)}" x="${x-radius}" y="${y}" width="${size}" height="${size}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clip})"><title>Foto de ${esc(s.name)}</title></image>`:`<g aria-label="${esc(s.name)} sem foto"><circle cx="${x}" cy="${cy}" r="${radius}" fill="#e6eeea"/><text x="${x}" y="${cy+size/9}" text-anchor="middle" fill="#527466" font-size="${size/3}">${esc(s.name.split(/\s+/).map(n=>n[0]).slice(0,2).join(''))}</text></g>`);
+}
+
+function cbPeriodRange(){
+ const mode=state.cbPeriod||'today',day=today();
+ if(mode==='month'){const [from,to]=monthRange((state.goalMonth||state.date.slice(0,7))+'-01');return {from,to,label:fmt(from,{month:'short',year:'numeric'})};}
+ if(mode==='custom'&&state.cbCustom)return {...state.cbCustom,label:fmt(state.cbCustom.from,{day:'2-digit',month:'2-digit'})+' – '+fmt(state.cbCustom.to,{day:'2-digit',month:'2-digit'})};
+ const date=shift(day,mode==='yesterday'?-1:mode==='tomorrow'?1:0);return {from:date,to:date,label:fmt(date,{day:'2-digit',month:'2-digit'})};
+}
+function cbPeriodControl(period){
+ return `<select id="cb-period" class="cb-period-select" aria-label="Período da produção por CB" title="${esc(fmt(period.from)+' a '+fmt(period.to))}">${[['yesterday','Ontem'],['today','Hoje'],['tomorrow','Amanhã'],['month','Mês'],['custom','Personalizado']].map(([value,label])=>`<option value="${value}" ${value===(state.cbPeriod||'today')?'selected':''}>${label}</option>`).join('')}</select>`;
+}
+function cbCustomPeriod(){
+ const period=state.cbCustom||cbPeriodRange();
+ dialog('Período da produção por CB','Escolha até 366 dias para consultar este indicador.',`<form><div class="form-grid"><label>Data inicial<input type="date" name="from" value="${period.from}" required></label><label>Data final<input type="date" name="to" value="${period.to}" required></label></div>${footer('Aplicar período')}</form>`,async data=>{
+  if(data.from>data.to||(new Date(data.to+'T12:00:00Z')-new Date(data.from+'T12:00:00Z'))/86400000>365)throw Error('Informe um período de até 366 dias, em ordem crescente.');
+  state.cbCustom={from:data.from,to:data.to};state.cbPeriod='custom';modal.close();await refresh();
+ });
 }

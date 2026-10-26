@@ -44,6 +44,25 @@ const ROOT=require('node:path').resolve(__dirname,'..');
  await page.waitForFunction(()=>!document.querySelector('dialog').open);
  await page.getByText('16 caminhões disponíveis',{exact:true}).waitFor();
  assert.match(await page.locator('[data-metric="cb-production"] .ring-main-value').innerText(),/12/);
+ assert.equal(await page.locator('#cb-period').inputValue(),'today');
+ const agendaBeforeFilter=await page.locator('#agenda-date').inputValue();
+ for(const preset of ['yesterday','tomorrow']){
+  await page.locator('#cb-period').selectOption(preset);
+  await page.waitForFunction(preset=>document.querySelector('#cb-period')?.value===preset&&document.querySelector('[data-metric="cb-production"] .ring-main-value')?.textContent==='0',preset);
+ }
+ await page.locator('#cb-period').selectOption('custom');
+ await page.getByRole('heading',{name:'Período da produção por CB',exact:true}).waitFor();
+ await page.getByLabel('Data inicial',{exact:true}).fill(result.date);
+ const nextDate=new Date(result.date+'T12:00:00Z');nextDate.setUTCDate(nextDate.getUTCDate()+1);
+ await page.getByLabel('Data final',{exact:true}).fill(nextDate.toISOString().slice(0,10));
+ await page.getByRole('button',{name:'Aplicar período',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('#cb-period')?.value==='custom'&&document.querySelector('[data-metric="cb-production"] .ring-main-value')?.textContent==='5,8');
+ assert.equal(await page.locator('#agenda-date').inputValue(),agendaBeforeFilter);
+ await page.locator('#cb-period').selectOption('month');
+ await page.waitForFunction(()=>document.querySelector('#cb-period')?.value==='month'&&document.querySelector('[data-metric="cb-production"] .ring-value span')?.textContent==='m³/CB/dia previstos');
+ await page.locator('#cb-period').selectOption('today');
+ await page.waitForFunction(()=>document.querySelector('[data-metric="cb-production"] .ring-main-value')?.textContent==='12');
+
  await page.getByRole('button',{name:'Definir meta',exact:true}).click();
  await page.getByLabel('Meta de volume (m³)',{exact:true}).fill('1000');
  await page.getByRole('button',{name:'Salvar meta mensal',exact:true}).click();
