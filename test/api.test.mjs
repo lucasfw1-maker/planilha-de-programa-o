@@ -159,3 +159,90 @@ test('reativação exige motivo e mantém cancelamento anterior no histórico',a
  const events=(await request('/appointments/'+id+'/history',{cookie:admin})).body;assert.deepEqual(events.map(e=>e.kind),['remarcado','cancelado']);
  const report=(await request('/changes?from=2027-05-01&to=2027-05-31&basis=before&kind=cancelado',{cookie:admin})).body;assert.equal(report[0].current_status,'confirmado');
 });
+
+test('viagens são calculadas por capacidade, com arredondamento e sem aceitar total adulterado',async()=>{
+ for(const [volume,capacity,trips]of [[80,8,10],[80.1,8,11],[90,9,10],[90.1,9,11],[100,10,10],[100.1,10,11]]){
+  const r=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,date:'2030-06-01',customer:`Cálculo ${capacity} ${volume}`,type:'convencional',seller_id:seller.id,planned_volume:volume,load_capacity:capacity,trips:999}});assert.equal(r.status,200);
+  const saved=(await request('/appointments/'+r.body.id,{cookie:admin})).body;assert.equal(saved.trips,trips);assert.equal(saved.load_capacity,capacity);
+ }
+ assert.equal((await request('/appointments',{method:'POST',cookie:admin,data:{...booking,type:'convencional',seller_id:seller.id,load_capacity:0}})).status,400);
+ assert.equal((await request('/appointments',{method:'POST',cookie:admin,data:{...booking,type:'convencional',seller_id:seller.id,load_capacity:7}})).status,400);
+});
+
+test('frota usa 17 como padrão e somente gerente ou programador podem ajustar dias e vigência',async()=>{
+ const path='/fleet?from=2030-06-01&to=2030-06-03';
+ assert.equal((await request(path,{cookie:seller.cookie})).status,403);
+ assert.deepEqual((await request(path,{cookie:controller})).body.days.map(d=>d.trucks),[17,17,17]);
+ assert.equal((await request('/fleet',{method:'PATCH',cookie:controller,data:{date:'2030-06-01',trucks:10}})).status,403);
+ assert.equal((await request('/fleet',{method:'PATCH',cookie:manager,data:{date:'2030-06-01',trucks:10,scope:'day'}})).status,200);
+ assert.equal((await request('/fleet',{method:'PATCH',cookie:manager,data:{date:'2030-06-02',trucks:15,scope:'from'}})).status,200);
+ assert.deepEqual((await request(path,{cookie:admin})).body.days.map(d=>d.trucks),[10,15,15]);
+ assert.equal((await request('/fleet?from=2030-05-31&to=2030-05-31',{cookie:admin})).body.days[0].trucks,17);
+ await request('/fleet',{method:'PATCH',cookie:manager,data:{date:'2030-06-03',trucks:0,scope:'day'}});
+ assert.equal((await request(path,{cookie:admin})).body.truck_days,25);
+ await request('/fleet',{method:'PATCH',cookie:manager,data:{date:'2030-06-01',scope:'clear'}});
+ assert.equal((await request(path,{cookie:admin})).body.days[0].trucks,17);
+ assert.equal((await request('/fleet',{method:'PATCH',cookie:manager,data:{date:'2030-06-01',trucks:-1}})).status,400);
+ assert.equal((await request('/fleet',{method:'PATCH',cookie:manager,data:{date:'2030-06-01',trucks:1.5}})).status,400);
+});
+
+test('meta mensal usa volumes confirmados, exclui cancelados e acompanha remarcação sem divisão por zero',async()=>{
+ const url='/production?month=2030-06';
+ assert.equal((await request(url,{cookie:seller.cookie})).status,403);
+ const empty=(await request(url,{cookie:controller})).body;assert.equal(empty.target,null);assert.equal(empty.percent,null);assert(Math.abs(empty.programmed-540.3)<1e-8);
+ assert.equal((await request('/production',{method:'PATCH',cookie:controller,data:{month:'2030-06',volume:1000}})).status,403);
+ let response=await request('/production',{method:'PATCH',cookie:manager,data:{month:'2030-06',volume:1000}});assert.equal(response.status,200);assert(Math.abs(response.body.percent-54.03)<1e-8);assert(Math.abs(response.body.remaining-459.7)<1e-8);assert(Math.abs(response.body.remaining_percent-45.97)<1e-8);
+ const rows=(await request('/appointments?from=2030-06-01&to=2030-06-01',{cookie:admin})).body;
+ const canceled=rows.find(a=>a.planned_volume===100.1),moved=rows.find(a=>a.planned_volume===90);
+ await request('/appointments/'+canceled.id,{method:'PATCH',cookie:manager,data:{action:'cancelar',status:'cancelado',reason:'Obra cancelada'}});
+ await request('/appointments/'+moved.id,{method:'PATCH',cookie:manager,data:{action:'remarcar',date:'2030-07-01',reason:'Cliente mudou o mês'}});
+ await request('/requests',{method:'POST',cookie:seller.cookie,data:{...booking,date:'2030-06-01',type:'convencional',planned_volume:999}});
+ response=await request(url,{cookie:admin});assert(Math.abs(response.body.programmed-350.2)<1e-8);
+ assert.equal((await request('/production?month=2030-07',{cookie:admin})).body.programmed,90);
+ response=await request('/production',{method:'PATCH',cookie:admin,data:{month:'2030-06',volume:300}});assert.equal(response.body.remaining,0);assert.equal(response.body.remaining_percent,0);assert(response.body.percent>100);assert(Math.abs(response.body.surplus-50.2)<1e-8);
+ assert.equal((await request('/production',{method:'PATCH',cookie:manager,data:{month:'2030-06',volume:0}})).status,400);
+ assert.equal((await request('/production?month=2030-13',{cookie:manager})).status,400);
+});
+
+test('relatório de produção compara programado e entregue e calcula necessidade diária',async()=>{
+ const rows=(await request('/appointments?from=2030-06-01&to=2030-06-30',{cookie:admin})).body;
+ const first=rows.find(a=>a.status!=='cancelado');
+ await request('/appointments/'+first.id,{method:'PATCH',cookie:manager,data:{delivered_volume:50}});
+ await request('/production',{method:'PATCH',cookie:manager,data:{month:'2030-06',volume:1000}});
+ const result=await request('/production?month=2030-06&reference=2030-06-30&basis=all',{cookie:controller});assert.equal(result.status,200);
+ assert.equal(result.body.delivered,50);assert.equal(result.body.delivery_percent,5);assert.equal(result.body.delivery_remaining,950);assert.equal(result.body.delivery_remaining_percent,95);assert.equal(result.body.days_remaining,1);assert.equal(result.body.required_delivery_daily,950);assert(Math.abs(result.body.required_programming_daily-649.8)<1e-8);assert.equal(result.body.daily.length,30);assert(result.body.missing>0);
+ const ended=(await request('/production?month=2030-06&reference=2030-07-01&basis=all',{cookie:admin})).body;assert.equal(ended.days_remaining,0);assert.equal(ended.required_delivery_daily,null);
+ assert.equal((await request('/production?month=2030-06&basis=inválido',{cookie:admin})).status,400);
+ assert.equal((await request('/production?month=2030-06&reference=2030-02-30',{cookie:admin})).status,400);
+ const empty=(await request('/production?month=2040-01&reference=2040-01-01&basis=mon_sat',{cookie:admin})).body;assert.equal(empty.target,null);assert.equal(empty.required_delivery_daily,null);assert.equal(empty.programmed,0);
+ await request('/appointments/'+first.id,{method:'PATCH',cookie:manager,data:{action:'cancelar',status:'cancelado',reason:'Cancelado o saldo após entrega parcial'}});
+ const partial=(await request('/production?month=2030-06',{cookie:admin})).body;assert.equal(partial.delivered,50);assert(Math.abs(partial.programmed-270.2)<1e-8);
+});
+
+test('gerência permite cadastro de bombas ao gerente e mantém controlador sem essa permissão',async()=>{
+ assert.equal((await request('/pumps',{method:'POST',cookie:controller,data:{name:'NÃO CADASTRAR'}})).status,403);
+ assert.equal((await request('/pumps',{method:'POST',cookie:seller.cookie,data:{name:'NÃO CADASTRAR'}})).status,403);
+ assert.equal((await request('/pumps',{method:'POST',cookie:manager,data:{name:'BLM1',description:'Bomba de teste'}})).status,200);
+});
+
+test('manutenção por período bloqueia novos serviços, alerta conflitos e preserva obras e produção existentes',async()=>{
+ const pump=(await request('/meta',{cookie:admin})).body.pumps.find(p=>p.name==='BLM1');
+ const created=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,date:'2030-08-10',pump_id:pump.id,seller_id:seller.id}});assert.equal(created.status,200);
+ const period={pump_id:pump.id,starts_at:'2030-08-10T08:00',ends_at:'2030-08-10T10:00',reason:'Troca de mangueira'};
+ assert.equal((await request('/maintenance',{method:'POST',cookie:seller.cookie,data:period})).status,403);
+ assert.equal((await request('/maintenance',{method:'POST',cookie:controller,data:{...period,ends_at:'2030-08-10T07:00'}})).status,400);
+ const maintenance=await request('/maintenance',{method:'POST',cookie:controller,data:period});assert.equal(maintenance.status,200);assert.equal(maintenance.body.conflicts.length,1);assert.equal(maintenance.body.conflicts[0].id,created.body.id);
+ assert.equal((await request('/appointments/'+created.body.id,{cookie:admin})).body.status,'confirmado');
+ const block=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,date:'2030-08-10',start:'08:00',pump_id:pump.id,seller_id:seller.id}});assert.equal(block.status,409);assert.match(block.body.error,/manutenção/);
+ assert.equal((await request('/appointments/'+created.body.id,{method:'PATCH',cookie:admin,data:{delivered_volume:18}})).status,200);
+ assert.equal((await request('/appointments/'+created.body.id,{method:'PATCH',cookie:manager,data:{date:'2030-08-10',start:'08:00',reason:'Tentativa de remarcar em manutenção'}})).status,409);
+ const available=await request('/availability?date=2030-08-10&start=10:00&duration=60',{cookie:seller.cookie});assert.equal(available.body.pumps.find(p=>p.id===pump.id).available,true);
+ const publicList=await request('/maintenance?from=2030-08-10&to=2030-08-10',{cookie:seller.cookie});assert.equal(publicList.body.length,1);assert(!('reason' in publicList.body[0]));assert(!('created_by' in publicList.body[0]));
+ assert.equal((await request('/maintenance/'+maintenance.body.id,{method:'PATCH',cookie:manager,data:{reason:''}})).status,400);
+ assert.equal((await request('/maintenance/'+maintenance.body.id,{method:'PATCH',cookie:manager,data:{reason:'Serviço não será necessário'}})).status,200);
+ assert.equal((await request('/maintenance/'+maintenance.body.id,{method:'PATCH',cookie:manager,data:{reason:'Repetido'}})).status,409);
+ const free=await request('/availability?date=2030-08-10&start=09:30&duration=30',{cookie:seller.cookie});assert.equal(free.body.pumps.find(p=>p.id===pump.id).available,true);
+ const overnight=await request('/maintenance',{method:'POST',cookie:admin,data:{pump_id:pump.id,starts_at:'2030-08-10T23:00',ends_at:'2030-08-11T03:00',reason:'Manutenção noturna'}});assert.equal(overnight.status,200);
+ const blocked=await request('/availability?date=2030-08-11&start=02:00&duration=60',{cookie:seller.cookie});assert.equal(blocked.body.pumps.find(p=>p.id===pump.id).maintenance,true);
+ assert.equal((await request('/availability?date=2030-08-11&start=03:00&duration=60',{cookie:seller.cookie})).body.pumps.find(p=>p.id===pump.id).available,true);
+});

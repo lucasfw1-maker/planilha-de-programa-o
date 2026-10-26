@@ -1,4 +1,8 @@
 import http from 'node:http';
+import {slotWindow,overlaps} from './maintenance.mjs';
+import {checkMonth,monthlyProduction} from './production.mjs';
+import {estimateTrips,fleetRange} from './fleet.mjs';
+import {localDay} from './changes.mjs';
 import {saveCustomer,customerKey} from './customers.mjs';
 import {changeKind,recordChange,searchName} from './changes.mjs';
 import {query, one, run, transaction, initialize} from './storage.mjs';
@@ -8,6 +12,7 @@ import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const roles = ['programador', 'gerente', 'controlador', 'vendedor'];
+const productionManager=u=>['gerente','programador'].includes(u.role);
 const manager = u => ['programador', 'gerente', 'controlador'].includes(u.role);
 const safeUser = u => ({
   id: u.id,
@@ -74,7 +79,7 @@ function fields(b) {
     resistance: text(b.resistance, 'resistência'),
     piece: text(b.piece, 'peça a concretar'),
     notes: String(b.notes || '').trim().slice(0, 2000),
-    trips: number(b.trips ?? 0, 'Viagens previstas', 0, 10000)
+    ...estimateTrips(number(b.planned_volume,'Volume',0.1),b.load_capacity===undefined||b.load_capacity===null||b.load_capacity===''?9:b.load_capacity)
   };
 }
 async function checkSeller(id) {
@@ -90,7 +95,10 @@ async function checkPump(b, except = 0) {
   }
   const pump = await one('SELECT * FROM pumps WHERE id=?', Number(b.pump_id || 0));
   if (!pump) fail('Selecione a bomba.');
-  if (pump.maintenance) fail('Esta bomba está em manutenção.', 409);
+  if (pump.maintenance) fail('Esta bomba possui um bloqueio antigo de manutenção. Libere-o no painel de manutenções antes de agendar.', 409);
+  const window=slotWindow(b.date,b.start,b.duration);
+  const maintenance=await one('SELECT * FROM maintenance_periods WHERE pump_id=? AND cancelled_at IS NULL AND starts_at<? AND ends_at>? ORDER BY starts_at LIMIT 1',pump.id,window.end,window.start);
+  if(maintenance)fail(`Conflito de manutenção: ${pump.name}, de ${maintenance.starts_at.replace('T',' ')} até ${maintenance.ends_at.replace('T',' ')}. Motivo: ${maintenance.reason}`,409);
   const buffer = Number((await one("SELECT value FROM settings WHERE key='buffer_minutes'")).value);
   const start = minutes(b.start), end = start + Number(b.duration);
   const conflict = (await query("SELECT * FROM appointments WHERE date=? AND pump_id=? AND id<>? AND status<>'cancelado'", b.date, pump.id, except)).find(a => start < minutes(a.start) + a.duration + buffer && end + buffer > minutes(a.start));
@@ -108,7 +116,7 @@ async function createAppointment(b, u, requestId = null) {
     ...data,
     pump_id: b.pump_id
   });
-  const result = await run(`INSERT INTO appointments(customer,work,date,start,duration,type,pump_id,seller_id,planned_volume,gravel,resistance,piece,notes,trips,request_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, data.customer, data.work, data.date, data.start, data.duration, data.type, pump, seller, data.planned_volume, data.gravel, data.resistance, data.piece, data.notes, data.trips, requestId);
+  const result = await run(`INSERT INTO appointments(customer,work,date,start,duration,type,pump_id,seller_id,planned_volume,gravel,resistance,piece,notes,trips,load_capacity,request_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, data.customer, data.work, data.date, data.start, data.duration, data.type, pump, seller, data.planned_volume, data.gravel, data.resistance, data.piece, data.notes, data.trips, data.load_capacity, requestId);
   const id = Number(result.lastInsertRowid);
   await saveCustomer(data,seller);
   await audit(u, 'criar', 'agendamento', id, data);
@@ -264,6 +272,40 @@ async function api(req, res, url) {
     buffer: Number((await one("SELECT value FROM settings WHERE key='buffer_minutes'")).value),
     branch: 'Cascavel – PR'
   };
+  if(path==='/api/fleet' && method==='GET') {
+    if(!manager(u))fail('Sem permissão.',403);
+    return await fleetRange(date(url.searchParams.get('from')),date(url.searchParams.get('to')));
+  }
+  if(path==='/api/fleet' && method==='PATCH') {
+    if(!productionManager(u))fail('Sem permissão.',403);
+    const b=await body(req),day=date(b.date),scope=b.scope||'day';
+    if(!['day','from','clear'].includes(scope))fail('Escolha como aplicar a quantidade de caminhões.');
+    const trucks=scope==='clear'?null:number(b.trucks,'Caminhões disponíveis',0,1000);
+    if(trucks!==null&&!Number.isInteger(trucks))fail('Informe uma quantidade inteira de caminhões.');
+    return await transaction(async()=>{
+      const before=await fleetRange(day,day);
+      if(scope==='clear')await run('DELETE FROM fleet_days WHERE date=?',day);
+      else if(scope==='from')await run(`INSERT INTO fleet_defaults(effective_date,trucks,updated_by,updated_at) VALUES(?,?,?,?) ON CONFLICT(effective_date) DO UPDATE SET trucks=excluded.trucks,updated_by=excluded.updated_by,updated_at=excluded.updated_at`,day,trucks,u.id,new Date().toISOString());
+      else await run(`INSERT INTO fleet_days(date,trucks,updated_by,updated_at) VALUES(?,?,?,?) ON CONFLICT(date) DO UPDATE SET trucks=excluded.trucks,updated_by=excluded.updated_by,updated_at=excluded.updated_at`,day,trucks,u.id,new Date().toISOString());
+      await audit(u,'ajustar frota','frota',0,{date:day,scope,trucks,before:before.days[0]});
+      return await fleetRange(day,day);
+    });
+  }
+  if(path==='/api/production' && method==='GET') {
+    if(!manager(u))fail('Sem permissão.',403);
+    const reference=url.searchParams.get('reference');
+    return await monthlyProduction(checkMonth(url.searchParams.get('month')),{reference:reference?date(reference):undefined,basis:url.searchParams.get('basis')||'mon_sat'});
+  }
+  if(path==='/api/production' && method==='PATCH') {
+    if(!productionManager(u))fail('Somente Gerente e Programador podem alterar a meta mensal.',403);
+    const b=await body(req),month=checkMonth(b.month),volume=number(b.volume,'Meta de volume',0.1,100000000);
+    return await transaction(async()=>{
+      const before=await monthlyProduction(month);
+      await run(`INSERT INTO monthly_goals(month,volume,updated_by,updated_at) VALUES(?,?,?,?) ON CONFLICT(month) DO UPDATE SET volume=excluded.volume,updated_by=excluded.updated_by,updated_at=excluded.updated_at`,month,volume,u.id,new Date().toISOString());
+      await audit(u,'ajustar meta mensal','meta_mensal',0,{month,volume,before:before.target});
+      return await monthlyProduction(month);
+    });
+  }
   if (path === '/api/availability' && method === 'GET') {
     const slot = scheduling({
       date: url.searchParams.get('date'),
@@ -274,15 +316,52 @@ async function api(req, res, url) {
     const buffer = Number((await one("SELECT value FROM settings WHERE key='buffer_minutes'")).value);
     const bookings = await query("SELECT pump_id,start,duration FROM appointments WHERE date=? AND status<>'cancelado'", slot.date);
     const start = minutes(slot.start), end = start + slot.duration;
+    const window=slotWindow(slot.date,slot.start,slot.duration);
+    const maintenance=await query('SELECT pump_id FROM maintenance_periods WHERE cancelled_at IS NULL AND starts_at<? AND ends_at>?',window.end,window.start);
     return {
       buffer,
       pumps: (await query('SELECT * FROM pumps ORDER BY name')).map(p => ({
         id: p.id,
         name: p.name,
-        maintenance: Boolean(p.maintenance),
-        available: !p.maintenance && !bookings.some(a => a.pump_id === p.id && start < minutes(a.start) + a.duration + buffer && end + buffer > minutes(a.start))
+        maintenance: Boolean(p.maintenance||maintenance.some(m=>m.pump_id===p.id)),
+        available: !p.maintenance && !maintenance.some(m=>m.pump_id===p.id) && !bookings.some(a => a.pump_id === p.id && start < minutes(a.start) + a.duration + buffer && end + buffer > minutes(a.start))
       }))
     };
+  }
+  if(path==='/api/maintenance' && method==='GET') {
+    const from=date(url.searchParams.get('from')),to=date(url.searchParams.get('to'));
+    if(from>to)fail('Confira o período de manutenção.');
+    const end=new Date(to+'T12:00:00Z');end.setUTCDate(end.getUTCDate()+1);
+    const rows=await query(`SELECT m.*,p.name pump_name,u.name created_by_name FROM maintenance_periods m JOIN pumps p ON p.id=m.pump_id JOIN users u ON u.id=m.created_by WHERE starts_at<? AND ends_at>? AND cancelled_at IS NULL ORDER BY starts_at`,end.toISOString().slice(0,10)+'T00:00',from+'T00:00');
+    return manager(u)?rows:rows.map(m=>({id:m.id,pump_id:m.pump_id,starts_at:m.starts_at,ends_at:m.ends_at,pump_name:m.pump_name}));
+  }
+  if(path==='/api/maintenance' && method==='POST') {
+    if(!manager(u))fail('Sem permissão.',403);
+    const b=await body(req),pumpId=number(b.pump_id,'Bomba',1);
+    for(const key of ['starts_at','ends_at']){
+      if(typeof b[key]!=='string'||!/^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/.test(b[key]))fail('Informe data e horário válidos para a manutenção.');
+      date(b[key].slice(0,10));
+    }
+    if(b.ends_at<=b.starts_at)fail('O fim da manutenção deve ser posterior ao início.');
+    const reason=text(b.reason,'o motivo da manutenção',1000);
+    return await transaction(async()=>{
+      const pump=await one('SELECT * FROM pumps WHERE id=?',pumpId);if(!pump)fail('Bomba não encontrada.',404);
+      const id=Number((await run('INSERT INTO maintenance_periods(pump_id,starts_at,ends_at,reason,created_by) VALUES(?,?,?,?,?)',pumpId,b.starts_at,b.ends_at,reason,u.id)).lastInsertRowid);
+      const bookings=await query("SELECT id,customer,date,start,duration FROM appointments WHERE pump_id=? AND status<>'cancelado' AND date BETWEEN ? AND ? ORDER BY date,start",pumpId,b.starts_at.slice(0,10),b.ends_at.slice(0,10));
+      const conflicts=bookings.filter(a=>overlaps(slotWindow(a.date,a.start,a.duration),{start:b.starts_at,end:b.ends_at}));
+      await audit(u,'registrar manutenção','manutencao',id,{pump_id:pumpId,starts_at:b.starts_at,ends_at:b.ends_at,reason,conflicting_appointments:conflicts.map(a=>a.id)});
+      return {id,conflicts};
+    });
+  }
+  if((/^\/api\/maintenance\/\d+$/).test(path)&&method==='PATCH') {
+    if(!manager(u))fail('Sem permissão.',403);
+    const b=await body(req),id=Number(path.split('/').pop()),reason=text(b.reason,'o motivo para cancelar o período',1000);
+    return await transaction(async()=>{
+      const item=await one('SELECT * FROM maintenance_periods WHERE id=?',id);if(!item)fail('Manutenção não encontrada.',404);
+      if(item.cancelled_at)fail('Este período já está cancelado.',409);
+      await run('UPDATE maintenance_periods SET cancelled_by=?,cancelled_at=?,cancel_reason=? WHERE id=?',u.id,new Date().toISOString(),reason,id);
+      await audit(u,'cancelar manutenção','manutencao',id,{reason,before:item});return {ok:true};
+    });
   }
   if (path === '/api/appointments' && method === 'GET') {
     const from = date(url.searchParams.get('from')), to = date(url.searchParams.get('to'));
@@ -322,17 +401,16 @@ async function api(req, res, url) {
       const data = scheduling(merged);
       const status = b.status ?? old.status;
       if (!['confirmado', 'andamento', 'concluido', 'cancelado'].includes(status)) fail('Status inválido.');
-      const pump = await checkPump({
-        ...data,
-        status,
-        pump_id: merged.pump_id
-      }, id);
+      const changed=['date','start','duration','type'].some(k=>data[k]!==old[k]) || (data.type==='bomba'&&Number(merged.pump_id)!==old.pump_id) || (old.status==='cancelado'&&status!=='cancelado');
+      const pump=changed||status==='cancelado'?await checkPump({...data,status,pump_id:merged.pump_id},id):old.pump_id;
       const delivered = b.delivered_volume === undefined ? old.delivered_volume : b.delivered_volume === null || b.delivered_volume === '' ? null : number(b.delivered_volume, 'Volume entregue');
-      const trips = number(b.trips ?? old.trips, 'Viagens', 0, 10000);
-      if (!Number.isInteger(trips)) fail('Viagens devem ser inteiras.');
+      const selected=b.load_capacity!==undefined?b.load_capacity:old.load_capacity;
+      const automatic=(selected!==null&&selected!==undefined&&selected!==''?selected:null) ?? (data.date>=localDay(new Date()) && ['confirmado','andamento'].includes(status)?9:null);
+      const estimate=automatic!==null?estimateTrips(old.planned_volume,automatic):{trips:old.trips,load_capacity:null};
+      const {trips,load_capacity}=estimate;
       if(b.action && !['cancelar','remarcar'].includes(b.action))fail('Ação de agendamento inválida.');
       if(b.action==='cancelar' && status!=='cancelado')fail('Confirme o cancelamento do agendamento.');
-      const after={...old,...data,pump_id:pump,status,delivered_volume:delivered,trips};
+      const after={...old,...data,pump_id:pump,status,delivered_volume:delivered,trips,load_capacity};
       if(old.status==='cancelado' && status==='cancelado' && ['date','start','duration','pump_id','type'].some(key=>old[key]!==after[key]))fail('Para mudar a programação de uma obra cancelada, use Remarcar agendamento.');
       const kind=changeKind(old,after);
       const reason=kind?text(b.reason,'o motivo do cancelamento ou da remarcação',1000):'';
@@ -340,7 +418,7 @@ async function api(req, res, url) {
       if(b.action==='cancelar' && old.status==='cancelado')fail('Este agendamento já está cancelado.',409);
       if(b.action==='remarcar' && kind!=='remarcado')fail('Altere a data, o horário, a duração ou o recurso para remarcar.');
       await recordChange(u,old,after,reason);
-      await run('UPDATE appointments SET date=?,start=?,duration=?,type=?,pump_id=?,status=?,delivered_volume=?,trips=? WHERE id=?', data.date, data.start, data.duration, data.type, pump, status, delivered, trips, id);
+      await run('UPDATE appointments SET date=?,start=?,duration=?,type=?,pump_id=?,status=?,delivered_volume=?,trips=?,load_capacity=? WHERE id=?', data.date, data.start, data.duration, data.type, pump, status, delivered, trips, load_capacity, id);
       await audit(u, 'editar', 'agendamento', id, {
         antes: old,
         depois: await one('SELECT * FROM appointments WHERE id=?', id)
@@ -384,7 +462,7 @@ async function api(req, res, url) {
     if (!Number.isInteger(b.trips)) fail('Viagens devem ser inteiras.');
     const seller = await checkSeller(u.id);
     return await transaction(async () => {
-      const id = Number((await run('INSERT INTO requests(seller_id,customer,work,date,start,duration,type,planned_volume,gravel,resistance,piece,notes,trips) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', seller, b.customer, b.work, b.date, b.start, b.duration, b.type, b.planned_volume, b.gravel, b.resistance, b.piece, b.notes, b.trips)).lastInsertRowid);
+      const id = Number((await run('INSERT INTO requests(seller_id,customer,work,date,start,duration,type,planned_volume,gravel,resistance,piece,notes,trips,load_capacity) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)', seller, b.customer, b.work, b.date, b.start, b.duration, b.type, b.planned_volume, b.gravel, b.resistance, b.piece, b.notes, b.trips, b.load_capacity)).lastInsertRowid);
       await saveCustomer(b,seller);
       await audit(u, 'solicitar', 'solicitacao', id, b);
       return {
@@ -406,7 +484,8 @@ async function api(req, res, url) {
         pump_id: b.pump_id,
         date: b.date || r.date,
         start: b.start || r.start,
-        duration: b.duration || r.duration
+        duration: b.duration || r.duration,
+        load_capacity: b.load_capacity ?? r.load_capacity ?? 9
       }, u, id);
       await run('UPDATE requests SET status=?,response=? WHERE id=?', b.status, String(b.response || '').slice(0, 2000), id);
       await audit(u, b.status, 'solicitacao', id, b);
@@ -477,7 +556,7 @@ async function api(req, res, url) {
     });
   }
   if (path === '/api/pumps' && method === 'POST') {
-    if (u.role !== 'programador') fail('Sem permissão.', 403);
+    if (!productionManager(u)) fail('Sem permissão.', 403);
     const b = await body(req), name = text(b.name, 'nome da bomba', 50);
     if (await one('SELECT id FROM pumps WHERE name=?', name)) fail('Bomba já cadastrada.', 409);
     const id = Number((await run('INSERT INTO pumps(name,description) VALUES(?,?)', name, String(b.description || '').slice(0, 200))).lastInsertRowid);
@@ -519,6 +598,7 @@ async function api(req, res, url) {
   fail('Recurso não encontrado.', 404);
 }
 const assets = {
+  '/logo-concresuper.png': ['logo-concresuper.png', 'image/png'],
   '/favicon.svg': ['favicon.svg', 'image/svg+xml'],
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],

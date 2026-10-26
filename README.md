@@ -42,7 +42,7 @@ O fluxo reproduz o padrão do sistema de obras enviado: usuário e senha, mostra
 | --- | --- |
 | Vendedor | Disponibilidade sem nomes/dados de clientes de outros vendedores, solicitar reserva, acompanhar seus pedidos e consultar seu relatório |
 | Controlador de logística | Agendamentos, solicitações, consulta/bloqueio por manutenção, volume entregue e relatórios da filial |
-| Gerente | Mesmas permissões do controlador |
+| Gerente | Operação e relatórios, mais o módulo Gerência para cadastrar bombas, ajustar frota e metas |
 | Programador | Tudo, cadastros, aprovação/bloqueio de usuários, redefinição de senha, parâmetros e auditoria |
 
 Somente a primeira conta recebe o perfil Programador; a API impede atribuí-lo às demais. Sua identificação usa a mesma **coroa de contorno** do sistema de obras, acompanhando a cor e o tamanho do nome. O símbolo da marca também é usado como favicon.
@@ -67,7 +67,7 @@ A filial está fixa em Cascavel nesta primeira versão. Inclusão de outras fili
 
 ## Contagens e relatórios
 
-“Viagens previstas” é a quantidade informada no agendamento, não uma escala de veículos individuais. O cálculo automático por capacidade do caminhão e a programação individual de cada carga ainda não estão incluídos.
+“Viagens previstas” é uma estimativa automática: volume ÷ capacidade de 8, 9 ou 10 m³, arredondada para cima. A média de 9 m³ é o padrão para planejamento de frota mista; não há limite de “obra grande” presumido. A distribuição de veículos individuais ainda não está incluída.
 
 Os relatórios usam a **data programada da obra**, inclusive para o volume entregue associado àquela obra; não são relatórios fiscais por data real de cada carga. Cancelados ficam excluídos por padrão, mas podem ser filtrados separadamente. Quando existe obra sem volume entregue, a diferença total daquele vendedor é exibida como aguardando informações.
 
@@ -75,7 +75,7 @@ Solicitações pendentes não contam no volume confirmado. A aprovação revalid
 
 ## Marca e referências
 
-O ZIP `Sistema--main.zip` foi consultado apenas como referência. Reutilizou-se o componente de mostrar senha e a coroa de contorno, adaptando os perfis para a concreteira. O símbolo em `public/favicon.svg` é uma reconstrução vetorial provisória baseada nas imagens enviadas, não o arquivo oficial da marca; substitua pelo original para correspondência exata. O nome é exibido em texto, sem depender de fontes externas.
+O ZIP `Sistema--main.zip` foi consultado apenas como referência. Reutilizou-se o componente de mostrar senha e a coroa de contorno, adaptando os perfis para a concreteira. O símbolo em `public/favicon.svg` é uma reconstrução vetorial provisória. Os relatórios usam `public/logo-concresuper.png`, versão com transparência preparada a partir da imagem da marca enviada pelo usuário. O nome é exibido em texto, sem depender de fontes externas.
 
 As consultas aos sites de referência foram bloqueadas com HTTP 403 pelo proxy do ambiente. O código do ZIP e as imagens permitiram prosseguir. Não foram publicadas alterações nos sites existentes.
 
@@ -104,3 +104,29 @@ A aba **Clientes** guarda automaticamente a última configuração usada por cli
 Vendedores consultam somente seus clientes, suas ocorrências e seus históricos. Gerente, controlador e Programador consultam os dados da filial. Cadastros já presentes em agendas e solicitações são recuperados pela migração inicial sem excluir ou alterar os registros originais. Por enquanto, o cadastro é por nome normalizado e vendedor; CPF/CNPJ, contatos e múltiplos padrões por obra não foram adicionados.
 
 Os formulários de criação, edição, remarcação, aprovação e disponibilidade usam **horas** para a duração: `2` para duas horas, `1,5` para uma hora e meia. Aceitam vírgula ou ponto e preservam os agendamentos existentes. Internamente, a API continua trabalhando em minutos inteiros; frações são arredondadas ao minuto mais próximo. Durações nos CSVs do histórico são identificadas em horas.
+
+
+## Frota, produção e metas mensais
+
+A agenda mostra a produção prevista por CB (volume programado ÷ caminhões disponíveis) e o volume entregue informado por CB. A frota inicial é 17. **Gerente e Programador** podem ajustar a quantidade em uma data específica, definir um novo padrão a partir de uma data ou remover um ajuste diário para usar o padrão. O padrão anterior às mudanças é preservado; ajustes específicos têm prioridade. Controlador consulta os indicadores, sem editar frota ou meta. Vendedor não acessa esses totais da filial.
+
+Na visão de dia, a unidade é m³/CB. Na semana e no mês, é uma média de m³/CB/dia: soma dos volumes ÷ soma dos caminhões disponíveis em cada dia do período (CBs-dia), incluindo os dias do calendário selecionado. Frota zero não causa divisão por zero; obras em dia sem frota geram aviso. Não há distribuição por placa nem bloqueio de agendas pela quantidade de CBs nesta versão.
+
+Viagens são calculadas no servidor, inclusive se alguém adulterar o campo somente leitura da tela. O cadastro, a edição, as solicitações e a aprovação permitem escolher 8, 9 ou 10 m³ para a estimativa. Padrões de cliente guardam a capacidade utilizada. A migração recalcula com média de 9 m³ apenas agendamentos futuros ativos e pedidos futuros pendentes; viagens antigas, entregas concluídas e cancelamentos antigos são preservados como previsões legadas.
+
+A meta é configurada por mês. O volume programado usa a data atual da agenda, inclui obras confirmadas/em atendimento/concluídas e exclui canceladas e pedidos pendentes. Remarcar para outro mês transfere o volume entre os meses automaticamente. A tela mostra meta, programado, percentual atingido, saldo em m³ e percentual restante; acima da meta, o saldo fica em zero e o excedente é identificado.
+
+Em **Relatórios → Produção e metas**, há comparação do programado com o entregue informado, gráficos diários/acumulados e produção por CB. A projeção separa o saldo a programar do saldo a entregar e divide cada um pelos dias de operação restantes, contando a data de referência inclusive. É possível escolher segunda a sábado (padrão), segunda a sexta ou todos os dias. Feriados/paralisações não são inferidos. Mês encerrado sem dias restantes não produz valores infinitos. Sem meta, a necessidade diária não é inventada.
+
+A data de referência altera os dias restantes; os volumes são os registros atuais, não uma reconstrução de como estava o banco em uma data passada. Entregas continuam atribuídas à data agendada da obra; ainda não há registro individual da data de cada carga. Obras sem volume entregue ficam sinalizadas. CSV inclui um resumo e as linhas diárias; a impressão/PDF inclui os gráficos e o cabeçalho com a logo Concresuper transparente, sem marcas do consórcio/DER.
+
+No relatório de produção, o volume programado exclui cancelamentos, mas entregas já informadas são preservadas mesmo se o restante da obra for cancelado. Isso evita apagar uma produção que já ocorreu.
+
+
+## Módulo Gerência e períodos de manutenção
+
+**Gerência** reúne bombas, quantidade de CBs e metas mensais. Gerente e Programador acessam o módulo e cadastram bombas. Configurações mantém usuários, permissões e parâmetros administrativos. Controlador pode consultar os indicadores e operar a agenda, sem cadastrar bombas ou editar frota/meta.
+
+O botão **Bomba em manutenção** fica no topo da agenda, antes de Consultar disponibilidade. Gerente, Controlador e Programador escolhem a bomba, início/fim (inclusive horários e períodos de vários dias) e motivo obrigatório. O bloqueio é aplicado somente aos serviços que sobrepõem o intervalo, em horários locais de Cascavel. No fim do período, a bomba volta a estar disponível sem depender de um processo agendado. A consulta de disponibilidade e a criação/remarcação verificam os mesmos períodos.
+
+Manutenções que coincidam com obras existentes são registradas e apresentam essas obras para revisão; não cancelam nem removem os agendamentos. Registrar o volume entregue de uma obra existente continua permitido. O cancelamento de um período exige motivo e fica na auditoria. Bloqueios antigos sem datas continuam ativos até serem liberados explicitamente no painel, sem apagar períodos cadastrados. Vendedores veem o bloqueio de disponibilidade, sem os motivos internos de manutenção.
