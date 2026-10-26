@@ -18,7 +18,7 @@ const iconPaths = {
  settings:'<path d="m9 3-1 3-3 1-2 4 2 3 1 4 4 2 3-1 4-1 2-4-1-3-1-4-4-2z"/><circle cx="11" cy="12" r="3"/>',
  pin:'<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>',
  plus:'<path d="M12 5v14M5 12h14"/>', bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
- truck:'<path d="M2 5h12v12H2zM14 9h4l4 5v3h-8"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>',
+ truck:'<path d="M2 17h20v-4l-3-4h-4v8M15 13h7M2 12v3H1"/><g transform="rotate(22 8 8.5)"><rect x="2" y="4" width="12" height="9" rx="4"/><path d="M7 4v9"/></g><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>',
  pump:'<path d="M3 17h18M5 17V9l7-5 7 5v8M9 17v-5h6v5M12 4V2"/>',
  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
  cube:'<path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5M12 13v9M7 5l9 5"/>',
