@@ -150,6 +150,7 @@ const ROOT=require('node:path').resolve(__dirname,'..');
  assert.equal(await page.locator('.report-official-logo').count(),1);
  assert.equal(await page.locator('.analytics-chart svg').count(),3);
  assert.equal(await page.getByRole('heading',{name:'Programado × entregue por vendedor',exact:true}).count(),1);
+ const sellerColumns=page.locator('[data-seller-column]');assert.equal(await sellerColumns.count(),2);const vertical=await sellerColumns.first().locator('[data-volume-series=programmed]').evaluate(el=>({width:Number(el.getAttribute('width')),height:Number(el.getAttribute('height'))}));assert(vertical.height>vertical.width,'Gráfico de vendedores usa colunas verticais');
  assert(await page.locator('.report-official-logo').evaluate(img=>img.complete&&img.naturalWidth>0));
  const productionDownload=page.waitForEvent('download');await page.getByRole('button',{name:'Exportar CSV',exact:true}).click();assert((await productionDownload).suggestedFilename().includes('producao-e-metas'));
  await page.evaluate(()=>document.querySelector('#toasts').replaceChildren());

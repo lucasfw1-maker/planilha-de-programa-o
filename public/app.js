@@ -583,12 +583,20 @@ function cancelMaintenance(id){
 
 function sellerVolumePanel(sellers){
   const max=Math.max(1,...sellers.map(s=>Math.max(s.programmed,s.delivered))),charts=[];
-  for(let offset=0;offset<sellers.length;offset+=10){
-    const group=sellers.slice(offset,offset+10),height=Math.max(165,group.length*62+25);
-    charts.push(`<svg viewBox="0 0 1100 ${height}" role="img" aria-label="Gráfico de volume programado e entregue informado por vendedor${offset?' — continuação':''}">${group.map((s,i)=>{
-      const y=14+i*62,x=220,planned=s.programmed/max*740,actual=s.delivered/max*740;
-      const name=s.name.length>28?s.name.slice(0,26)+'…':s.name;
-      return `<g><title>${esc(s.name)}: ${num(s.programmed)} m³ programados, ${num(s.delivered)} m³ entregues informados; ${s.missing} obras sem volume entregue</title><text x="18" y="${y+25}" fill="#345744" font-size="12">${esc(name)}</text><rect x="${x}" y="${y+4}" width="${planned}" height="14" rx="3" fill="#358362"/><text x="${x+planned+9}" y="${y+15}" fill="#3b6b52" font-size="11">${num(s.programmed)} m³</text><rect x="${x}" y="${y+27}" width="${actual}" height="14" rx="3" fill="#688abf"/><text x="${x+actual+9}" y="${y+38}" fill="#607ba5" font-size="11">${s.informed?num(s.delivered)+' m³':s.missing?'Não informado':'0 m³'}</text></g>`;
+  for(let offset=0;offset<sellers.length;offset+=8){
+    const group=sellers.slice(offset,offset+8),width=1100,height=335,baseline=245,plotHeight=195,step=1000/group.length;
+    const grid=Array.from({length:5},(_,i)=>{const y=baseline-plotHeight*i/4;return `<line x1="55" y1="${y}" x2="1080" y2="${y}" stroke="#e3ebe5"/><text x="45" y="${y+4}" text-anchor="end" fill="#7b8e81" font-size="11">${num(max*i/4)}</text>`;}).join('');
+    charts.push(`<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Gráfico vertical de volume programado e entregue informado por vendedor${offset?' — continuação':''}"><text x="20" y="20" fill="#7b8e81" font-size="11">m³</text>${grid}${group.map((s,i)=>{
+      const center=65+(i+.5)*step,barWidth=group.length>5?30:40,gap=10;
+      const plannedHeight=s.programmed/max*plotHeight,actualHeight=s.delivered/max*plotHeight;
+      const plannedX=center-gap/2-barWidth,actualX=center+gap/2;
+      const plannedY=baseline-plannedHeight,actualY=baseline-actualHeight;
+      const plannedLabelY=plannedY-10;let actualLabelY=actualY-10;
+      if(Math.abs(actualLabelY-plannedLabelY)<16)actualLabelY=plannedLabelY-17;
+      const words=s.name.split(/\s+/),lines=[''];
+      for(const word of words){const last=lines.length-1;if((lines[last]+' '+word).trim().length>16&&lines[last])lines.push(word);else lines[last]=(lines[last]+' '+word).trim();}
+      const shown=lines.slice(0,2);if(lines.length>2)shown[1]=shown[1].slice(0,14)+'…';
+      return `<g data-seller-column="${s.id}"><title>${esc(s.name)}: ${num(s.programmed)} m³ programados, ${num(s.delivered)} m³ entregues informados; ${s.missing} obras sem volume entregue</title><rect data-volume-series="programmed" x="${plannedX}" y="${plannedY}" width="${barWidth}" height="${plannedHeight}" rx="3" fill="#358362"/><text x="${plannedX+barWidth/2}" y="${plannedLabelY}" text-anchor="middle" fill="#3b6b52" font-size="12">${num(s.programmed)}</text><rect data-volume-series="delivered" x="${actualX}" y="${actualY}" width="${barWidth}" height="${actualHeight}" rx="3" fill="#688abf"/><text x="${actualX+barWidth/2}" y="${actualLabelY}" text-anchor="middle" fill="#607ba5" font-size="11">${s.informed?num(s.delivered):s.missing?'Não informado':'0'}</text><text x="${center}" y="277" text-anchor="middle" fill="#345744" font-size="12">${shown.map((line,j)=>`<tspan x="${center}" dy="${j?17:0}">${esc(line)}</tspan>`).join('')}</text></g>`;
     }).join('')}</svg>`);
   }
   return `<section class="panel seller-volume-panel"><div class="panel-header"><h2>Programado × entregue por vendedor</h2><small>Volumes do mês selecionado · m³</small></div><div class="analytics-chart">${charts.join('')||'<div class="empty">Nenhum vendedor ou volume registrado neste mês.</div>'}</div><div class="legend"><span><i></i> Programado</span><span><i class="blue"></i> Entregue informado</span></div><div class="table-wrap"><table><thead><tr><th>VENDEDOR</th><th>PROGRAMADO</th><th>ENTREGUE INFORMADO</th><th>ENTREGUE / PROGRAMADO</th><th>SEM VOLUME INFORMADO</th></tr></thead><tbody>${sellers.map(s=>`<tr><td><strong>${esc(s.name)}</strong></td><td>${num(s.programmed)} m³</td><td>${s.informed?num(s.delivered)+' m³':s.missing?'Não informado':'0 m³'}</td><td>${s.programmed&&s.informed?num(s.delivered/s.programmed*100)+'%':'—'}</td><td>${s.missing}</td></tr>`).join('')||'<tr><td colspan="5"><div class="empty">Sem dados para este período.</div></td></tr>'}</tbody></table></div></section>`;
