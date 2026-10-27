@@ -212,3 +212,6 @@ Em **Contratos Ativos → Adicionar obra**, abra outra obra do mesmo cliente com
 ### Histórico de metas mensais
 
 Em **Gerência**, abaixo da meta mensal, **Histórico de metas** lista os meses com metas cadastradas. Alterne entre **Metas anteriores** e **Metas futuras**, sempre em relação ao mês atual de Cascavel. O mês atual fica no painel de consulta acima. Cada linha mostra a meta, volume programado e volume entregue informado, com o percentual de cada um sobre a meta daquele mês. O programado exclui cancelamentos; entregas já informadas permanecem nos totais. Percentuais podem ultrapassar 100%. Selecione o mês na lista para consultar ou alterar sua meta no painel. Os valores são recalculados pelas agendas, incluindo correções e remarcações posteriores.
+
+
+Em Gerência, o quadro de caminhões betoneira reúne também o cadastro e a manutenção das bombas. Ele e o quadro de metas mantêm a mesma altura padrão de 640 px, com cabeçalhos visíveis e rolagem interna independente quando necessário. No celular, os quadros ficam um abaixo do outro e preservam a rolagem individual.

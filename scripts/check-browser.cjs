@@ -83,6 +83,9 @@ const ROOT=require('node:path').resolve(__dirname,'..');
  await page.getByRole('button',{name:'Metas anteriores',exact:true}).click();await page.locator('[data-goal-month="'+goalMonths.past+'"]').waitFor();await page.evaluate(async month=>{state.managementMonth=month;await refresh();},goalMonths.current);
  await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Metas sem transbordamento no celular');await page.setViewportSize({width:1440,height:1000});
  await page.screenshot({path:join(ROOT,'.data','review','management.png'),fullPage:true});
+ const cardLayout=await page.evaluate(()=>{const cards=[...document.querySelectorAll('.management-grid>.management-card')],regions=cards.map(card=>card.querySelector('.management-card-scroll'));const heights=cards.map(card=>card.getBoundingClientRect().height);for(const region of regions){const sample=region.lastElementChild;for(let n=0;n<8;n++)region.append(sample.cloneNode(true));region.scrollTop=150;}return {count:cards.length,heights,after:cards.map(card=>card.getBoundingClientRect().height),scrolls:regions.map(region=>region.scrollTop),pumpsInsideFleet:!!cards[0].querySelector('.management-pumps')};});
+ assert.equal(cardLayout.count,2);assert.equal(cardLayout.pumpsInsideFleet,true);assert.equal(cardLayout.heights[0],cardLayout.heights[1]);assert.deepEqual(cardLayout.after,cardLayout.heights);assert(cardLayout.scrolls.every(top=>top>0),'Cada quadro tem rolagem própria sem aumentar sua altura');
+
  await page.getByRole('button',{name:'Configurações',exact:true}).click();
  await page.getByRole('heading',{name:'Equipe e acessos',exact:true}).waitFor();
  assert.equal(await page.getByRole('heading',{name:'Bombas da filial',exact:true}).count(),0);
