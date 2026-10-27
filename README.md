@@ -1,4 +1,4 @@
-# Concresuper · Central de programação
+# ConcretLog · Programação e logística — Concresuper Cascavel
 
 Primeira versão funcional para **Cascavel – PR**, desenvolvida a partir da rotina da planilha de programação. Interface em português, verde/cinza/branco e navegação lateral alinhada ao sistema de obras fornecido em ZIP.
 
@@ -75,7 +75,7 @@ Solicitações pendentes não contam no volume confirmado. A aprovação revalid
 
 ## Marca e referências
 
-O ZIP `Sistema--main.zip` foi consultado apenas como referência. Reutilizou-se o componente de mostrar senha e a coroa de contorno, adaptando os perfis para a concreteira. O símbolo em `public/favicon.svg` é uma reconstrução vetorial provisória. Os relatórios usam `public/logo-concresuper.png`, versão com transparência preparada a partir da imagem da marca enviada pelo usuário. O nome é exibido em texto, sem depender de fontes externas.
+O ZIP `Sistema--main.zip` foi consultado apenas como referência. Reutilizou-se o componente de mostrar senha e a coroa de contorno, adaptando os perfis para a concreteira. A identidade ConcretLog segue a referência visual enviada pelo usuário: login com usina e betoneira, painel claro com menu lateral escuro, botões verdes e logo própria. Os arquivos `public/concretlog-logo.png`, `public/concretlog-symbol.png` e `public/concretlog-hero.png` foram preparados com base nessa referência; o símbolo também é o favicon. Todos os cabeçalhos de relatório preservam `public/logo-concresuper.png` à esquerda e exibem ConcretLog à direita, inclusive na impressão/PDF. As imagens são servidas localmente, sem fontes ou recursos externos.
 
 As consultas aos sites de referência foram bloqueadas com HTTP 403 pelo proxy do ambiente. O código do ZIP e as imagens permitiram prosseguir. Não foram publicadas alterações nos sites existentes.
 
@@ -118,7 +118,7 @@ A meta é configurada por mês. O volume programado usa a data atual da agenda, 
 
 Em **Relatórios → Produção e metas**, há comparação do programado com o entregue informado, gráficos diários/acumulados e produção por CB. A projeção separa o saldo a programar do saldo a entregar e divide cada um pelos dias de operação restantes, contando a data de referência inclusive. É possível escolher segunda a sábado (padrão), segunda a sexta ou todos os dias. Feriados/paralisações não são inferidos. Mês encerrado sem dias restantes não produz valores infinitos. Sem meta, a necessidade diária não é inventada.
 
-A data de referência altera os dias restantes; os volumes são os registros atuais, não uma reconstrução de como estava o banco em uma data passada. Entregas continuam atribuídas à data agendada da obra; ainda não há registro individual da data de cada carga. Obras sem volume entregue ficam sinalizadas. CSV inclui um resumo e as linhas diárias; a impressão/PDF inclui os gráficos e o cabeçalho com a logo Concresuper transparente, sem marcas do consórcio/DER.
+A data de referência altera os dias restantes; os volumes são os registros atuais, não uma reconstrução de como estava o banco em uma data passada. Entregas continuam atribuídas à data agendada da obra; ainda não há registro individual da data de cada carga. Obras sem volume entregue ficam sinalizadas. CSV inclui um resumo e as linhas diárias; a impressão/PDF inclui os gráficos e o cabeçalho com Concresuper à esquerda e ConcretLog à direita.
 
 No relatório de produção, o volume programado exclui cancelamentos, mas entregas já informadas são preservadas mesmo se o restante da obra for cancelado. Isso evita apagar uma produção que já ocorreu.
 
@@ -141,3 +141,7 @@ O relatório Produção e metas também compara o programado e o entregue por ve
 Na agenda, **Adicionar informações** permite preencher código do cliente, pedido e item. O vendedor altera somente suas próprias obras; obras de outros vendedores mostram apenas ocupação. Programador, gerente e controlador podem alterar qualquer agendamento. O código do cliente é reutilizado em novas agendas da mesma carteira; pedido e item pertencem exclusivamente à obra. A agenda de amanhã apresenta, por exemplo, **Dallo 5310/2020-1**, inclusive na exportação.
 
 Clique na foto ou nas iniciais no rodapé do menu para escolher ou remover sua foto. O navegador recorta a imagem centralmente e reduz para JPEG de 192 × 192; o banco persistente guarda a foto, inclusive na Vercel. Cada pessoa troca apenas a própria foto. Fotos circulares aparecem nas identificações dos vendedores em relatórios e abaixo dos nomes no gráfico de volumes, inclusive na impressão/PDF. Sem foto, aparecem as iniciais.
+
+### Tela inicial ConcretLog
+
+Após o login, **Início** apresenta os totais de hoje, atalhos aos módulos existentes, o volume programado de hoje e dos próximos seis dias e a lista das obras nesse período. Os dados vêm dos agendamentos e solicitações existentes. Para vendedores, os indicadores e a lista incluem somente suas próprias obras; os atalhos seguem as permissões do perfil. A agenda diária/semanal/mensal, as fotos, os relatórios e as regras operacionais continuam disponíveis. Não foram criados módulos de laboratório ou ensaios que aparecem apenas na referência visual.

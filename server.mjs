@@ -627,6 +627,10 @@ async function api(req, res, url) {
   fail('Recurso não encontrado.', 404);
 }
 const assets = {
+  '/concretlog.css': ['concretlog.css', 'text/css; charset=utf-8'],
+  '/concretlog-logo.png': ['concretlog-logo.png', 'image/png'],
+  '/concretlog-symbol.png': ['concretlog-symbol.png', 'image/png'],
+  '/concretlog-hero.png': ['concretlog-hero.png', 'image/png'],
   '/concresuper-symbol.png': ['concresuper-symbol.png', 'image/png'],
   '/logo-concresuper.png': ['logo-concresuper.png', 'image/png'],
   '/favicon.svg': ['favicon.svg', 'image/svg+xml'],
