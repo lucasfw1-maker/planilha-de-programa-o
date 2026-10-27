@@ -195,10 +195,17 @@ const ROOT=require('node:path').resolve(__dirname,'..');
  await page.waitForLoadState('networkidle');
  await page.locator('#auth-form').waitFor();
  await page.waitForLoadState('networkidle');
+ for(const viewport of [{width:1920,height:860},{width:1366,height:768},{width:1280,height:600},{width:1440,height:600},{width:390,height:844},{width:390,height:667},{width:844,height:390}]){
+  await page.setViewportSize(viewport);
+  const fit=await page.evaluate(()=>{const root=document.documentElement,form=document.querySelector('#auth-form').getBoundingClientRect();return {vertical:root.scrollHeight<=innerHeight,horizontal:root.scrollWidth<=innerWidth,formVisible:form.top>=0&&form.bottom<=innerHeight};});
+  assert(fit.vertical&&fit.horizontal&&fit.formVisible,'Login inteiro sem rolagem em '+viewport.width+'x'+viewport.height+': '+JSON.stringify(fit));
+ }
+ await page.setViewportSize({width:1440,height:800});
  await page.screenshot({path:join(ROOT,'.data','review','concretlog-login.png'),fullPage:true});
  assert.equal(await page.locator('.auth-concretlog-logo').getAttribute('src'),'/concretlog-logo.png');
  await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'Login sem transbordamento no celular');
  await page.screenshot({path:join(ROOT,'.data','review','concretlog-login-mobile.png'),fullPage:true});await page.setViewportSize({width:1440,height:1000});
+ await page.getByRole('button',{name:'Esqueceu sua senha?',exact:true}).click();await page.getByRole('heading',{name:'Recuperar acesso',exact:true}).waitFor();await page.getByRole('button',{name:'Entendi',exact:true}).click();
  await page.getByLabel('Nome de usuário',{exact:true}).fill('mariana.silva');
  await page.getByLabel('Senha',{exact:true}).fill('Browser-Test-2027!');
  await page.getByRole('button',{name:'Entrar na central'}).click();
