@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {gravelValue,slumpValue} from './concrete.mjs';
 import {contactFields} from './contacts.mjs';
 import {commercialCode,savedCustomerCode,withCustomerCodes} from './commercial.mjs';
 import {slotWindow,overlaps} from './maintenance.mjs';
@@ -71,14 +72,15 @@ function scheduling(b) {
     type
   };
 }
-function fields(b) {
+function fields(b,{allowLegacyGravel=false}={}) {
   return {
     ...scheduling(b),
     ...contactFields(b),
     customer: text(b.customer, 'cliente'),
     work: text(b.work, 'obra/endereço', 500),
     planned_volume: number(b.planned_volume, 'Volume', 0.1),
-    gravel: text(b.gravel, 'brita'),
+    gravel: gravelValue(b.gravel,{legacy:allowLegacyGravel}),
+    slump: slumpValue(b.slump),
     resistance: text(b.resistance, 'resistência'),
     piece: text(b.piece, 'peça a concretar'),
     notes: String(b.notes || '').trim().slice(0, 2000),
@@ -111,25 +113,29 @@ async function checkPump(b, except = 0) {
 async function audit(u, action, entity, id, detail) {
   await run('INSERT INTO audit(user_id,action,entity,entity_id,detail) VALUES(?,?,?,?,?)', u.id, action, entity, Number(id), JSON.stringify(detail));
 }
-async function contactForCustomer(input,seller){
- const saved=await one('SELECT contact_name,contact_phone FROM customers WHERE seller_id=? AND name_key=?',seller,customerKey(input.customer));
- return contactFields(input,saved||{});
+async function detailsForCustomer(input,seller){
+ const saved=await one('SELECT contact_name,contact_phone,slump FROM customers WHERE seller_id=? AND name_key=?',seller,customerKey(input.customer));
+ return {...contactFields(input,saved||{}),slump:slumpValue(input.slump===undefined?saved?.slump:input.slump)};
 }
 async function saveContactForAppointment(appointment,contact){
  if(!await one('SELECT id FROM customers WHERE seller_id=? AND name_key=?',appointment.seller_id,customerKey(appointment.customer)))await saveCustomer(appointment,appointment.seller_id);
  await run('UPDATE customers SET contact_name=?,contact_phone=?,updated_at=? WHERE seller_id=? AND name_key=?',contact.contact_name,contact.contact_phone,new Date().toISOString(),appointment.seller_id,customerKey(appointment.customer));
 }
+async function saveConcreteForAppointment(appointment,concrete){
+ if(!await one('SELECT id FROM customers WHERE seller_id=? AND name_key=?',appointment.seller_id,customerKey(appointment.customer)))await saveCustomer(appointment,appointment.seller_id);
+ await run('UPDATE customers SET gravel=COALESCE(?,gravel),slump=COALESCE(?,slump),updated_at=? WHERE seller_id=? AND name_key=?',concrete.gravel??null,concrete.slump??null,new Date().toISOString(),appointment.seller_id,customerKey(appointment.customer));
+}
 async function createAppointment(b, u, requestId = null) {
-  const data = fields(b);
+  const data = fields(b,{allowLegacyGravel:requestId!==null});
   if (!Number.isInteger(data.trips)) fail('Viagens devem ser um número inteiro.');
   const seller = await checkSeller(b.seller_id);
   const customerCode=await savedCustomerCode(data.customer,seller);
-  Object.assign(data,await contactForCustomer(b,seller));
+  Object.assign(data,await detailsForCustomer(b,seller));
   const pump = await checkPump({
     ...data,
     pump_id: b.pump_id
   });
-  const result = await run(`INSERT INTO appointments(customer,work,date,start,duration,type,pump_id,seller_id,planned_volume,gravel,resistance,piece,notes,trips,load_capacity,request_id,customer_code,contact_name,contact_phone) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, data.customer, data.work, data.date, data.start, data.duration, data.type, pump, seller, data.planned_volume, data.gravel, data.resistance, data.piece, data.notes, data.trips, data.load_capacity, requestId, customerCode, data.contact_name, data.contact_phone);
+  const result = await run(`INSERT INTO appointments(customer,work,date,start,duration,type,pump_id,seller_id,planned_volume,gravel,resistance,piece,notes,trips,load_capacity,request_id,customer_code,contact_name,contact_phone,slump) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, data.customer, data.work, data.date, data.start, data.duration, data.type, pump, seller, data.planned_volume, data.gravel, data.resistance, data.piece, data.notes, data.trips, data.load_capacity, requestId, customerCode, data.contact_name, data.contact_phone, data.slump);
   const id = Number(result.lastInsertRowid);
   await saveCustomer(data,seller);
   await audit(u, 'criar', 'agendamento', id, data);
@@ -276,14 +282,19 @@ async function api(req, res, url) {
   }
   if (u.status !== 'aprovado') fail('Acesso não aprovado.', 403);
   if (u.must_change) fail('Troque a senha temporária antes de acessar os módulos.', 403);
-  if(path==='/api/profile/photo' && method==='PATCH') {
+  const userPhotoPath=path.match(/^\/api\/users\/(\d+)\/photo$/);
+  if((path==='/api/profile/photo'||userPhotoPath) && method==='PATCH') {
+    if(userPhotoPath&&u.role!=='programador')fail('Somente o Programador pode alterar fotos da equipe.',403);
+    const targetId=userPhotoPath?Number(userPhotoPath[1]):u.id;
+    if(!await one('SELECT id FROM users WHERE id=?',targetId))fail('Usuário não encontrado.',404);
     const b=await body(req,180000),image=b.image;
     if(image!==null){
       if(typeof image!=='string'||!/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(image))fail('Envie uma foto JPEG válida.');
       const bytes=Buffer.from(image.split(',')[1],'base64');
       if(bytes.length>120000||bytes.length<4||bytes[0]!==255||bytes[1]!==216||bytes.at(-2)!==255||bytes.at(-1)!==217)fail('Foto inválida ou maior que 120 KB.');
-      await run('INSERT INTO user_photos(user_id,image,version) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET image=excluded.image,version=excluded.version',u.id,image,randomBytes(12).toString('hex'));
-    }else await run('DELETE FROM user_photos WHERE user_id=?',u.id);
+      await run('INSERT INTO user_photos(user_id,image,version) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET image=excluded.image,version=excluded.version',targetId,image,randomBytes(12).toString('hex'));
+    }else await run('DELETE FROM user_photos WHERE user_id=?',targetId);
+    if(userPhotoPath)await audit(u,image===null?'remover foto':'alterar foto','usuario',targetId,{});
     return {ok:true};
   }
   if(/^\/api\/profile-photo\/\d+$/.test(path)&&method==='GET'){
@@ -423,7 +434,7 @@ async function api(req, res, url) {
         ...old,
         ...b
       };
-      const data = scheduling(merged),contact=contactFields(b,old);
+      const data = scheduling(merged),contact=contactFields(b,old),concrete={gravel:b.gravel===undefined||b.gravel===old.gravel?old.gravel:gravelValue(b.gravel),slump:slumpValue(b.slump===undefined?old.slump:b.slump)};
       const status = b.status ?? old.status;
       if (!['confirmado', 'andamento', 'concluido', 'cancelado'].includes(status)) fail('Status inválido.');
       const changed=['date','start','duration','type'].some(k=>data[k]!==old[k]) || (data.type==='bomba'&&Number(merged.pump_id)!==old.pump_id) || (old.status==='cancelado'&&status!=='cancelado');
@@ -435,7 +446,7 @@ async function api(req, res, url) {
       const {trips,load_capacity}=estimate;
       if(b.action && !['cancelar','remarcar'].includes(b.action))fail('Ação de agendamento inválida.');
       if(b.action==='cancelar' && status!=='cancelado')fail('Confirme o cancelamento do agendamento.');
-      const after={...old,...data,...contact,pump_id:pump,status,delivered_volume:delivered,trips,load_capacity};
+      const after={...old,...data,...contact,...concrete,pump_id:pump,status,delivered_volume:delivered,trips,load_capacity};
       if(old.status==='cancelado' && status==='cancelado' && ['date','start','duration','pump_id','type'].some(key=>old[key]!==after[key]))fail('Para mudar a programação de uma obra cancelada, use Remarcar agendamento.');
       const kind=changeKind(old,after);
       const reason=kind?text(b.reason,'o motivo do cancelamento ou da remarcação',1000):'';
@@ -443,10 +454,11 @@ async function api(req, res, url) {
       if(b.action==='cancelar' && old.status==='cancelado')fail('Este agendamento já está cancelado.',409);
       if(b.action==='remarcar' && kind!=='remarcado')fail('Altere a data, o horário, a duração ou o recurso para remarcar.');
       await recordChange(u,old,after,reason);
-      const contactChanged=contact.contact_name!==old.contact_name||contact.contact_phone!==old.contact_phone;
-      if(contactChanged&&b.expected_information_version!==undefined&&b.expected_information_version!==old.information_version)fail('O contato foi atualizado por outra pessoa. Abra a obra novamente.',409);
-      await run('UPDATE appointments SET date=?,start=?,duration=?,type=?,pump_id=?,status=?,delivered_volume=?,trips=?,load_capacity=?,contact_name=?,contact_phone=?,information_version=information_version+? WHERE id=?', data.date, data.start, data.duration, data.type, pump, status, delivered, trips, load_capacity, contact.contact_name, contact.contact_phone,contactChanged?1:0,id);
-      if(b.contact_name!==undefined||b.contact_phone!==undefined)await saveContactForAppointment(old,contact);
+      const contactChanged=contact.contact_name!==old.contact_name||contact.contact_phone!==old.contact_phone,concreteChanged=concrete.gravel!==old.gravel||concrete.slump!==old.slump;
+      if((contactChanged||concreteChanged)&&b.expected_information_version!==undefined&&b.expected_information_version!==old.information_version)fail('As informações foram atualizadas por outra pessoa. Abra a obra novamente.',409);
+      await run('UPDATE appointments SET date=?,start=?,duration=?,type=?,pump_id=?,status=?,delivered_volume=?,trips=?,load_capacity=?,contact_name=?,contact_phone=?,gravel=?,slump=?,information_version=information_version+? WHERE id=?', data.date, data.start, data.duration, data.type, pump, status, delivered, trips, load_capacity, contact.contact_name, contact.contact_phone,concrete.gravel,concrete.slump,contactChanged||concreteChanged?1:0,id);
+      if(contactChanged)await saveContactForAppointment(old,contact);
+      if(concreteChanged)await saveConcreteForAppointment(old,{...(concrete.gravel!==old.gravel?{gravel:concrete.gravel}:{}),...(concrete.slump!==old.slump?{slump:concrete.slump}:{})});
       await audit(u, 'editar', 'agendamento', id, {
         antes: old,
         depois: await one('SELECT * FROM appointments WHERE id=?', id)
@@ -464,12 +476,13 @@ async function api(req, res, url) {
       if(!Number.isInteger(b.expected_version)||b.expected_version!==old.information_version)fail('As informações foram alteradas por outra pessoa. Abra a obra novamente para atualizar.',409);
       const saved=await savedCustomerCode(old.customer,old.seller_id),previousCode=old.customer_code||saved;
       const code=commercialCode(b.customer_code===undefined?previousCode:b.customer_code,'Código do cliente'),order=commercialCode(b.order_code===undefined?old.order_code:b.order_code,'Código do pedido'),item=commercialCode(b.order_item===undefined?old.order_item:b.order_item,'Item do pedido');
-      const contact=contactFields(b,old);
-      await run('UPDATE appointments SET customer_code=?,order_code=?,order_item=?,contact_name=?,contact_phone=?,information_version=information_version+1 WHERE id=?',code,order,item,contact.contact_name,contact.contact_phone,id);
-      if(b.contact_name!==undefined||b.contact_phone!==undefined)await saveContactForAppointment(old,contact);
+      const contact=contactFields(b,old),slump=slumpValue(b.slump===undefined?old.slump:b.slump);
+      await run('UPDATE appointments SET customer_code=?,order_code=?,order_item=?,contact_name=?,contact_phone=?,slump=?,information_version=information_version+1 WHERE id=?',code,order,item,contact.contact_name,contact.contact_phone,slump,id);
+      if(slump!==old.slump)await saveConcreteForAppointment(old,{slump});
+      if(contact.contact_name!==old.contact_name||contact.contact_phone!==old.contact_phone)await saveContactForAppointment(old,contact);
       if(!await one('SELECT id FROM customers WHERE seller_id=? AND name_key=?',old.seller_id,customerKey(old.customer)))await saveCustomer(old,old.seller_id);
       if(code!==previousCode||!saved)await run('UPDATE customers SET customer_code=?,updated_at=? WHERE seller_id=? AND name_key=?',code,new Date().toISOString(),old.seller_id,customerKey(old.customer));
-      await audit(u,'adicionar informações','agendamento',id,{antes:{customer_code:old.customer_code,order_code:old.order_code,order_item:old.order_item,contact_name:old.contact_name,contact_phone:old.contact_phone},depois:{customer_code:code,order_code:order,order_item:item,...contact}});
+      await audit(u,'adicionar informações','agendamento',id,{antes:{customer_code:old.customer_code,order_code:old.order_code,order_item:old.order_item,contact_name:old.contact_name,contact_phone:old.contact_phone,slump:old.slump},depois:{customer_code:code,order_code:order,order_item:item,...contact,slump}});
       return {ok:true,information_version:old.information_version+1};
     });
   }
@@ -507,8 +520,8 @@ async function api(req, res, url) {
     if (!Number.isInteger(b.trips)) fail('Viagens devem ser inteiras.');
     const seller = await checkSeller(u.id);
     return await transaction(async () => {
-      Object.assign(b,await contactForCustomer(input,seller));
-      const id = Number((await run('INSERT INTO requests(seller_id,customer,work,date,start,duration,type,planned_volume,gravel,resistance,piece,notes,trips,load_capacity,contact_name,contact_phone) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', seller, b.customer, b.work, b.date, b.start, b.duration, b.type, b.planned_volume, b.gravel, b.resistance, b.piece, b.notes, b.trips, b.load_capacity,b.contact_name,b.contact_phone)).lastInsertRowid);
+      Object.assign(b,await detailsForCustomer(input,seller));
+      const id = Number((await run('INSERT INTO requests(seller_id,customer,work,date,start,duration,type,planned_volume,gravel,resistance,piece,notes,trips,load_capacity,contact_name,contact_phone,slump) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', seller, b.customer, b.work, b.date, b.start, b.duration, b.type, b.planned_volume, b.gravel, b.resistance, b.piece, b.notes, b.trips, b.load_capacity,b.contact_name,b.contact_phone,b.slump)).lastInsertRowid);
       await saveCustomer(b,seller);
       await audit(u, 'solicitar', 'solicitacao', id, b);
       return {

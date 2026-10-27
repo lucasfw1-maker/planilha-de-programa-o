@@ -99,7 +99,7 @@ As contagens são de **ocorrências**, não de vendas novas. Uma obra remarcada 
 
 A atualização cria tabelas e índices de forma aditiva. Uma migração idempotente recupera os cancelamentos e remarcações que já estavam na auditoria. Motivos antigos ausentes são identificados como não registrados. Cancelamentos sem auditoria não recebem uma data inventada; podem ser incluídos no relatório pela opção de registros sem data. Datas recuperadas da auditoria são convertidas de UTC para America/Sao_Paulo.
 
-A aba **Clientes** guarda automaticamente a última configuração usada por cliente e vendedor, ao salvar uma agenda ou solicitação. No novo formulário, escolha **Preencher com cliente cadastrado** para recuperar obra, volume, brita, Fck, peça, observações, duração, tipo e viagens. **Data, horário e bomba não são reutilizados.** Revise sempre as especificações: o último pedido não garante que o próximo tenha o mesmo concreto ou aditivo. A mudança nos padrões do cliente não altera as agendas históricas.
+A aba **Clientes** guarda automaticamente a última configuração usada por cliente e vendedor, ao salvar uma agenda ou solicitação. No novo formulário, escolha **Preencher com cliente cadastrado** para recuperar obra, contato e telefone, volume, brita, slump, Fck, peça, observações, duração, tipo e viagens. **Data, horário e bomba não são reutilizados.** Revise sempre as especificações: o último pedido não garante que o próximo tenha o mesmo concreto ou aditivo. A mudança nos padrões do cliente não altera as agendas históricas.
 
 Vendedores consultam somente seus clientes, suas ocorrências e seus históricos. Gerente, controlador e Programador consultam os dados da filial. Cadastros já presentes em agendas e solicitações são recuperados pela migração inicial sem excluir ou alterar os registros originais. Por enquanto, o cadastro é por nome normalizado e vendedor; CPF/CNPJ e múltiplos padrões por obra não foram adicionados.
 
@@ -140,7 +140,7 @@ O relatório Produção e metas também compara o programado e o entregue por ve
 
 Na agenda, **Adicionar informações** permite preencher código do cliente, pedido e item. O vendedor altera somente suas próprias obras; obras de outros vendedores exibem cliente e horário, sem o botão para adicionar informações. Programador, gerente e controlador podem alterar qualquer agendamento. O código do cliente é reutilizado em novas agendas da mesma carteira; pedido e item pertencem exclusivamente à obra. A agenda de amanhã apresenta, por exemplo, **Dallo 5310/2020-1**, inclusive na exportação.
 
-Clique na foto ou nas iniciais no rodapé do menu para escolher ou remover sua foto. O navegador recorta a imagem centralmente e reduz para JPEG de 192 × 192; o banco persistente guarda a foto, inclusive na Vercel. Cada pessoa troca apenas a própria foto. Fotos circulares aparecem nas identificações dos vendedores em relatórios e abaixo dos nomes no gráfico de volumes, inclusive na impressão/PDF. Sem foto, aparecem as iniciais.
+Clique na foto ou nas iniciais no rodapé do menu para escolher ou remover sua foto. O navegador recorta a imagem centralmente e reduz para JPEG de 192 × 192; o banco persistente guarda a foto, inclusive na Vercel. Cada pessoa pode trocar a própria foto. O Programador também pode clicar nas fotos/iniciais em **Configurações → Equipe e acessos** para trocar ou remover a foto de qualquer usuário; essa permissão é verificada na API e as alterações ficam na auditoria. Fotos circulares aparecem nas identificações dos vendedores em relatórios e abaixo dos nomes no gráfico de volumes, inclusive na impressão/PDF. Sem foto, aparecem as iniciais.
 
 ### Tela inicial ConcretLog
 
@@ -153,3 +153,11 @@ No calendário mensal, passe o mouse sobre um dia ou use o foco do teclado para 
 Informe **Nome do contato** e **Telefone do contato** ao agendar, solicitar uma reserva ou usar **Adicionar informações** nas obras autorizadas ao perfil. Os campos são opcionais e ficam salvos no cliente para reutilização. Alterações em uma obra não mudam os contatos dos agendamentos anteriores. Na aprovação de uma reserva, o contato acompanha a solicitação.
 
 A agenda de amanhã inclui a coluna **Contato**, com nome em negrito e telefone menor em cinza, na tela, impressão/PDF e exportação CSV. Celulares são formatados como **(45) 9 1234-5678** e fixos como **(45) 3333-4444**, aceitando números digitados sem máscara e prefixo brasileiro +55. A coluna Concreto exibe a resistência no padrão **FCK 45 Mpa**, sem duplicar a unidade quando ela já está cadastrada. A peça permanece em Cliente / Obra, abaixo do endereço.
+
+### Slump e opções de brita
+
+Agendamentos e solicitações incluem **Slump** opcional (por exemplo, `12 ± 2 cm`). O valor acompanha a aprovação da reserva, é salvo no cliente e pode ser ajustado nas obras autorizadas ao perfil. Na programação de carregamentos, aparece abaixo da brita com o mesmo estilo de texto, inclusive no PDF e no CSV.
+
+Novos cadastros usam as opções de **Brita** `1+0`, `0`, `2` e `Massa Preta`. Registros antigos preservam a brita informada originalmente; a aprovação de reservas anteriores continua funcionando. Ao reutilizar um cadastro com uma brita fora da lista atual, escolha uma das opções atuais para o novo agendamento.
+
+O contato do cliente é recuperado ao selecionar **Preencher com cliente cadastrado** e permanece editável. Alterações efetivas no contato atualizam o cadastro para os próximos agendamentos, sem mudar as outras obras já registradas. Salvar outro campo de uma obra antiga não substitui um contato mais recente do cliente.

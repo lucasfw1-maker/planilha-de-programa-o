@@ -12,7 +12,7 @@ async function request(path, {method='GET',data,cookie,origin}={}) {
  const res=await fetch(base+path,{method,headers:{...(data?{'Content-Type':'application/json'}:{}),...(cookie?{Cookie:cookie}:{}),...(origin?{Origin:origin}:{})},body:data?JSON.stringify(data):undefined});
  return {status:res.status,body:await res.json(),cookie:res.headers.get('set-cookie')?.split(';')[0]};
 }
-const booking={customer:'Cliente Teste',work:'Obra Centro',date:'2027-01-04',start:'07:00',duration:120,type:'bomba',planned_volume:24,gravel:'1',resistance:'30 MPa',piece:'Laje',notes:'Com fibra; slump máximo 16',trips:3};
+const booking={customer:'Cliente Teste',work:'Obra Centro',date:'2027-01-04',start:'07:00',duration:120,type:'bomba',planned_volume:24,gravel:'1+0',resistance:'30 MPa',piece:'Laje',notes:'Com fibra; slump máximo 16',trips:3};
 before(async()=>{
  child=spawn(process.execPath,['server.mjs'],{env:{...process.env,PORT:'0',DB_PATH:join(dir,'db.sqlite')},stdio:['ignore','pipe','pipe']});
  await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error('Servidor não iniciou')),10000);child.once('error',reject);child.stdout.on('data',chunk=>{const match=String(chunk).match(/porta (\d+)/);if(match){base='http://127.0.0.1:'+match[1]+'/api';clearTimeout(timeout);resolve();}});child.stderr.on('data',chunk=>{if(String(chunk).includes('Error'))reject(Error(String(chunk)));});});
@@ -291,6 +291,8 @@ test('contato é formatado, reaproveitado e protegido por vendedor sem alterar o
  assert.equal((await request('/appointments/'+second.body.id,{cookie:seller.cookie})).body.contact_name,'Bruno');
  const foreign=(await request('/appointments?from=2032-02-10&to=2032-02-11',{cookie:other})).body;assert(foreign.every(r=>!('contact_name' in r)&&!('contact_phone' in r)));
  const report=(await request('/report?from=2032-02-10&to=2032-02-11',{cookie:admin})).body;assert.equal(report.find(r=>r.id===id).contact_phone,'(45) 9 9999-8888');
+ assert.equal((await request('/appointments/'+second.body.id,{method:'PATCH',cookie:controller,data:{delivered_volume:72,contact_name:'Bruno',contact_phone:'(45) 3333-4444'}})).status,200);
+ assert.equal((await request('/customers?q=contato obra',{cookie:seller.cookie})).body[0].contact_name,'Carla');
  for(const contact_phone of ['123','telefone','(45) 9 9999-999999'])assert.equal((await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:2,contact_phone}})).status,400);
  assert.equal((await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:2,contact_name:'X'.repeat(121)}})).status,400);
  assert.equal((await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:2,contact_name:'',contact_phone:''}})).status,200);
@@ -300,4 +302,37 @@ test('aprovação de reserva transporta contato e telefone para o agendamento',a
  const result=await request('/requests',{method:'POST',cookie:seller.cookie,data:{...booking,type:'convencional',date:'2032-03-10',customer:'Contato Reserva',contact_name:'Engenheiro João',contact_phone:'55 45 9 8765 4321'}});assert.equal(result.status,200);
  assert.equal((await request('/requests/'+result.body.id,{method:'PATCH',cookie:controller,data:{status:'aprovada'}})).status,200);
  const row=(await request('/report?from=2032-03-10&to=2032-03-10',{cookie:admin})).body.find(r=>r.request_id===result.body.id);assert.equal(row.contact_name,'Engenheiro João');assert.equal(row.contact_phone,'(45) 9 8765-4321');
+});
+
+test('slump acompanha agenda, cliente e reserva; brita aceita somente as quatro opções atuais',async()=>{
+ const ids=[];
+ for(const gravel of ['1+0','0','2','Massa Preta']){
+  const result=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,date:'2033-01-10',type:'convencional',customer:'Concreto '+gravel,seller_id:seller.id,gravel,slump:'12 ± 2 cm'}});assert.equal(result.status,200);ids.push(result.body.id);
+  const a=(await request('/appointments/'+result.body.id,{cookie:seller.cookie})).body;assert.equal(a.slump,'12 ± 2 cm');assert.equal(a.gravel,gravel);
+ }
+ for(const gravel of ['1','Brita 3','','Areia'])assert.equal((await request('/appointments',{method:'POST',cookie:admin,data:{...booking,type:'convencional',seller_id:seller.id,gravel}})).status,400);
+ assert.equal((await request('/requests',{method:'POST',cookie:seller.cookie,data:{...booking,type:'convencional',gravel:'3'}})).status,400);
+ const id=ids[0],path='/appointments/'+id+'/information';
+ assert.equal((await request(path,{method:'PATCH',cookie:other,data:{expected_version:0,slump:'16'}})).status,404);
+ assert.equal((await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:0,slump:16}})).status,200);
+ assert.equal((await request('/appointments/'+id,{cookie:seller.cookie})).body.slump,'16');
+ assert.equal((await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:1,slump:'x'.repeat(61)}})).status,400);
+ const next=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,type:'convencional',date:'2033-01-11',customer:'Concreto 1+0',seller_id:seller.id,planned_volume:88,gravel:'2'}});assert.equal(next.status,200);
+ assert.equal((await request('/appointments/'+next.body.id,{cookie:seller.cookie})).body.slump,'16');
+ assert.equal((await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:1,slump:'10 ± 2 cm'}})).status,200);
+ const customer=(await request('/customers?q='+encodeURIComponent('concreto 1+0'),{cookie:seller.cookie})).body[0];assert.equal(customer.slump,'10 ± 2 cm');assert.equal(customer.gravel,'2');assert.equal(customer.planned_volume,88);
+ assert.equal((await request('/appointments/'+next.body.id,{cookie:seller.cookie})).body.slump,'16');
+ const approved=await request('/requests',{method:'POST',cookie:seller.cookie,data:{...booking,type:'convencional',date:'2033-01-12',customer:'Reserva slump',gravel:'Massa Preta',slump:'Máximo 16'}});assert.equal(approved.status,200);
+ assert.equal((await request('/requests/'+approved.body.id,{method:'PATCH',cookie:controller,data:{status:'aprovada'}})).status,200);
+ const row=(await request('/report?from=2033-01-12&to=2033-01-12',{cookie:admin})).body.find(a=>a.request_id===approved.body.id);assert.equal(row.slump,'Máximo 16');assert.equal(row.gravel,'Massa Preta');
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{gravel:'0',slump:'14'}})).status,200);
+ assert.equal((await request('/appointments/'+id,{cookie:seller.cookie})).body.gravel,'0');
+});
+test('somente Programador pode gerenciar fotos da equipe',async()=>{
+ const path='/users/'+seller.id+'/photo';
+ for(const cookie of [seller.cookie,other,manager,controller])assert.equal((await request(path,{method:'PATCH',cookie,data:{image:null}})).status,403);
+ assert.equal((await request('/users/999999/photo',{method:'PATCH',cookie:admin,data:{image:null}})).status,404);
+ assert.equal((await request(path,{method:'PATCH',cookie:admin,data:{image:'data:image/svg+xml;base64,PHN2Zz4='}})).status,400);
+ assert.equal((await request(path,{method:'PATCH',cookie:admin,data:{image:null}})).status,200);
+ const events=(await request('/audit',{cookie:admin})).body;assert(events.some(e=>e.action==='remover foto'&&e.entity_id===seller.id));
 });

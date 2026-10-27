@@ -7,6 +7,7 @@ import { migrateHistory, migrateCustomers } from './history-migration.mjs';
 import { migrateTripEstimates } from './fleet-migration.mjs';
 import { migrateCommercial } from './commercial-migration.mjs';
 import { migrateContacts } from './contact-migration.mjs';
+import { migrateConcrete } from './concrete-migration.mjs';
 import { SCHEMA } from './schema.mjs';
 
 const context = new AsyncLocalStorage();
@@ -41,6 +42,7 @@ async function open() {
     if(localMode)await candidate.executeMultiple('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;');
     await candidate.executeMultiple(SCHEMA);
     await migrateContacts(candidate);
+    await migrateConcrete(candidate);
     await migrateTripEstimates(candidate);
     await migrateHistory(candidate);
     await migrateCustomers(candidate);
