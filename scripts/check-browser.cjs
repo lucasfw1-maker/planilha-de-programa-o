@@ -405,11 +405,11 @@ const ROOT=require('node:path').resolve(__dirname,'..');
   await onlinePage.goto('http://127.0.0.1:'+port);await onlinePage.getByLabel('Nome de usuário',{exact:true}).fill('mariana.silva');await onlinePage.getByLabel('Senha',{exact:true}).fill('Browser-Test-2027!Pessoal');await onlinePage.getByRole('button',{name:'Entrar na central'}).click();await onlinePage.getByRole('heading',{name:'Olá, Mariana!',exact:true}).waitFor();
   await onlinePage.evaluate(()=>refreshPresence());await page.evaluate(()=>refreshPresence());
   const onlineMariana=page.locator('#online-users .online-user').filter({has:page.getByText('Mariana Silva',{exact:true})});
-  await onlineMariana.waitFor();assert.equal(await page.locator('#online-users .online-user').count(),2);await onlineMariana.hover();await onlineMariana.getByRole('tooltip').getByText('Vendedor',{exact:true}).waitFor();
+  await onlineMariana.waitFor();assert.equal(await page.locator('#online-users').getByText('Lucas Programador',{exact:true}).count(),0);assert.equal(await page.locator('#online-users .online-user').count(),1);await onlineMariana.hover();await onlineMariana.getByRole('tooltip').getByText('Vendedor',{exact:true}).waitFor();
   await page.waitForLoadState('networkidle');await page.locator('.branch-tabs').screenshot({path:join(ROOT,'.data','review','online-users.png')});
-  await onlinePage.waitForFunction(()=>[...document.querySelectorAll('#online-users img')].length===2&&[...document.querySelectorAll('#online-users img')].every(img=>img.complete&&img.naturalWidth===192));
+  await onlinePage.waitForFunction(()=>[...document.querySelectorAll('#online-users img')].length===1&&[...document.querySelectorAll('#online-users img')].every(img=>img.complete&&img.naturalWidth===192));
   await onlinePage.locator('.topbar [data-logout]').click();await onlinePage.locator('#auth-form').waitFor();await page.evaluate(()=>refreshPresence());
-  assert.equal(await page.locator('#online-users .online-user').count(),1);assert.equal(await page.locator('#online-users').getByText('Mariana Silva',{exact:true}).count(),0);
+  assert.equal(await page.locator('#online-users .online-user').count(),0);assert.equal(await page.locator('#online-users').getByText('Mariana Silva',{exact:true}).count(),0);
  }finally{await onlineContext.close();}
  // All print actions prepare a PDF with its own author footer, without the browser URL.
  const generatedPdf=async(name)=>{

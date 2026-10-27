@@ -792,7 +792,7 @@ function loadingDateForm(){
 
 function renderOnlineUsers(){
  const host=$('#online-users');if(!host)return;
- const users=state.user&&Date.now()-state.onlineUpdatedAt<90000?state.onlineUsers:[];
+ const users=state.user&&Date.now()-state.onlineUpdatedAt<90000?state.onlineUsers.filter(user=>user.id!==state.user.id):[];
  host.innerHTML=users.map(user=>`<span class="online-user" tabindex="0" data-online-user="${user.id}" aria-label="${esc(user.name+' · '+(roleNames[user.role]||user.role))}" aria-describedby="online-user-tip-${user.id}">${user.version?`<img class="profile-avatar" src="/api/profile-photo/${user.id}?v=${esc(user.version)}" alt="Foto de ${esc(user.name)}">`:`<span class="avatar profile-avatar" aria-hidden="true">${esc(user.name.split(/\s+/).filter(Boolean).map(word=>word[0]).slice(0,2).join(''))}</span>`}<span class="online-user-tooltip" id="online-user-tip-${user.id}" role="tooltip"><strong>${esc(user.name)}</strong><small>${esc(roleNames[user.role]||user.role)}</small></span></span>`).join('');
 }
 function stopPresence(){

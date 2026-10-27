@@ -178,7 +178,7 @@ Em **Agenda de amanhã → Outras datas**, escolha qualquer dia para consultar a
 
 ### Usuários online
 
-No canto direito da faixa de unidade em **Início**, aparecem somente as pessoas conectadas, com foto circular ou iniciais. Passe o mouse ou use o foco do teclado para ver nome e função. Cada aba envia presença a cada 30 segundos; sair remove a sessão imediatamente, fechar a aba envia uma saída e a falta de comunicação expira em até 90 segundos. Abas e dispositivos da mesma pessoa aparecem uma única vez. Sessões expiradas, contas bloqueadas e acessos pendentes não aparecem.
+No canto direito da faixa de unidade em **Início**, aparecem somente as outras pessoas conectadas, com foto circular ou iniciais. A própria pessoa não aparece na sua lista, mas continua visível para os demais usuários. Passe o mouse ou use o foco do teclado para ver nome e função. Cada aba envia presença a cada 30 segundos; sair remove a sessão imediatamente, fechar a aba envia uma saída e a falta de comunicação expira em até 90 segundos. Abas e dispositivos da mesma pessoa aparecem uma única vez. Sessões expiradas, contas bloqueadas e acessos pendentes não aparecem.
 
 ### Impressão com identificação do responsável
 
