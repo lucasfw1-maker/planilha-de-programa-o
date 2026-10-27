@@ -93,7 +93,7 @@ test('cadastro público, aprovação, redefinição e conta do Programador prote
 });
 
 test('consulta de disponibilidade não expõe clientes e respeita intervalo e manutenção',async()=>{
- let r=await request('/availability?date=2027-01-04&start=07:00&duration=120',{cookie:seller.cookie});assert.equal(r.status,200);assert.equal(r.body.pumps[0].available,false);assert(!JSON.stringify(r.body).includes('Cliente Teste'));
+ let r=await request('/availability?date=2027-01-04&start=07:00&duration=120',{cookie:seller.cookie});assert.equal(r.status,200);assert.equal(r.body.pumps[0].available,false);assert(!JSON.stringify(r.body).includes(booking.customer.toLocaleUpperCase('pt-BR')));
  await request('/pumps/'+pumpId,{method:'PATCH',cookie:admin,data:{maintenance:false}});
  r=await request('/availability?date=2027-01-04&start=11:00&duration=60',{cookie:seller.cookie});assert.equal(r.body.pumps[0].available,false);
  r=await request('/availability?date=2027-01-04&start=12:00&duration=60',{cookie:seller.cookie});assert.equal(r.body.pumps[0].available,true);
@@ -258,7 +258,7 @@ test('manutenção por período bloqueia novos serviços, alerta conflitos e pre
  assert.equal((await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:0,order_code:'stale'}})).status,409);
  assert.equal((await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:1,order_code:'<script>'}})).status,400);
  for(const [i,cookie]of [admin,manager,controller].entries())assert.equal((await request(path,{method:'PATCH',cookie,data:{expected_version:i+1,order_code:'2020'}})).status,200);
- const foreign=(await request('/appointments?from=2031-01-10&to=2031-01-10',{cookie:other})).body.find(a=>a.id===id);assert.equal(foreign.status,'ocupado');assert.equal(foreign.customer,'Dallo');assert(!foreign.customer_code&&!foreign.order_code&&!foreign.own_booking&&!foreign.planned_volume);
+ const foreign=(await request('/appointments?from=2031-01-10&to=2031-01-10',{cookie:other})).body.find(a=>a.id===id);assert.equal(foreign.status,'ocupado');assert.equal(foreign.customer,'DALLO');assert(!foreign.customer_code&&!foreign.order_code&&!foreign.own_booking&&!foreign.planned_volume);
  const next=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,type:'convencional',date:'2031-01-11',customer:'DALLO',seller_id:seller.id}});assert.equal(next.status,200);
  row=(await request('/appointments/'+next.body.id,{cookie:seller.cookie})).body;assert.equal(row.customer_code,'05310');assert.equal(row.order_code,'');assert.equal(row.order_item,'');
  const customer=(await request('/customers?q=dallo',{cookie:seller.cookie})).body[0];assert.equal(customer.customer_code,'05310');
@@ -335,4 +335,74 @@ test('somente Programador pode gerenciar fotos da equipe',async()=>{
  assert.equal((await request(path,{method:'PATCH',cookie:admin,data:{image:'data:image/svg+xml;base64,PHN2Zz4='}})).status,400);
  assert.equal((await request(path,{method:'PATCH',cookie:admin,data:{image:null}})).status,200);
  const events=(await request('/audit',{cookie:admin})).body;assert(events.some(e=>e.action==='remover foto'&&e.entity_id===seller.id));
+});
+
+test('Programador corrige nome e vendedor em todas as obras e reservas, preservando cada endereço',async()=>{
+ const target=(await request('/session',{cookie:other})).body.user.id,ids=[];
+ for(const [date,work,type]of [['2020-04-01','Rua Primeiro Endereço','bomba'],['2036-04-02','Rua Segundo Endereço','convencional'],['2036-04-03','Rua Terceiro Endereço','convencional']]){
+  const r=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,customer:'rede de Clientes',date,work,type,pump_id:type==='bomba'?pumpId:null,seller_id:seller.id,planned_volume:40,contact_name:'Responsável',contact_phone:'45912345678',slump:'12+-2'}});assert.equal(r.status,200);ids.push(r.body.id);
+ }
+ assert.equal((await request('/appointments/'+ids[0]+'/information',{method:'PATCH',cookie:seller.cookie,data:{expected_version:0,customer_code:'0087',order_code:'Pedido1',order_item:'01'}})).status,200);
+ assert.equal((await request('/appointments/'+ids[0],{method:'PATCH',cookie:controller,data:{delivered_volume:38,status:'concluido'}})).status,200);
+ assert.equal((await request('/appointments/'+ids[1],{method:'PATCH',cookie:controller,data:{status:'cancelado',reason:'Cliente cancelou esta data'}})).status,200);
+ const pending=await request('/requests',{method:'POST',cookie:seller.cookie,data:{...booking,customer:'REDE DE CLIENTES',work:'Rua Quarto Endereço',date:'2036-04-04',type:'convencional'}});assert.equal(pending.status,200);
+ const client=(await request('/customers?q=rede de clientes',{cookie:admin})).body[0],path='/customers/'+client.id;
+ for(const cookie of [seller.cookie,other,manager,controller]){
+  assert.equal((await request(path+'/edit-preview',{cookie})).status,403);
+  assert.equal((await request(path,{method:'PATCH',cookie,data:{name:'Invasão',seller_id:target}})).status,403);
+ }
+ const oldAddressList=(await request(path+'/addresses',{cookie:seller.cookie})).body;assert.equal(oldAddressList.length,4);assert(oldAddressList.includes('Rua Segundo Endereço'));
+ assert.equal((await request(path+'/addresses',{cookie:other})).status,404);
+ const input={name:'Rede corrigida',seller_id:target},preview=await request(path+'/edit-preview?'+new URLSearchParams({name:input.name,seller:String(target)}),{cookie:admin});assert.equal(preview.status,200);assert.equal(preview.body.proposed.name,'REDE CORRIGIDA');assert.equal(preview.body.counts.appointments,3);assert.equal(preview.body.counts.requests,1);assert.equal(preview.body.counts.events,1);
+ const snapshots=await Promise.all(ids.map(id=>request('/appointments/'+id,{cookie:admin}).then(r=>r.body)));
+ assert.equal((await request(path,{method:'PATCH',cookie:admin,data:input})).status,409);
+ const updated=await request(path,{method:'PATCH',cookie:admin,data:{...input,preview_token:preview.body.preview_token}});assert.equal(updated.status,200);
+ for(const before of snapshots){
+  const after=(await request('/appointments/'+before.id,{cookie:other})).body;assert.equal(after.customer,'REDE CORRIGIDA');assert.equal(after.seller_id,target);
+  for(const key of ['work','date','start','duration','type','pump_id','planned_volume','delivered_volume','status','contact_name','contact_phone','slump','gravel','order_code','order_item'])assert.equal(after[key],before[key],key);
+  assert.equal((await request('/appointments/'+before.id,{cookie:seller.cookie})).status,404);
+ }
+ assert.equal((await request('/appointments/'+ids[2]+'/information',{method:'PATCH',cookie:seller.cookie,data:{expected_version:1,order_item:'2'}})).status,404);
+ const owned=(await request('/appointments/'+ids[2],{cookie:other})).body;assert.equal((await request('/appointments/'+ids[2]+'/information',{method:'PATCH',cookie:other,data:{expected_version:owned.information_version,order_item:'2'}})).status,200);
+ assert.equal((await request('/customers?q=rede corrigida',{cookie:seller.cookie})).body.length,0);assert.equal((await request('/customers?q=rede corrigida',{cookie:other})).body.length,1);
+ assert.equal((await request(path+'/addresses',{cookie:seller.cookie})).status,404);assert.deepEqual(new Set((await request(path+'/addresses',{cookie:other})).body),new Set(oldAddressList));
+ const changes=(await request('/changes?from=2036-04-01&to=2036-04-30&basis=before&customer=rede corrigida',{cookie:other})).body;assert.equal(changes.length,1);assert.equal(changes[0].seller_id,target);assert.equal(changes[0].customer,'REDE CORRIGIDA');assert.equal(changes[0].before.customer,'REDE DE CLIENTES');assert.equal(changes[0].before.seller_id,seller.id);assert.equal(changes[0].actor_name,'controlador');
+ assert.equal((await request('/changes?from=2036-04-01&to=2036-04-30&basis=before&customer=rede corrigida',{cookie:seller.cookie})).body.length,0);
+ assert(!(await request('/requests',{cookie:seller.cookie})).body.some(r=>r.id===pending.body.id));assert((await request('/requests',{cookie:other})).body.some(r=>r.id===pending.body.id&&r.customer==='REDE CORRIGIDA'));
+ assert.equal((await request('/requests/'+pending.body.id,{method:'PATCH',cookie:controller,data:{status:'aprovada'}})).status,200);
+ const approved=(await request('/report?from=2036-04-04&to=2036-04-04',{cookie:other})).body.find(a=>a.request_id===pending.body.id);assert.equal(approved.customer,'REDE CORRIGIDA');assert.equal(approved.seller_id,target);assert.equal(approved.work,'Rua Quarto Endereço');
+ const audit=(await request('/audit',{cookie:admin})).body.find(e=>e.action==='editar cliente');assert.equal(JSON.parse(audit.detail).before.name,'REDE DE CLIENTES');
+});
+
+test('unificar clientes mantém todos os endereços, códigos das obras e os dados mais recentes',async()=>{
+ const target=(await request('/session',{cookie:other})).body.user.id;
+ const post=async(customer,work,sellerId,contact_name)=>{const r=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,customer,work,seller_id:sellerId,type:'convencional',date:'2037-05-10',contact_name,contact_phone:'45912345678'}});assert.equal(r.status,200);return r.body.id;};
+ const a=await post('Cliente origem','Endereço origem 1',seller.id,'Contato Origem');
+ assert.equal((await request('/appointments/'+a+'/information',{method:'PATCH',cookie:seller.cookie,data:{expected_version:0,customer_code:'111'}})).status,200);
+ const b=await post('Cliente origem','Endereço origem 2',seller.id,'Contato Origem');
+ const c=await post('Cliente destino','Endereço destino 1',target,'Contato Mais Recente');
+ assert.equal((await request('/appointments/'+c+'/information',{method:'PATCH',cookie:other,data:{expected_version:0,customer_code:'222'}})).status,200);
+ const source=(await request('/customers?q=cliente origem',{cookie:admin})).body[0],destination=(await request('/customers?q=cliente destino',{cookie:admin})).body[0],path='/customers/'+source.id,input={name:'cliente destino',seller_id:target};
+ const preview=(await request(path+'/edit-preview?'+new URLSearchParams({name:input.name,seller:String(target)}),{cookie:admin})).body;assert.equal(preview.destination.id,destination.id);assert.equal(preview.counts.appointments,3);
+ assert.equal((await request(path,{method:'PATCH',cookie:admin,data:{...input,preview_token:preview.preview_token}})).status,409);
+ const saved=await request(path,{method:'PATCH',cookie:admin,data:{...input,preview_token:preview.preview_token,merge_existing:true}});assert.equal(saved.status,200);assert.equal(saved.body.customer_id,destination.id);assert.equal(saved.body.merged,true);
+ const clients=(await request('/customers?q=cliente destino',{cookie:other})).body;assert.equal(clients.length,1);assert.equal(clients[0].contact_name,'Contato Mais Recente');
+ const addresses=(await request('/customers/'+destination.id+'/addresses',{cookie:other})).body;assert.deepEqual(new Set(addresses),new Set(['Endereço origem 1','Endereço origem 2','Endereço destino 1']));
+ for(const [id,code] of [[a,'111'],[b,'111'],[c,'222']]){const row=(await request('/appointments/'+id,{cookie:other})).body;assert.equal(row.customer,'CLIENTE DESTINO');assert.equal(row.seller_id,target);assert.equal(row.customer_code,code);}
+ const audit=(await request('/audit',{cookie:admin})).body.find(e=>e.action==='editar cliente'&&e.entity_id===destination.id);assert.equal(JSON.parse(audit.detail).destination_before.id,destination.id);
+});
+
+test('edição do cliente rejeita prévia desatualizada e mantém dados atômicos',async()=>{
+ const target=(await request('/session',{cookie:other})).body.user.id;
+ const bookingResult=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,type:'convencional',customer:'Cliente concorrente',seller_id:seller.id,date:'2038-06-10'}});assert.equal(bookingResult.status,200);
+ const client=(await request('/customers?q=cliente concorrente',{cookie:admin})).body[0],path='/customers/'+client.id,input={name:'nome novo',seller_id:target};
+ assert.equal((await request(path+'/edit-preview?name=',{cookie:admin})).status,400);assert.equal((await request(path+'/edit-preview?seller=99999',{cookie:admin})).status,400);
+ const preview=(await request(path+'/edit-preview?'+new URLSearchParams({name:input.name,seller:String(target)}),{cookie:admin})).body;
+ await request('/appointments/'+bookingResult.body.id+'/information',{method:'PATCH',cookie:seller.cookie,data:{expected_version:0,order_code:'Atualizado'}});
+ assert.equal((await request(path,{method:'PATCH',cookie:admin,data:{...input,preview_token:preview.preview_token}})).status,409);
+ const row=(await request('/appointments/'+bookingResult.body.id,{cookie:seller.cookie})).body;assert.equal(row.customer,'CLIENTE CONCORRENTE');assert.equal(row.order_code,'Atualizado');assert.equal(row.seller_id,seller.id);
+ assert.equal((await request('/customers?q=nome novo',{cookie:other})).body.length,0);
+ const current=(await request(path+'/edit-preview?name='+encodeURIComponent('Cliente corrigido'),{cookie:admin})).body;
+ assert.equal((await request(path,{method:'PATCH',cookie:admin,data:{name:'Cliente corrigido',preview_token:current.preview_token}})).status,200);
+ assert.equal((await request('/appointments/'+bookingResult.body.id,{cookie:seller.cookie})).body.customer,'CLIENTE CORRIGIDO');
 });

@@ -161,3 +161,17 @@ Agendamentos e solicitações incluem **Slump** opcional (por exemplo, `12 ± 2`
 Novos cadastros usam as opções de **Brita** `1+0`, `0`, `2` e `Massa Preta`. Registros antigos preservam a brita informada originalmente; a aprovação de reservas anteriores continua funcionando. Ao reutilizar um cadastro com uma brita fora da lista atual, escolha uma das opções atuais para o novo agendamento.
 
 O contato do cliente é recuperado ao selecionar **Preencher com cliente cadastrado** e permanece editável. Alterações efetivas no contato atualizam o cadastro para os próximos agendamentos, sem mudar as outras obras já registradas. Salvar outro campo de uma obra antiga não substitui um contato mais recente do cliente.
+
+### Editar nome e vendedor do cliente
+
+Somente o **Programador** vê **Clientes → Editar cliente**. A edição aplica o novo nome e/ou vendedor a todas as obras e solicitações daquele cadastro, incluindo registros antigos, futuros e cancelados. Os nomes são apresentados em **CAIXA ALTA**, inclusive para registros anteriores. Datas, endereços, volumes, contatos e códigos de pedido/item de cada obra permanecem preservados. Ao transferir, o vendedor anterior perde a edição das obras e o novo responsável recebe esse acesso; relatórios e ocorrências passam a usar a nova atribuição.
+
+A tela mostra uma prévia das quantidades afetadas antes de salvar. Se o nome normalizado já existir para o vendedor escolhido, **Unificar e salvar** reúne os registros, mantendo os dados mais recentes como padrão para novas agendas e preservando os códigos já utilizados em cada obra. O processo é atômico e rejeita prévias desatualizadas. A auditoria registra os cadastros anteriores, o resultado e os registros afetados; os snapshots originais e autores de cancelamentos/remarcações são preservados.
+
+### Escolher endereços já utilizados
+
+Ao selecionar um cliente cadastrado, **Endereços cadastrados** lista os endereços encontrados nas obras e solicitações desse cliente, além do último endereço salvo no cadastro. É possível selecionar um endereço ou escolher **Novo endereço — digitar manualmente**. O novo endereço fica disponível depois que o agendamento ou a solicitação é salvo. Unificar clientes mantém todos os endereços, sem juntar ou excluir as obras. Vendedores consultam os endereços somente da sua carteira.
+
+### Relatório de carregamentos para outras datas
+
+Em **Agenda de amanhã → Outras datas**, escolha qualquer dia para consultar a programação e gerar o CSV ou a impressão/PDF dessa data. O cabeçalho e o nome do arquivo acompanham a data selecionada. **Voltar para amanhã** restaura o padrão; entrar novamente pelo menu também abre amanhã. A consulta mostra a situação registrada atualmente para o dia; para investigar alterações e cancelamentos, use também o relatório de ocorrências.

@@ -172,3 +172,7 @@ input:focus,select:focus,textarea:focus{background:#fff;border-color:#14962a}
 .report-contact{min-width:145px}.contact-name{display:block;font-size:12px;font-weight:650;line-height:1.5;overflow-wrap:anywhere}.contact-phone{display:block;font-size:10px;color:#8a989e;margin-top:4px;white-space:nowrap}@media print{.report-contact{min-width:0}.contact-name{font-size:9px}.contact-phone{font-size:8px}}
 
 .team-photo-button{border:0;background:transparent;padding:0;border-radius:50%;flex-shrink:0}.team-photo-button .profile-avatar{width:44px;height:44px;font-size:14px}.team-photo-button:hover{outline:2px solid #88c38d;outline-offset:3px}.team-photo-button:focus-visible{outline:2px solid var(--green);outline-offset:3px}
+
+.customer-actions{justify-content:flex-end;min-width:155px}.customer-actions button{font-size:11px}.customer-edit-preview{border:1px solid var(--line);border-radius:9px;padding:14px;font-size:12px;line-height:1.7}.customer-edit-counts{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}.customer-edit-counts span{background:var(--green-soft);color:var(--green);padding:3px 8px;border-radius:5px;font-size:11px}.customer-edit-preview p{margin-top:10px;color:var(--muted)}
+input[name=customer],#customer-edit-form input[name=name]{text-transform:uppercase}
+.analytics-grid>.panel{min-width:0}

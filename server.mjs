@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {customerEditPreview,editCustomer} from './customer-edit.mjs';
 import {gravelValue,slumpValue} from './concrete.mjs';
 import {contactFields} from './contacts.mjs';
 import {commercialCode,savedCustomerCode,withCustomerCodes} from './commercial.mjs';
@@ -6,7 +7,7 @@ import {slotWindow,overlaps} from './maintenance.mjs';
 import {checkMonth,monthlyProduction} from './production.mjs';
 import {estimateTrips,fleetRange} from './fleet.mjs';
 import {localDay} from './changes.mjs';
-import {saveCustomer,customerKey} from './customers.mjs';
+import {saveCustomer,customerKey,customerName,customerAddresses} from './customers.mjs';
 import {changeKind,recordChange,searchName} from './changes.mjs';
 import {query, one, run, transaction, initialize} from './storage.mjs';
 import {randomBytes, scryptSync, timingSafeEqual, createHash} from 'node:crypto';
@@ -76,7 +77,7 @@ function fields(b,{allowLegacyGravel=false}={}) {
   return {
     ...scheduling(b),
     ...contactFields(b),
-    customer: text(b.customer, 'cliente'),
+    customer: customerName(text(b.customer, 'cliente')),
     work: text(b.work, 'obra/endereço', 500),
     planned_volume: number(b.planned_volume, 'Volume', 0.1),
     gravel: gravelValue(b.gravel,{legacy:allowLegacyGravel}),
@@ -513,6 +514,14 @@ async function api(req, res, url) {
     if(!Number.isInteger(seller)||seller<0)fail('Vendedor inválido.');
     const name=customerKey((url.searchParams.get('q')||'').slice(0,200));
     return await query(`SELECT c.*,u.name seller_name FROM customers c JOIN users u ON u.id=c.seller_id WHERE (?=0 OR c.seller_id=?) AND (?='' OR instr(c.name_key,?)>0) ORDER BY c.name LIMIT 100`,seller,seller,name,name);
+  }
+  const customerAddressesPath=path.match(/^\/api\/customers\/(\d+)\/addresses$/);
+  if(customerAddressesPath&&method==='GET')return customerAddresses(Number(customerAddressesPath[1]),u);
+  const customerPreviewPath=path.match(/^\/api\/customers\/(\d+)\/edit-preview$/),customerEditPath=path.match(/^\/api\/customers\/(\d+)$/);
+  if((customerPreviewPath&&method==='GET')||(customerEditPath&&method==='PATCH')){
+    if(u.role!=='programador')fail('Somente o Programador pode editar nome e vendedor do cliente.',403);
+    if(customerPreviewPath)return customerEditPreview(Number(customerPreviewPath[1]),{name:url.searchParams.get('name')??undefined,seller_id:url.searchParams.get('seller')??undefined},u);
+    return editCustomer(Number(customerEditPath[1]),await body(req),u);
   }
   if (path === '/api/requests' && method === 'GET') return manager(u) ? await query('SELECT r.*,u.name seller_name FROM requests r JOIN users u ON u.id=r.seller_id ORDER BY r.id DESC') : await query('SELECT r.*,u.name seller_name FROM requests r JOIN users u ON u.id=r.seller_id WHERE seller_id=? ORDER BY r.id DESC', u.id);
   if (path === '/api/requests' && method === 'POST') {
