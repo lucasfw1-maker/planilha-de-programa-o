@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {contactFields} from './contacts.mjs';
 import {commercialCode,savedCustomerCode,withCustomerCodes} from './commercial.mjs';
 import {slotWindow,overlaps} from './maintenance.mjs';
 import {checkMonth,monthlyProduction} from './production.mjs';
@@ -73,6 +74,7 @@ function scheduling(b) {
 function fields(b) {
   return {
     ...scheduling(b),
+    ...contactFields(b),
     customer: text(b.customer, 'cliente'),
     work: text(b.work, 'obra/endereço', 500),
     planned_volume: number(b.planned_volume, 'Volume', 0.1),
@@ -109,16 +111,25 @@ async function checkPump(b, except = 0) {
 async function audit(u, action, entity, id, detail) {
   await run('INSERT INTO audit(user_id,action,entity,entity_id,detail) VALUES(?,?,?,?,?)', u.id, action, entity, Number(id), JSON.stringify(detail));
 }
+async function contactForCustomer(input,seller){
+ const saved=await one('SELECT contact_name,contact_phone FROM customers WHERE seller_id=? AND name_key=?',seller,customerKey(input.customer));
+ return contactFields(input,saved||{});
+}
+async function saveContactForAppointment(appointment,contact){
+ if(!await one('SELECT id FROM customers WHERE seller_id=? AND name_key=?',appointment.seller_id,customerKey(appointment.customer)))await saveCustomer(appointment,appointment.seller_id);
+ await run('UPDATE customers SET contact_name=?,contact_phone=?,updated_at=? WHERE seller_id=? AND name_key=?',contact.contact_name,contact.contact_phone,new Date().toISOString(),appointment.seller_id,customerKey(appointment.customer));
+}
 async function createAppointment(b, u, requestId = null) {
   const data = fields(b);
   if (!Number.isInteger(data.trips)) fail('Viagens devem ser um número inteiro.');
   const seller = await checkSeller(b.seller_id);
   const customerCode=await savedCustomerCode(data.customer,seller);
+  Object.assign(data,await contactForCustomer(b,seller));
   const pump = await checkPump({
     ...data,
     pump_id: b.pump_id
   });
-  const result = await run(`INSERT INTO appointments(customer,work,date,start,duration,type,pump_id,seller_id,planned_volume,gravel,resistance,piece,notes,trips,load_capacity,request_id,customer_code) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, data.customer, data.work, data.date, data.start, data.duration, data.type, pump, seller, data.planned_volume, data.gravel, data.resistance, data.piece, data.notes, data.trips, data.load_capacity, requestId, customerCode);
+  const result = await run(`INSERT INTO appointments(customer,work,date,start,duration,type,pump_id,seller_id,planned_volume,gravel,resistance,piece,notes,trips,load_capacity,request_id,customer_code,contact_name,contact_phone) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, data.customer, data.work, data.date, data.start, data.duration, data.type, pump, seller, data.planned_volume, data.gravel, data.resistance, data.piece, data.notes, data.trips, data.load_capacity, requestId, customerCode, data.contact_name, data.contact_phone);
   const id = Number(result.lastInsertRowid);
   await saveCustomer(data,seller);
   await audit(u, 'criar', 'agendamento', id, data);
@@ -412,7 +423,7 @@ async function api(req, res, url) {
         ...old,
         ...b
       };
-      const data = scheduling(merged);
+      const data = scheduling(merged),contact=contactFields(b,old);
       const status = b.status ?? old.status;
       if (!['confirmado', 'andamento', 'concluido', 'cancelado'].includes(status)) fail('Status inválido.');
       const changed=['date','start','duration','type'].some(k=>data[k]!==old[k]) || (data.type==='bomba'&&Number(merged.pump_id)!==old.pump_id) || (old.status==='cancelado'&&status!=='cancelado');
@@ -424,7 +435,7 @@ async function api(req, res, url) {
       const {trips,load_capacity}=estimate;
       if(b.action && !['cancelar','remarcar'].includes(b.action))fail('Ação de agendamento inválida.');
       if(b.action==='cancelar' && status!=='cancelado')fail('Confirme o cancelamento do agendamento.');
-      const after={...old,...data,pump_id:pump,status,delivered_volume:delivered,trips,load_capacity};
+      const after={...old,...data,...contact,pump_id:pump,status,delivered_volume:delivered,trips,load_capacity};
       if(old.status==='cancelado' && status==='cancelado' && ['date','start','duration','pump_id','type'].some(key=>old[key]!==after[key]))fail('Para mudar a programação de uma obra cancelada, use Remarcar agendamento.');
       const kind=changeKind(old,after);
       const reason=kind?text(b.reason,'o motivo do cancelamento ou da remarcação',1000):'';
@@ -432,7 +443,10 @@ async function api(req, res, url) {
       if(b.action==='cancelar' && old.status==='cancelado')fail('Este agendamento já está cancelado.',409);
       if(b.action==='remarcar' && kind!=='remarcado')fail('Altere a data, o horário, a duração ou o recurso para remarcar.');
       await recordChange(u,old,after,reason);
-      await run('UPDATE appointments SET date=?,start=?,duration=?,type=?,pump_id=?,status=?,delivered_volume=?,trips=?,load_capacity=? WHERE id=?', data.date, data.start, data.duration, data.type, pump, status, delivered, trips, load_capacity, id);
+      const contactChanged=contact.contact_name!==old.contact_name||contact.contact_phone!==old.contact_phone;
+      if(contactChanged&&b.expected_information_version!==undefined&&b.expected_information_version!==old.information_version)fail('O contato foi atualizado por outra pessoa. Abra a obra novamente.',409);
+      await run('UPDATE appointments SET date=?,start=?,duration=?,type=?,pump_id=?,status=?,delivered_volume=?,trips=?,load_capacity=?,contact_name=?,contact_phone=?,information_version=information_version+? WHERE id=?', data.date, data.start, data.duration, data.type, pump, status, delivered, trips, load_capacity, contact.contact_name, contact.contact_phone,contactChanged?1:0,id);
+      if(b.contact_name!==undefined||b.contact_phone!==undefined)await saveContactForAppointment(old,contact);
       await audit(u, 'editar', 'agendamento', id, {
         antes: old,
         depois: await one('SELECT * FROM appointments WHERE id=?', id)
@@ -450,10 +464,12 @@ async function api(req, res, url) {
       if(!Number.isInteger(b.expected_version)||b.expected_version!==old.information_version)fail('As informações foram alteradas por outra pessoa. Abra a obra novamente para atualizar.',409);
       const saved=await savedCustomerCode(old.customer,old.seller_id),previousCode=old.customer_code||saved;
       const code=commercialCode(b.customer_code===undefined?previousCode:b.customer_code,'Código do cliente'),order=commercialCode(b.order_code===undefined?old.order_code:b.order_code,'Código do pedido'),item=commercialCode(b.order_item===undefined?old.order_item:b.order_item,'Item do pedido');
-      await run('UPDATE appointments SET customer_code=?,order_code=?,order_item=?,information_version=information_version+1 WHERE id=?',code,order,item,id);
+      const contact=contactFields(b,old);
+      await run('UPDATE appointments SET customer_code=?,order_code=?,order_item=?,contact_name=?,contact_phone=?,information_version=information_version+1 WHERE id=?',code,order,item,contact.contact_name,contact.contact_phone,id);
+      if(b.contact_name!==undefined||b.contact_phone!==undefined)await saveContactForAppointment(old,contact);
       if(!await one('SELECT id FROM customers WHERE seller_id=? AND name_key=?',old.seller_id,customerKey(old.customer)))await saveCustomer(old,old.seller_id);
       if(code!==previousCode||!saved)await run('UPDATE customers SET customer_code=?,updated_at=? WHERE seller_id=? AND name_key=?',code,new Date().toISOString(),old.seller_id,customerKey(old.customer));
-      await audit(u,'adicionar informações','agendamento',id,{antes:{customer_code:old.customer_code,order_code:old.order_code,order_item:old.order_item},depois:{customer_code:code,order_code:order,order_item:item}});
+      await audit(u,'adicionar informações','agendamento',id,{antes:{customer_code:old.customer_code,order_code:old.order_code,order_item:old.order_item,contact_name:old.contact_name,contact_phone:old.contact_phone},depois:{customer_code:code,order_code:order,order_item:item,...contact}});
       return {ok:true,information_version:old.information_version+1};
     });
   }
@@ -487,11 +503,12 @@ async function api(req, res, url) {
   }
   if (path === '/api/requests' && method === 'GET') return manager(u) ? await query('SELECT r.*,u.name seller_name FROM requests r JOIN users u ON u.id=r.seller_id ORDER BY r.id DESC') : await query('SELECT r.*,u.name seller_name FROM requests r JOIN users u ON u.id=r.seller_id WHERE seller_id=? ORDER BY r.id DESC', u.id);
   if (path === '/api/requests' && method === 'POST') {
-    const b = fields(await body(req));
+    const input=await body(req),b = fields(input);
     if (!Number.isInteger(b.trips)) fail('Viagens devem ser inteiras.');
     const seller = await checkSeller(u.id);
     return await transaction(async () => {
-      const id = Number((await run('INSERT INTO requests(seller_id,customer,work,date,start,duration,type,planned_volume,gravel,resistance,piece,notes,trips,load_capacity) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)', seller, b.customer, b.work, b.date, b.start, b.duration, b.type, b.planned_volume, b.gravel, b.resistance, b.piece, b.notes, b.trips, b.load_capacity)).lastInsertRowid);
+      Object.assign(b,await contactForCustomer(input,seller));
+      const id = Number((await run('INSERT INTO requests(seller_id,customer,work,date,start,duration,type,planned_volume,gravel,resistance,piece,notes,trips,load_capacity,contact_name,contact_phone) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', seller, b.customer, b.work, b.date, b.start, b.duration, b.type, b.planned_volume, b.gravel, b.resistance, b.piece, b.notes, b.trips, b.load_capacity,b.contact_name,b.contact_phone)).lastInsertRowid);
       await saveCustomer(b,seller);
       await audit(u, 'solicitar', 'solicitacao', id, b);
       return {

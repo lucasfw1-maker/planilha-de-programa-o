@@ -168,3 +168,5 @@ input:focus,select:focus,textarea:focus{background:#fff;border-color:#14962a}
 
 .auth-panel-geometry{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
 @media(min-width:761px){.auth-brand{margin-right:-140px}}
+
+.report-contact{min-width:145px}.contact-name{display:block;font-size:12px;font-weight:650;line-height:1.5;overflow-wrap:anywhere}.contact-phone{display:block;font-size:10px;color:#8a989e;margin-top:4px;white-space:nowrap}@media print{.report-contact{min-width:0}.contact-name{font-size:9px}.contact-phone{font-size:8px}}

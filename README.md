@@ -101,7 +101,7 @@ A atualização cria tabelas e índices de forma aditiva. Uma migração idempot
 
 A aba **Clientes** guarda automaticamente a última configuração usada por cliente e vendedor, ao salvar uma agenda ou solicitação. No novo formulário, escolha **Preencher com cliente cadastrado** para recuperar obra, volume, brita, Fck, peça, observações, duração, tipo e viagens. **Data, horário e bomba não são reutilizados.** Revise sempre as especificações: o último pedido não garante que o próximo tenha o mesmo concreto ou aditivo. A mudança nos padrões do cliente não altera as agendas históricas.
 
-Vendedores consultam somente seus clientes, suas ocorrências e seus históricos. Gerente, controlador e Programador consultam os dados da filial. Cadastros já presentes em agendas e solicitações são recuperados pela migração inicial sem excluir ou alterar os registros originais. Por enquanto, o cadastro é por nome normalizado e vendedor; CPF/CNPJ, contatos e múltiplos padrões por obra não foram adicionados.
+Vendedores consultam somente seus clientes, suas ocorrências e seus históricos. Gerente, controlador e Programador consultam os dados da filial. Cadastros já presentes em agendas e solicitações são recuperados pela migração inicial sem excluir ou alterar os registros originais. Por enquanto, o cadastro é por nome normalizado e vendedor; CPF/CNPJ e múltiplos padrões por obra não foram adicionados.
 
 Os formulários de criação, edição, remarcação, aprovação e disponibilidade usam **horas** para a duração: `2` para duas horas, `1,5` para uma hora e meia. Aceitam vírgula ou ponto e preservam os agendamentos existentes. Internamente, a API continua trabalhando em minutos inteiros; frações são arredondadas ao minuto mais próximo. Durações nos CSVs do histórico são identificadas em horas.
 
@@ -147,3 +147,9 @@ Clique na foto ou nas iniciais no rodapé do menu para escolher ou remover sua f
 Após o login, **Início** apresenta os totais de hoje, atalhos aos módulos existentes, o volume programado de hoje e dos próximos seis dias e a lista das obras nesse período. Os dados vêm dos agendamentos e solicitações existentes. Para vendedores, os indicadores e a lista incluem somente suas próprias obras; os atalhos seguem as permissões do perfil. A agenda diária/semanal/mensal, as fotos, os relatórios e as regras operacionais continuam disponíveis. Não foram criados módulos de laboratório ou ensaios que aparecem apenas na referência visual.
 
 No calendário mensal, passe o mouse sobre um dia ou use o foco do teclado para consultar a prévia de cliente, horário e bomba/entrega convencional. A prévia usa os dados do mês já carregados e exclui agendas canceladas. Todos os vendedores podem ver os nomes; somente o vendedor responsável e os perfis de gestão podem alterar as informações comerciais da obra. Escape fecha a prévia; clicar no dia abre a agenda diária.
+
+### Contato da obra no relatório de carregamentos
+
+Informe **Nome do contato** e **Telefone do contato** ao agendar, solicitar uma reserva ou usar **Adicionar informações** nas obras autorizadas ao perfil. Os campos são opcionais e ficam salvos no cliente para reutilização. Alterações em uma obra não mudam os contatos dos agendamentos anteriores. Na aprovação de uma reserva, o contato acompanha a solicitação.
+
+A agenda de amanhã inclui a coluna **Contato**, com nome em negrito e telefone menor em cinza, na tela, impressão/PDF e exportação CSV. Celulares são formatados como **(45) 9 1234-5678** e fixos como **(45) 3333-4444**, aceitando números digitados sem máscara e prefixo brasileiro +55. A coluna Concreto exibe a resistência no padrão **FCK 45 Mpa**, sem duplicar a unidade quando ela já está cadastrada. A peça permanece em Cliente / Obra, abaixo do endereço.

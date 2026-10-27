@@ -274,3 +274,30 @@ test('foto de perfil é individual, rejeita conteúdo ativo e pode ser removida'
  const meta=(await request('/meta',{cookie:seller.cookie})).body;assert(meta.profiles.every(p=>p.id===seller.id));assert.equal(meta.profiles[0].version,null);
  assert.equal((await request('/profile/photo',{method:'PATCH',data:{image:null}})).status,401);
 });
+
+test('contato é formatado, reaproveitado e protegido por vendedor sem alterar obras antigas',async()=>{
+ const created=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,type:'convencional',date:'2032-02-10',customer:'Contato Obra',seller_id:seller.id,contact_name:'Ana Silva',contact_phone:'45912345678'}});assert.equal(created.status,200);const id=created.body.id;
+ let a=(await request('/appointments/'+id,{cookie:seller.cookie})).body;assert.equal(a.contact_phone,'(45) 9 1234-5678');
+ const path='/appointments/'+id+'/information';
+ assert.equal((await request(path,{method:'PATCH',cookie:other,data:{expected_version:0,contact_name:'Invasão'}})).status,404);
+ assert.equal((await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:0,contact_name:'Bruno',contact_phone:'+55 (45) 3333-4444'}})).status,200);
+ a=(await request('/appointments/'+id,{cookie:seller.cookie})).body;assert.equal(a.contact_name,'Bruno');assert.equal(a.contact_phone,'(45) 3333-4444');
+ assert.equal((await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:0,contact_phone:'45999998888'}})).status,409);
+ const second=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,type:'convencional',date:'2032-02-11',customer:'CONTATO OBRA',planned_volume:72,seller_id:seller.id}});assert.equal(second.status,200);
+ const b=(await request('/appointments/'+second.body.id,{cookie:seller.cookie})).body;assert.equal(b.contact_name,'Bruno');assert.equal(b.contact_phone,'(45) 3333-4444');
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:controller,data:{contact_name:'Carla',contact_phone:'45999998888',expected_information_version:1}})).status,200);
+ assert.equal((await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:1,contact_name:'Desatualizado'}})).status,409);
+ let c=(await request('/customers?q=contato obra',{cookie:seller.cookie})).body[0];assert.equal(c.contact_name,'Carla');assert.equal(c.contact_phone,'(45) 9 9999-8888');assert.equal(c.planned_volume,72);
+ assert.equal((await request('/appointments/'+second.body.id,{cookie:seller.cookie})).body.contact_name,'Bruno');
+ const foreign=(await request('/appointments?from=2032-02-10&to=2032-02-11',{cookie:other})).body;assert(foreign.every(r=>!('contact_name' in r)&&!('contact_phone' in r)));
+ const report=(await request('/report?from=2032-02-10&to=2032-02-11',{cookie:admin})).body;assert.equal(report.find(r=>r.id===id).contact_phone,'(45) 9 9999-8888');
+ for(const contact_phone of ['123','telefone','(45) 9 9999-999999'])assert.equal((await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:2,contact_phone}})).status,400);
+ assert.equal((await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:2,contact_name:'X'.repeat(121)}})).status,400);
+ assert.equal((await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:2,contact_name:'',contact_phone:''}})).status,200);
+ c=(await request('/customers?q=contato obra',{cookie:seller.cookie})).body[0];assert.equal(c.contact_name,'');assert.equal(c.contact_phone,'');
+});
+test('aprovação de reserva transporta contato e telefone para o agendamento',async()=>{
+ const result=await request('/requests',{method:'POST',cookie:seller.cookie,data:{...booking,type:'convencional',date:'2032-03-10',customer:'Contato Reserva',contact_name:'Engenheiro João',contact_phone:'55 45 9 8765 4321'}});assert.equal(result.status,200);
+ assert.equal((await request('/requests/'+result.body.id,{method:'PATCH',cookie:controller,data:{status:'aprovada'}})).status,200);
+ const row=(await request('/report?from=2032-03-10&to=2032-03-10',{cookie:admin})).body.find(r=>r.request_id===result.body.id);assert.equal(row.contact_name,'Engenheiro João');assert.equal(row.contact_phone,'(45) 9 8765-4321');
+});
