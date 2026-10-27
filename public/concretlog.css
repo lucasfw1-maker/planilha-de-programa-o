@@ -112,7 +112,7 @@ input:focus,select:focus,textarea:focus{background:#fff;border-color:#14962a}
 .auth-brand{min-height:0;padding:0;background-image:linear-gradient(180deg,#006d7199,#0b4e4c38 52%,#103d3c80),url('/concretlog-hero.png');background-position:30% center}
 .auth-brand:after,.auth-brand>.auth-visual-label,.auth-brand>.auth-message,.auth-brand>.auth-footer{display:none}
 .auth-form-area{min-width:0;min-height:0;padding:24px 38px 24px 16px;background:transparent}
-.auth-form-area:before{inset:0 0 0 -120px;width:auto;transform:none;clip-path:polygon(15% 0,100% 0,100% 100%,0 100%);background:linear-gradient(135deg,#fff,#edf1f5);box-shadow:none}
+.auth-form-area:before{inset:0 0 0 -120px;width:auto;transform:none;clip-path:url(#auth-panel-curve);background:linear-gradient(135deg,#fff,#edf1f5);box-shadow:none}
 .auth-form{width:100%;max-width:360px}
 .auth-concretlog-logo{height:105px;max-width:340px;margin:0 auto 24px}
 .auth-unit{justify-content:center;background:none;border:0;box-shadow:none;padding:0;margin-bottom:22px;font-size:10px;color:#6a7e79}
@@ -165,3 +165,6 @@ input:focus,select:focus,textarea:focus{background:#fff;border-color:#14962a}
 .month-day:focus-visible:not(.preview-dismissed)>.month-preview{display:block}
 @media(max-width:760px){.month-day .month-preview,.month-day:nth-child(7n) .month-preview,.month-day:nth-child(7n+6) .month-preview,.month-day:nth-last-child(-n+14) .month-preview{position:fixed;top:auto;bottom:78px;left:15px;right:15px;width:auto;padding:0}.month-preview-items{max-height:35vh}}
 @media print{.month-preview{display:none!important}}
+
+.auth-panel-geometry{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
+@media(min-width:761px){.auth-brand{margin-right:-140px}}
