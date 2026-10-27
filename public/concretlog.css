@@ -225,3 +225,9 @@ input[name=customer],#customer-edit-form input[name=name]{text-transform:upperca
 .report-pdf-preview{display:block;width:100%;height:min(63vh,750px);border:1px solid var(--line);border-radius:8px;background:#e8edef}
 .report-pdf-actions a{display:inline-flex;align-items:center;gap:8px;text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:13px;font-weight:600;background:white;color:var(--ink)}
 @media print{.pdf-export-surface{display:none!important}}
+
+.contract-due{display:inline-block;width:9px;height:9px;flex-shrink:0;border-radius:50%;background:#dc3434;box-shadow:0 0 0 3px #dc343415}
+.contract-date{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;font-weight:600}
+.contract-actions{flex-wrap:wrap;min-width:180px;max-width:270px;justify-content:flex-start}.contract-actions button{font-size:11px;padding:7px 9px}
+.contract-whatsapp{display:inline-block;color:#087c2d;border:1px solid #b5dbc4;background:#eff8f1;border-radius:8px;padding:11px 16px;margin-bottom:18px;font-weight:600;text-decoration:none}
+.contract-due.contract-today{background:#1c9c55;box-shadow:0 0 0 3px #1c9c5515}

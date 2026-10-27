@@ -423,3 +423,50 @@ test('usuários online dependem de atividade, não apenas do login, e nunca exp�
  await request('/presence',{method:'POST',cookie:seller.cookie,data:{client_id:'presence-seller-tab-two',online:false}});
  assert.deepEqual((await request('/presence',{cookie:admin})).body.users,[]);
 });
+
+test('contratos: permissões, acompanhamento, agendamento atômico, conclusão e relatório histórico',async()=>{
+ const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),tomorrow=new Date(today+'T12:00:00Z');tomorrow.setUTCDate(tomorrow.getUTCDate()+1);const next=tomorrow.toISOString().slice(0,10);
+ assert.equal((await request('/contracts',{cookie:seller.cookie})).status,403);
+ const input={customer:'Cliente contrato',seller_id:seller.id,work_name:'Edifício contrato',address:'Rua dos contratos, 20',contact_name:'João',contact_phone:'45999998888',next_contact:today,last_piece:'Fundação',last_date:'2020-01-01',last_volume:20};
+ assert.equal((await request('/contracts',{method:'POST',cookie:controller,data:{...input,next_contact:'2026-02-30'}})).status,400);
+ const created=await request('/contracts',{method:'POST',cookie:controller,data:input});assert.equal(created.status,200,JSON.stringify(created.body));const id=created.body.id;
+ let list=(await request('/contracts',{cookie:manager})).body;const contract=list.find(c=>c.id===id);assert.equal(contract.customer,'CLIENTE CONTRATO');assert.equal(contract.due,true);assert.equal(contract.contact_phone,'(45) 9 9999-8888');
+ for(const path of ['/contracts/'+id,'/contracts/report?date='+today,'/contracts/'+id+'/contacts','/contracts/'+id+'/bookings','/contracts/'+id+'/close'])assert.equal((await request(path,{method:path.endsWith('contacts')||path.endsWith('bookings')||path.endsWith('close')?'POST':'GET',cookie:seller.cookie,data:path.endsWith('contacts')||path.endsWith('bookings')||path.endsWith('close')?{}:undefined})).status,403);
+ let saved=await request('/contracts/'+id+'/contacts',{method:'POST',cookie:controller,data:{expected_version:0,contact_notes:'Cliente solicitou uma nova laje',next_contact:next}});assert.equal(saved.status,200);
+ assert.equal((await request('/contracts/'+id+'/contacts',{method:'POST',cookie:manager,data:{expected_version:0,contact_notes:'Não deve duplicar',next_contact:next}})).status,409);
+ const payload={...booking,customer:'TENTATIVA TROCA',seller_id:999999,type:'convencional',date:today,work:'ENDEREÇO ERRADO',planned_volume:27,piece:'Laje do contrato',expected_version:1,contact_notes:'Combinado por telefone, agendando hoje',next_contact:next};
+ assert.equal((await request('/contracts/'+id+'/bookings',{method:'POST',cookie:controller,data:{...payload,planned_volume:-1}})).status,400);
+ let details=(await request('/contracts/'+id,{cookie:manager})).body;assert.equal(details.contacts.length,1);assert.equal(details.version,1);
+ const booked=await request('/contracts/'+id+'/bookings',{method:'POST',cookie:controller,data:payload});assert.equal(booked.status,200,JSON.stringify(booked.body));const appointment=booked.body.id;
+ details=(await request('/contracts/'+id,{cookie:manager})).body;assert.equal(details.contacts.length,2);assert.equal(details.bookings.length,1);assert.equal(details.bookings[0].customer,'CLIENTE CONTRATO');assert.equal(details.bookings[0].seller_id,seller.id);assert.equal(details.bookings[0].work,input.address);
+ assert.equal((await request('/contracts/'+id+'/bookings',{method:'POST',cookie:controller,data:payload})).status,409);
+ list=(await request('/contracts',{cookie:controller})).body;assert.equal(list.find(c=>c.id===id).last_piece,'Fundação');assert.equal(list.find(c=>c.id===id).due,false);
+ assert.equal((await request('/appointments/'+appointment,{method:'PATCH',cookie:manager,data:{status:'concluido',delivered_volume:26}})).status,200);
+ list=(await request('/contracts',{cookie:controller})).body;assert.equal(list.find(c=>c.id===id).last_piece,'Laje do contrato');assert.equal(list.find(c=>c.id===id).last_volume,26);
+ const report=(await request('/contracts/report?date='+today,{cookie:manager})).body;const row=report.rows.find(r=>r.appointment_id===appointment);assert.equal(row.date,today);assert.equal(row.planned_volume,27);assert.equal(row.resistance,booking.resistance);assert.equal(row.contact_date,today);assert(row.booked_at);
+ assert.equal((await request('/appointments/'+appointment,{method:'PATCH',cookie:manager,data:{date:next,reason:'Remarcação depois da ligação'}})).status,200);
+ const changed=(await request('/contracts/report?date='+today,{cookie:manager})).body.rows.find(r=>r.appointment_id===appointment);assert.equal(changed.date,today);assert.equal(changed.current_date,next);
+ assert.equal((await request('/appointments/'+appointment,{method:'PATCH',cookie:manager,data:{status:'cancelado',reason:'Cliente cancelou depois da remarcação'}})).status,200);
+ const clientReport=(await request('/contracts/'+id+'/customer-report',{cookie:controller})).body;assert.equal(clientReport.totals.scheduled,1);assert.equal(clientReport.totals.rescheduled,1);assert.equal(clientReport.totals.cancelled,1);assert.equal(clientReport.totals.planned,27);assert.equal(clientReport.totals.active_planned,0);assert.equal(clientReport.totals.delivered,26);assert.equal(clientReport.events.length,2);assert.equal((await request('/contracts/'+id+'/customer-report',{cookie:seller.cookie})).status,403);
+ const client=(await request('/customers?q=Cliente contrato',{cookie:manager})).body[0];const info=(await request('/contracts/customer-info?id='+client.id,{cookie:controller})).body;assert(info.addresses.includes(input.address));assert.equal(info.completed.length,0,'Concretagens futuras não viram última concretagem');
+ saved=await request('/contracts/'+id+'/close',{method:'POST',cookie:manager,data:{expected_version:2,reason:'Obra finalizada'}});assert.equal(saved.status,200);
+ assert(!(await request('/contracts',{cookie:controller})).body.some(c=>c.id===id));assert((await request('/contracts?status=encerrado',{cookie:controller})).body.some(c=>c.id===id));
+ assert.equal((await request('/contracts/'+id+'/contacts',{method:'POST',cookie:controller,data:{expected_version:3,contact_notes:'Contrato encerrado',next_contact:next}})).status,409);
+ assert.equal((await request('/contracts/'+id,{cookie:manager})).body.contacts.length,2);
+});
+
+test('contratos recuperam a concretagem da obra correta e acompanham a unificação do cliente',async()=>{
+ const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+ for(const [work,date,piece,volume] of [['Rua A','2020-03-01','Fundação A',11],['Rua B','2021-03-01','Laje B',17],['Rua A','2040-03-01','Obra futura',99]]){
+  const result=await request('/appointments',{method:'POST',cookie:controller,data:{...booking,customer:'Histórico contrato',seller_id:seller.id,type:'convencional',work,date,piece}});assert.equal(result.status,200);
+  assert.equal((await request('/appointments/'+result.body.id,{method:'PATCH',cookie:manager,data:{status:'concluido',delivered_volume:volume}})).status,200);
+ }
+ const customer=(await request('/customers?q=Histórico contrato',{cookie:manager})).body[0],ids=[];
+ for(const address of ['Rua A','Rua B']){const saved=await request('/contracts',{method:'POST',cookie:controller,data:{customer_id:customer.id,work_name:'Edifício '+address,address,next_contact:today}});assert.equal(saved.status,200,JSON.stringify(saved.body));ids.push(saved.body.id);}
+ const rows=(await request('/contracts',{cookie:controller})).body;assert.equal(rows.find(c=>c.id===ids[0]).last_piece,'Fundação A');assert.equal(rows.find(c=>c.id===ids[0]).last_volume,11);assert.equal(rows.find(c=>c.id===ids[1]).last_piece,'Laje B');
+ const info=(await request('/contracts/customer-info?id='+customer.id,{cookie:controller})).body;assert.equal(info.completed.length,2);assert.deepEqual(new Set(info.addresses),new Set(['Rua A','Rua B']));
+ assert.equal((await request('/appointments',{method:'POST',cookie:controller,data:{...booking,customer:'Destino contratos',seller_id:seller.id,type:'convencional',work:'Rua C'}})).status,200);
+ const destination=(await request('/customers?q=Destino contratos',{cookie:manager})).body[0],preview=(await request('/customers/'+customer.id+'/edit-preview?name=Destino%20contratos',{cookie:admin})).body;
+ assert.equal((await request('/customers/'+customer.id,{method:'PATCH',cookie:admin,data:{name:'Destino contratos',preview_token:preview.preview_token,merge_existing:true}})).status,200);
+ for(const id of ids){const c=(await request('/contracts/'+id,{cookie:controller})).body;assert.equal(c.customer_id,destination.id);assert.equal(c.customer,'DESTINO CONTRATOS');assert.equal(c.version,1);}
+});

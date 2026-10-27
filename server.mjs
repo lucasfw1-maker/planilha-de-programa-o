@@ -1,3 +1,4 @@
+import {contractsApi} from './contracts.mjs';
 import http from 'node:http';
 import {onlineUsers,userIsOnline,updatePresence} from './presence.mjs';
 import {customerEditPreview,editCustomer} from './customer-edit.mjs';
@@ -284,6 +285,7 @@ async function api(req, res, url) {
   }
   if (u.status !== 'aprovado') fail('Acesso não aprovado.', 403);
   if (u.must_change) fail('Troque a senha temporária antes de acessar os módulos.', 403);
+  if(path.startsWith('/api/contracts'))return contractsApi({path,method,url,u,body:()=>body(req),createAppointment});
   if(path==='/api/presence'&&method==='GET')return {users:await onlineUsers(),ttl_seconds:90};
   if(path==='/api/presence'&&method==='POST'){
     const b=await body(req),token=(req.headers.cookie||'').split(';').map(value=>value.trim()).find(value=>value.startsWith('session='))?.slice(8);
@@ -673,6 +675,7 @@ async function api(req, res, url) {
   fail('Recurso não encontrado.', 404);
 }
 const assets = {
+  '/contracts.js': ['contracts.js', 'text/javascript; charset=utf-8'],
   '/vendor/html-to-image.js': ['vendor/html-to-image.js', 'text/javascript; charset=utf-8'],
   '/vendor/jspdf.umd.min.js': ['vendor/jspdf.umd.min.js', 'text/javascript; charset=utf-8'],
   '/report-pdf.js': ['report-pdf.js', 'text/javascript; charset=utf-8'],

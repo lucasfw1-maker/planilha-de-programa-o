@@ -45,10 +45,12 @@ export async function editCustomer(id,input,actor){
   for(const batch of chunks(edit.requests.map(r=>r.id)))await run(`UPDATE requests SET customer=?,seller_id=? WHERE id IN (${batch.map(()=>'?').join(',')})`,proposed.name,proposed.seller_id,...batch);
   // Current report attribution follows the client; original event snapshots and actors remain intact.
   for(const batch of chunks(edit.events.map(e=>e.id)))await run(`UPDATE appointment_events SET customer=?,customer_search=?,seller_id=? WHERE id IN (${batch.map(()=>'?').join(',')})`,proposed.name,searchName(proposed.name),proposed.seller_id,...batch);
+  await run('UPDATE active_contracts SET version=version+1 WHERE customer_id=? OR customer_id=?',customer.id,destination?.id||customer.id);
   let resultId=customer.id;
   if(destination){
    const latest=(Date.parse(customer.updated_at)||0)>(Date.parse(destination.updated_at)||0)?customer:destination;
    const defaults=['work','gravel','resistance','slump','piece','notes','planned_volume','trips','duration','type','load_capacity','customer_code','contact_name','contact_phone'];
+   await run('UPDATE active_contracts SET customer_id=? WHERE customer_id=?',destination.id,customer.id);
    await run('DELETE FROM customers WHERE id=?',customer.id);
    await run(`UPDATE customers SET name=?,name_key=?,${defaults.map(field=>field+'=?').join(',')},updated_at=? WHERE id=?`,proposed.name,proposed.name_key,...defaults.map(field=>latest[field]),stamp,destination.id);
    resultId=destination.id;

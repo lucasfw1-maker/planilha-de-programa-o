@@ -18,6 +18,13 @@ INSERT OR IGNORE INTO fleet_defaults(effective_date,trucks) VALUES('1970-01-01',
 CREATE TABLE IF NOT EXISTS monthly_goals(month TEXT PRIMARY KEY, volume REAL NOT NULL CHECK(volume>0), updated_by INTEGER NOT NULL REFERENCES users(id), updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS maintenance_periods(id INTEGER PRIMARY KEY,pump_id INTEGER NOT NULL REFERENCES pumps(id),starts_at TEXT NOT NULL,ends_at TEXT NOT NULL,reason TEXT NOT NULL,created_by INTEGER NOT NULL REFERENCES users(id),created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,cancelled_by INTEGER REFERENCES users(id),cancelled_at TEXT,cancel_reason TEXT);
 CREATE INDEX IF NOT EXISTS maintenance_pump_period ON maintenance_periods(pump_id,starts_at,ends_at);
+CREATE TABLE IF NOT EXISTS active_contracts(id INTEGER PRIMARY KEY,customer_id INTEGER REFERENCES customers(id),customer TEXT NOT NULL,seller_id INTEGER NOT NULL REFERENCES users(id),work_name TEXT NOT NULL,address TEXT NOT NULL,contact_name TEXT NOT NULL DEFAULT '',contact_phone TEXT NOT NULL DEFAULT '',next_contact TEXT NOT NULL,last_piece TEXT NOT NULL DEFAULT '',last_date TEXT NOT NULL DEFAULT '',last_volume REAL,status TEXT NOT NULL DEFAULT 'ativo',version INTEGER NOT NULL DEFAULT 0,created_by INTEGER NOT NULL REFERENCES users(id),created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,closed_at TEXT,closed_by INTEGER REFERENCES users(id),close_reason TEXT);
+CREATE INDEX IF NOT EXISTS contracts_due ON active_contracts(status,next_contact);
+CREATE TABLE IF NOT EXISTS contract_contacts(id INTEGER PRIMARY KEY,contract_id INTEGER NOT NULL REFERENCES active_contracts(id),actor_id INTEGER NOT NULL REFERENCES users(id),contact_date TEXT NOT NULL,notes TEXT NOT NULL,next_contact TEXT NOT NULL,created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS contract_bookings(id INTEGER PRIMARY KEY,contract_id INTEGER NOT NULL REFERENCES active_contracts(id),contact_id INTEGER NOT NULL REFERENCES contract_contacts(id),appointment_id INTEGER NOT NULL UNIQUE REFERENCES appointments(id),actor_id INTEGER NOT NULL REFERENCES users(id),booked_at TEXT NOT NULL,snapshot_json TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS contracts_contacts_date ON contract_contacts(contact_date);
+CREATE INDEX IF NOT EXISTS contracts_contact_history ON contract_contacts(contract_id,id);
+CREATE INDEX IF NOT EXISTS contracts_booking_history ON contract_bookings(contract_id,id);
 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS rate_limits(key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL);
 INSERT OR IGNORE INTO settings VALUES('buffer_minutes','30');`;

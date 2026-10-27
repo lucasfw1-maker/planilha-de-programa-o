@@ -8,6 +8,8 @@ function reportLibrary(src){
  return reportPdfLibraries.get(src);
 }
 function reportFileName(page){
+ if(page==='customerContractReport')return 'historico-cliente-'+state.selectedContractId+'.pdf';
+ if(page==='contractReport')return 'contratos-ligacoes-'+state.contractReportDate+'.pdf';
  if(page==='next')return 'programacao-cascavel-'+loadingReportDate()+'.pdf';
  if(page==='production')return 'producao-e-metas-'+state.productionFilters.month+'.pdf';
  if(page==='changes')return 'cancelamentos-remarcacoes-'+state.changeFilters.from+'.pdf';
@@ -66,7 +68,7 @@ function repeatedReportHeader(info){
  table.append(columns,info.table.tHead.cloneNode(true));wrapper.append(table);return wrapper;
 }
 async function printReport(){
- if(!state.user||!['reports','next','changes','production'].includes(state.page))return;
+ if(!state.user||!['reports','next','changes','production','contractReport','customerContractReport'].includes(state.page))return;
  const button=$('#print');if(!button||button.disabled||preparingReportPdf)return;
  const original=button.innerHTML,filename=reportFileName(state.page),generatedAt=new Date(),author={id:state.user.id,name:state.user.name,role:roleNames[state.user.role],version:state.meta.profiles?.find(profile=>profile.id===state.user.id)?.version};
  const content=$('#page-content').cloneNode(true);content.removeAttribute('id');content.className='pdf-export-content';
