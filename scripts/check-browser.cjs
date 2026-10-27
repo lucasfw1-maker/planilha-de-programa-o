@@ -518,6 +518,41 @@ const ROOT=require('node:path').resolve(__dirname,'..');
  const scheduledWork=await page.evaluate(async date=>(await (await fetch('/api/appointments?from='+date+'&to='+date)).json()).find(a=>a.pump_id&&a.status!=='cancelado'),result.date);assert(scheduledWork);
  await page.locator('.sidebar [data-page=equipmentMaintenance]').click();await page.getByRole('button',{name:'Sugerir manutenção',exact:true}).click();await page.getByLabel('Equipamento *',{exact:true}).selectOption('bomba:'+scheduledWork.pump_id);await page.getByLabel('Início da manutenção *',{exact:true}).fill(result.date+'T'+scheduledWork.start);const finish=await page.evaluate(a=>endTime(a),scheduledWork);await page.getByLabel('Fim da manutenção *',{exact:true}).fill(result.date+'T'+finish);await page.getByLabel('Serviço / motivo *',{exact:true}).fill('Inspeção com obra já agendada');await page.getByRole('button',{name:'Consultar obras neste período',exact:true}).click();await page.locator('#equipment-proposal-warning').getByText('Atenção:',{exact:false}).waitFor();assert(await page.getByRole('button',{name:'Enviar para a logística',exact:true}).isEnabled());await page.getByRole('button',{name:'Enviar para a logística',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('dialog').open);await page.locator('.equipment-job').filter({hasText:'Inspeção com obra já agendada'}).getByText('obra(s) no período.',{exact:false}).waitFor();
 
+
+ // Accepting pump maintenance opens the affected bookings and returns after each reassignment.
+ const techApi=await browser.newContext();try{
+  const login=await techApi.request.post('http://127.0.0.1:'+port+'/api/login',{data:{username:'manutencao.equip',password:'Browser-Test-2027!Pessoal'}});assert(login.ok());
+  const job=await page.evaluate(()=>state.maintenanceJobs.find(j=>j.reason==='Inspeção com obra já agendada'));
+  const counter=await techApi.request.post('http://127.0.0.1:'+port+'/api/equipment-maintenance/requests/'+job.id+'/negotiate',{data:{side:'maintenance',expected_revision:job.revision,starts_at:job.starts_at,ends_at:job.ends_at,reason:'Inspeção com obra já agendada — revisão',note:'Solicitar ajuste das bombas.'}});assert(counter.ok());
+  const spare=await page.evaluate(async()=>api('/pumps',{method:'POST',body:JSON.stringify({name:'BL SUBSTITUTA',branch:'pacaembu'})}));
+  await page.evaluate(async id=>{await refresh();await equipmentJob(id,'logistics');},job.id);
+  await page.getByRole('button',{name:'Aceitar esta programação',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('dialog[open] h2')?.textContent==='Agendamentos afetados pela manutenção'||document.querySelector('dialog[open] h2')?.textContent==='Remarcar agendamento');
+  if(await page.getByRole('heading',{name:'Agendamentos afetados pela manutenção',exact:true}).count())await page.getByRole('button',{name:'Trocar bomba',exact:true}).first().click();
+  await page.getByRole('heading',{name:'Remarcar agendamento',exact:true}).waitFor();
+  assert.equal(await page.locator('dialog [name=pump_id]').inputValue(),'');
+  assert.match(await page.locator('dialog [name=reason]').inputValue(),/Troca de bomba por manutenção/);
+  await page.locator('dialog [name=pump_id]').selectOption(String(spare.id));
+  await page.getByRole('button',{name:'Confirmar remarcação',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('dialog[open] h2')?.textContent==='Agendamentos afetados pela manutenção'||document.body.innerText.includes('Todos os agendamentos foram ajustados.'));
+  const remaining=await page.evaluate(id=>api('/equipment-maintenance/requests/'+id),job.id);assert(remaining.conflicts.length<job.conflicts.length);
+  await page.evaluate(async date=>{modal.close();state.page='agenda';state.mode='month';state.date=date;await refresh();},result.date);
+  const pumpDay=page.locator('.month-day[data-day="'+result.date+'"]');await pumpDay.hover();await pumpDay.getByRole('tooltip').getByText('Equipamentos em manutenção',{exact:true}).waitFor();await pumpDay.getByRole('tooltip').getByText('Inspeção com obra já agendada — revisão',{exact:true}).waitFor();await pumpDay.getByRole('tooltip').screenshot({path:join(ROOT,'.data','review','pump-maintenance-month-preview.png')});await page.keyboard.press('Escape');
+
+  await page.evaluate(id=>equipmentJob(id,'logistics'),job.id);
+  await page.getByRole('button',{name:'Solicitar troca de data',exact:true}).click();
+  const newDay=await page.evaluate(date=>shift(date,7),result.date);
+  await page.getByLabel('Novo início *',{exact:true}).fill(newDay+'T07:00');await page.getByLabel('Novo fim *',{exact:true}).fill(newDay+'T18:00');await page.getByLabel('Motivo da solicitação *',{exact:true}).fill('Reorganizar a frota para obra prioritária.');await page.getByRole('button',{name:'Enviar solicitação',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('dialog').open);
+  const dateRequest=await page.evaluate(id=>state.maintenanceJobs.find(j=>j.change_of===id&&j.status==='negociando'),job.id);assert(dateRequest);
+  assert.equal((await page.evaluate(id=>api('/equipment-maintenance/requests/'+id),job.id)).status,'confirmado');
+  const agreed=await techApi.request.post('http://127.0.0.1:'+port+'/api/equipment-maintenance/requests/'+dateRequest.id+'/accept',{data:{side:'maintenance',expected_revision:dateRequest.revision}});assert(agreed.ok());
+  await page.evaluate(id=>equipmentJob(id,'logistics'),dateRequest.id);await page.getByRole('button',{name:'Solicitar cancelamento',exact:true}).click();await page.getByLabel('Motivo da solicitação *',{exact:true}).fill('Oficina dispensou a manutenção.');await page.getByRole('button',{name:'Enviar solicitação',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('dialog').open);
+  const cancelRequest=await page.evaluate(id=>state.maintenanceJobs.find(j=>j.change_of===id&&j.change_action==='cancel'&&j.status==='negociando'),dateRequest.id);assert(cancelRequest);
+  const cancelled=await techApi.request.post('http://127.0.0.1:'+port+'/api/equipment-maintenance/requests/'+cancelRequest.id+'/accept',{data:{side:'maintenance',expected_revision:cancelRequest.revision}});assert(cancelled.ok());
+  assert.equal((await page.evaluate(id=>api('/equipment-maintenance/requests/'+id),dateRequest.id)).status,'cancelado');
+
+ }finally{await techApi.close();}
+
  assert.deepEqual(errors,[]);
  console.log('PASS navegador: primeiro acesso, sessão, agenda dia/semana/mês, registro do entregue, filtros de relatório, exportação CSV, celular sem transbordamento, favicon, coroa exclusiva, troca de senha, disponibilidade, solicitação do vendedor, clientes, cancelamento, remarcações, histórico, gráficos e nenhum erro JS/CSP.');
  }finally{await browser?.close();server.kill();rmSync(dir,{recursive:true,force:true});}

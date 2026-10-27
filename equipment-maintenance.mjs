@@ -26,6 +26,14 @@ async function get(id){const job=await one(select+' WHERE j.id=?',id);if(!job)fa
 async function confirm(job,u){
  if(!job.maintenance_approved_by||!job.logistics_approved_by)return;
  if(job.maintenance_approved_by===job.logistics_approved_by)fail('Manutenção e logística precisam de aprovações de pessoas diferentes.',409);
+ if(job.change_of){
+  const original=await get(job.change_of);if(original.status!=='confirmado')fail('A manutenção original já foi alterada ou cancelada. Revise o pedido.',409);
+  const note=job.change_action==='cancel'?'Cancelamento aceito pelas duas partes.':'Substituída pela programação #'+job.id+' aceita pelas duas partes.';
+  await run("UPDATE maintenance_jobs SET status='cancelado',revision=revision+1,updated_at=? WHERE id=?",new Date().toISOString(),original.id);
+  if(original.period_id)await run('UPDATE maintenance_periods SET cancelled_by=?,cancelled_at=?,cancel_reason=? WHERE id=?',u.id,new Date().toISOString(),note,original.period_id);
+  original.revision++;await event(u,original,'alteração aprovada','both',note);
+  if(job.change_action==='cancel'){await run("UPDATE maintenance_jobs SET status='cancelado',updated_at=? WHERE id=?",new Date().toISOString(),job.id);job.status='cancelado';await event(u,job,'aprovar cancelamento','both',note);return;}
+ }
  const conflict=await one("SELECT id FROM maintenance_jobs WHERE id<>? AND status='confirmado' AND equipment_type=? AND COALESCE(pump_id,cb_id)=? AND starts_at<? AND ends_at>?",job.id,job.equipment_type,job.pump_id||job.cb_id,job.ends_at,job.starts_at);if(conflict)fail('Este equipamento já tem manutenção confirmada neste intervalo.',409);
  const equipment=await one(job.equipment_type==='bomba'?'SELECT active FROM pumps WHERE id=?':'SELECT active FROM maintenance_cbs WHERE id=?',job.pump_id||job.cb_id);if(!equipment?.active)fail('O equipamento está inativo. Ative-o antes da confirmação.',409);
  let periodId=null;
@@ -56,6 +64,19 @@ export async function equipmentMaintenanceApi({path,method,url,u,body}){
   const equipment=await one(kind==='bomba'?'SELECT * FROM pumps WHERE id=?':'SELECT *,code name FROM maintenance_cbs WHERE id=?',pump||cb);if(!equipment.active)fail('O equipamento está inativo. Ative-o na Gerência antes de propor manutenção.');
   return transaction(async()=>{const stamp=new Date().toISOString(),id=Number((await run("INSERT INTO maintenance_jobs(equipment_type,pump_id,cb_id,starts_at,ends_at,reason,maintenance_approved_by,proposed_by,proposed_side,equipment_code,equipment_plate,branch,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,'maintenance',?,?,?,?,?)",kind,pump,cb,data.starts_at,data.ends_at,data.reason,u.id,u.id,equipment.name,equipment.plate,equipment.branch,stamp,stamp)).lastInsertRowid);const job=await get(id);await event(u,job,'sugerir manutenção','maintenance',typeof b.note==='string'?b.note.slice(0,2000):'');return job;});
  }
+ const changeMatch=route.match(/^\/requests\/(\d+)\/change$/);
+ if(changeMatch&&method==='POST'){
+  if(!sideAccess(u,'logistics'))fail('Somente a logística ou gestão pode solicitar esta alteração.',403);
+  const b=await body();return transaction(async()=>{
+   const original=await get(Number(changeMatch[1]));if(original.status!=='confirmado'||Number(b.expected_revision)!==original.revision)fail('A programação mudou. Abra novamente antes de solicitar.',409);
+   if(await one("SELECT id FROM maintenance_jobs WHERE change_of=? AND status='negociando'",original.id))fail('Já existe um pedido em negociação para esta manutenção.',409);
+   if(!['cancel','reschedule'].includes(b.action))fail('Escolha cancelamento ou troca de data.');
+   const note=text(b.note,'o motivo da solicitação',2000),data=b.action==='cancel'?original:period({...b,reason:original.reason});
+   if(b.action==='reschedule'&&data.starts_at===original.starts_at&&data.ends_at===original.ends_at)fail('Escolha um novo período.');
+   const stamp=new Date().toISOString(),id=Number((await run("INSERT INTO maintenance_jobs(change_of,change_action,equipment_type,pump_id,cb_id,starts_at,ends_at,reason,logistics_approved_by,proposed_by,proposed_side,equipment_code,equipment_plate,branch,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,'logistics',?,?,?,?,?)",original.id,b.action,original.equipment_type,original.pump_id,original.cb_id,data.starts_at,data.ends_at,original.reason,u.id,u.id,original.equipment_code,original.equipment_plate,original.branch,stamp,stamp)).lastInsertRowid);
+   const job=await get(id);await event(u,job,b.action==='cancel'?'solicitar cancelamento':'solicitar troca de data','logistics',note);await event(u,original,'solicitação de alteração','logistics','Pedido #'+id+': '+note);return job;
+  });
+ }
  const match=route.match(/^\/requests\/(\d+)(?:\/(accept|negotiate|cancel))?$/);if(!match)fail('Recurso não encontrado.',404);const id=Number(match[1]),action=match[2];
  if(method==='GET'&&!action){const job=await get(id);return {...job,events:await query('SELECT e.*,u.name actor_name FROM maintenance_job_events e JOIN users u ON u.id=e.actor_id WHERE job_id=? ORDER BY e.id',id)};}
  if(method!=='POST'||!action)fail('Operação inválida.',405);
@@ -68,6 +89,7 @@ export async function equipmentMaintenanceApi({path,method,url,u,body}){
   }
   if(job.status!=='negociando')fail('A programação já está confirmada. Para outra data, crie uma nova proposta.',409);
   if(action==='negotiate'){
+   if(job.change_action==='cancel')fail('Para sugerir outra data, recuse o cancelamento e abra um pedido de troca de data.');
    const data=period(b),note=text(b.note,'a observação da negociação',2000);if(data.starts_at===job.starts_at&&data.ends_at===job.ends_at&&data.reason===job.reason)fail('Altere o período ou o serviço para negociar outra proposta.');
    Object.assign(job,data,{revision:job.revision+1,maintenance_approved_by:side==='maintenance'?u.id:null,logistics_approved_by:side==='logistics'?u.id:null});
    await run('UPDATE maintenance_jobs SET starts_at=?,ends_at=?,reason=?,revision=?,maintenance_approved_by=?,logistics_approved_by=?,proposed_side=?,updated_at=? WHERE id=?',job.starts_at,job.ends_at,job.reason,job.revision,job.maintenance_approved_by,job.logistics_approved_by,side,new Date().toISOString(),id);await event(u,job,'negociar outra data',side,note);return get(id);

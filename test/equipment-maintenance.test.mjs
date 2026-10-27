@@ -80,3 +80,25 @@ test('capacidade de carga é validada, editável e número do CB é padronizado'
  assert.equal((await req('/equipment-maintenance/equipment',manager)).body.cbs.find(c=>c.id===cb).capacity_m3,9.5);
  assert.equal((await req('/equipment-maintenance/equipment/'+cb,manager,'PATCH',{capacity_m3:-8})).status,400);
 });
+
+test('logística solicita troca de data e cancelamento; programação original vale até acordo',async()=>{
+ const original=(await req('/equipment-maintenance/requests',maintenance,'POST',{equipment_type:'bomba',pump_id:pump,starts_at:'2033-03-01T07:00',ends_at:'2033-03-03T18:00',reason:'Revisão negociada'})).body;
+ assert.equal((await req('/equipment-maintenance/requests/'+original.id+'/accept',logistics,'POST',{side:'logistics',expected_revision:0})).status,200);
+ const request={action:'reschedule',expected_revision:0,starts_at:'2033-03-02T07:00',ends_at:'2033-03-04T18:00',note:'Obra prioritária no primeiro dia.'};
+ assert.equal((await req('/equipment-maintenance/requests/'+original.id+'/change',seller,'POST',request)).status,403);
+ const changed=await req('/equipment-maintenance/requests/'+original.id+'/change',logistics,'POST',request);assert.equal(changed.status,200,JSON.stringify(changed.body));
+ assert.equal((await req('/equipment-maintenance/requests/'+original.id+'/change',manager,'POST',request)).status,409);
+ let calendar=(await req('/equipment-maintenance/calendar?from=2033-03-01&to=2033-03-04',logistics)).body;assert(calendar.some(j=>j.id===original.id));assert(!calendar.some(j=>j.id===changed.body.id));
+ assert.equal((await req('/equipment-maintenance/requests/'+changed.body.id+'/accept',logistics,'POST',{side:'maintenance',expected_revision:0})).status,403);
+ const accepted=await req('/equipment-maintenance/requests/'+changed.body.id+'/accept',maintenance,'POST',{side:'maintenance',expected_revision:0});assert.equal(accepted.status,200,JSON.stringify(accepted.body));assert.equal(accepted.body.status,'confirmado');
+ calendar=(await req('/equipment-maintenance/calendar?from=2033-03-01&to=2033-03-04',logistics)).body;assert(!calendar.some(j=>j.id===original.id));assert(calendar.some(j=>j.id===changed.body.id));
+ const cancellation=await req('/equipment-maintenance/requests/'+changed.body.id+'/change',logistics,'POST',{action:'cancel',expected_revision:0,note:'Serviço dispensado.'});assert.equal(cancellation.status,200);
+ assert.equal((await req('/equipment-maintenance/requests/'+changed.body.id,maintenance)).body.status,'confirmado');
+ assert.equal((await req('/equipment-maintenance/requests/'+cancellation.body.id+'/cancel',maintenance,'POST',{side:'maintenance',expected_revision:0,note:'Serviço ainda necessário.'})).status,200);
+ assert.equal((await req('/equipment-maintenance/requests/'+changed.body.id,maintenance)).body.status,'confirmado');
+ const retry=(await req('/equipment-maintenance/requests/'+changed.body.id+'/change',logistics,'POST',{action:'cancel',expected_revision:0,note:'Novo acordo com oficina.'})).body;
+ assert.equal((await req('/equipment-maintenance/requests/'+retry.id+'/accept',maintenance,'POST',{side:'maintenance',expected_revision:0})).status,200);
+ assert.equal((await req('/equipment-maintenance/requests/'+changed.body.id,maintenance)).body.status,'cancelado');
+ assert.equal((await req('/equipment-maintenance/calendar?from=2033-03-01&to=2033-03-04',logistics)).body.length,0);
+ const history=(await req('/equipment-maintenance/requests/'+retry.id,maintenance)).body;assert(history.events.some(e=>e.action==='aprovar cancelamento'));assert(history.maintenance_approved_by);assert(history.logistics_approved_by);
+});

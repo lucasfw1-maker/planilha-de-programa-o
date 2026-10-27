@@ -421,12 +421,12 @@ function reportTabs(active) {
 function expectedSchedule(a){return Object.fromEntries(['date','start','duration','pump_id','type','status'].map(k=>[k,a[k]]));}
 function scheduleText(a){return `${fmt(a.date)} · ${a.start}–${endTime(a)} · ${a.type==='convencional'?'Convencional':a.pump_name||(a.pump_id?'Bomba #'+a.pump_id:'Bomba não registrada')}`;}
 function eventTime(e){return e.created_at?new Date(e.created_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}):'Data não registrada';}
-function changeBooking(a,action){
+function changeBooking(a,action,onSaved){
   const cancel=action==='cancelar';
   dialog(cancel?'Cancelar agendamento':'Remarcar agendamento',customerName(a.customer)+' · '+a.work,`<div class="notice">Programação atual: ${esc(scheduleText(a))}. ${cancel?'O cancelamento libera a bomba e mantém o histórico.':'A nova programação será conferida quanto a conflitos.'}</div><form><div class="form-grid">${!cancel?`<label>Nova data<input type="date" name="date" required value="${a.date}"></label><label>Novo horário<input type="time" name="start" required value="${a.start}"></label>${hoursField('Duração (horas)',a.duration)}<label>Tipo de entrega<select name="type"><option value="bomba">Com bomba</option><option value="convencional" ${a.type==='convencional'?'selected':''}>Convencional</option></select></label><label class="span-2" id="reschedule-pump">Bomba<select name="pump_id">${pumpOptions(a.pump_id)}</select></label>`:''}<label class="span-2">Motivo ${cancel?'do cancelamento':'da remarcação'} *<textarea name="reason" required maxlength="1000" placeholder="Ex.: solicitação do cliente, chuva, mudança no andamento da obra…"></textarea></label></div>${footer(cancel?'Confirmar cancelamento':'Confirmar remarcação')}</form>`,async data=>{
     const payload={...data,action,status:cancel?'cancelado':a.status==='cancelado'?'confirmado':a.status,expected:expectedSchedule(a)};
     await api('/appointments/'+a.id,{method:'PATCH',body:JSON.stringify(payload)});
-    modal.close();toast(cancel?'Agendamento cancelado. Histórico preservado.':'Agendamento remarcado. Histórico preservado.');await refresh();
+    modal.close();toast(cancel?'Agendamento cancelado. Histórico preservado.':'Agendamento remarcado. Histórico preservado.');await refresh();if(onSaved)await onSaved();
   });
   if(!cancel){const type=$('[name=type]',modal);type.onchange=()=>{$('#reschedule-pump',modal).hidden=type.value==='convencional';};type.onchange();}
 }
@@ -722,11 +722,11 @@ function homeVolumeChart(rows,start){
 }
 
 function monthDayPreview(date,bookings){
- const rows=[...bookings].sort((a,b)=>a.start.localeCompare(b.start)),cbs=(state.equipmentCalendar||[]).filter(j=>j.equipment_type==='cb'&&j.starts_at<shift(date,1)+'T00:00'&&j.ends_at>date+'T00:00');
- return `<span class="month-preview ${cbs.length?'with-cbs':''}" id="month-preview-${date}" role="tooltip"><span class="month-preview-card"><span class="month-preview-heading">${esc(fmt(date,{weekday:'long',day:'numeric',month:'long'}))}<span>${rows.length} obra${rows.length===1?'':'s'}${cbs.length?' · '+new Set(cbs.map(j=>j.cb_id)).size+' CB(s) em manutenção':''}</span></span><span class="month-preview-columns"><span class="month-preview-items">${rows.map(a=>{
+ const rows=[...bookings].sort((a,b)=>a.start.localeCompare(b.start)),equipment=(state.equipmentCalendar||[]).filter(j=>j.starts_at<shift(date,1)+'T00:00'&&j.ends_at>date+'T00:00');
+ return `<span class="month-preview ${equipment.length?'with-cbs':''}" id="month-preview-${date}" role="tooltip"><span class="month-preview-card"><span class="month-preview-heading">${esc(fmt(date,{weekday:'long',day:'numeric',month:'long'}))}<span>${rows.length} obra${rows.length===1?'':'s'}${equipment.length?' · '+new Set(equipment.map(j=>j.equipment_type+':'+(j.cb_id||j.pump_id))).size+' equipamento(s) em manutenção':''}</span></span><span class="month-preview-columns"><span class="month-preview-items">${rows.map(a=>{
   const customer=a.customer?customerName(a.customer):'Horário ocupado',resource=a.type==='convencional'||!a.pump_id?'Convencional':a.pump_name||state.meta.pumps.find(p=>p.id===a.pump_id)?.name||'Bomba';
   return `<span class="month-preview-work"><span class="month-preview-time">${esc(a.start)}</span><span class="month-preview-client"><strong>${esc(customer)}</strong><small>${esc(resource)}</small>${a.slump?`<small>${esc(displaySlump(a.slump))}</small>`:''}</span></span>`;
- }).join('')||'<span class="month-preview-empty">Nenhuma obra agendada neste dia.</span>'}</span>${cbs.length?`<span class="month-preview-maintenance"><strong>CBs em manutenção</strong>${cbs.map(j=>`<span><b>${esc(j.cb_code)}</b><small>${esc(branchNames[j.branch])} · ${esc(j.equipment_plate||'')}</small><small>${esc(j.reason)}</small></span>`).join('')}</span>`:''}</span><span class="month-preview-footer">Clique no dia para abrir a agenda</span></span></span>`;
+ }).join('')||'<span class="month-preview-empty">Nenhuma obra agendada neste dia.</span>'}</span>${equipment.length?`<span class="month-preview-maintenance"><strong>Equipamentos em manutenção</strong>${equipment.map(j=>`<span><b>${esc(jobCode(j))}</b><small>${j.equipment_type==='cb'?'CB':'Bomba'} · ${esc(branchNames[j.branch]||'')} · ${esc(j.equipment_plate||'')}</small><small>${esc(j.reason)}</small></span>`).join('')}</span>`:''}</span><span class="month-preview-footer">Clique no dia para abrir a agenda</span></span></span>`;
 }
 
 function contactInputs(data={}){
