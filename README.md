@@ -235,10 +235,18 @@ O menu lateral agrupa **Solicitações** e **Agenda de amanhã** sob **Agenda de
 - Propostas pendentes não bloqueiam bombas nem descontam CBs. Na confirmação, períodos simultâneos do mesmo equipamento são recusados, mas obras comerciais existentes geram **aviso sem bloquear o acordo**, conforme a regra operacional escolhida.
 - Propostas podem ser recusadas com motivo. Programações já confirmadas só podem ser canceladas por Gerente/Programador, com motivo; isso libera o bloqueio da bomba ou a indisponibilidade do CB sem excluir os registros.
 - **Agenda de manutenção** mostra as programações confirmadas por mês e filial. Na agenda mensal de obras, a prévia do dia inclui ao lado bombas e CBs em manutenção, placa, filial e serviço.
-- **Relatório de manutenção** filtra período, filial, equipamento e situação. Inclui serviços, responsáveis pelos aceites e o histórico completo das negociações/aprovações, com impressão/PDF e identificação do autor. Registros anteriores ao módulo também são mantidos e identificados como anteriores, sem inventar aprovações antigas.
+- **Relatório de manutenção** filtra período, filial, equipamento e situação. O relatório operacional inclui serviços, execuções, quantitativos, repetições, intervalos e gráficos, com impressão/PDF e identificação do autor. Aceites e negociações ficam somente nos detalhes da programação. Registros anteriores ao módulo também são mantidos e identificados como anteriores, sem inventar aprovações antigas.
 
 O relatório da **Agenda de amanhã**, inclusive para datas escolhidas em **Outras datas**, inclui uma seção de equipamentos em manutenção confirmada naquele dia, com bombas/CBs, placa, filial, período e serviço. A seção acompanha a impressão/PDF e inclui manutenções que abrangem vários dias. A frota mantém histórico diário de cadastro/ativação/filial dos CBs para que alterações posteriores não modifiquem a quantidade disponível em dias anteriores.
 
 Ao aceitar e confirmar manutenção de bomba com obras no intervalo, a logística/gestão recebe a remarcação diretamente (uma obra) ou uma lista de agendamentos para trocar a bomba (várias obras). O motivo vem preenchido e a disponibilidade é validada ao salvar. A lista pode ser reaberta no detalhe da manutenção confirmada.
 
 A logística/gestão pode solicitar cancelamento ou troca de data de uma manutenção confirmada. O pedido tem aceites e histórico próprios; o bloqueio original permanece até o acordo. Recusar o pedido preserva o original. Aceitar uma nova data substitui o bloqueio anterior na mesma transação; aceitar cancelamento libera o período. Só um pedido por programação pode estar em negociação.
+
+
+### Histórico operacional de manutenção
+
+- No detalhe de uma programação confirmada, **Iniciar manutenção** registra a data e os serviços em execução. **Registrar serviços realizados** registra a execução concluída com data, observações e uma lista de serviços com quantidade e unidade. Manutenção, Gerente e Programador podem registrar a execução; o Controlador não pode. Uma conclusão não pode ser duplicada, cancelada ou remarcada.
+- **Relatório deste equipamento** abre todo o histórico do veículo, incluindo execuções iniciadas ou concluídas. No relatório, selecione vários equipamentos na lista ou use **Todos os equipamentos**. É possível consultar todo o histórico ou filtrar pelas datas programadas.
+- Os gráficos mostram manutenções por equipamento (realizadas/em execução) e frequência dos serviços concluídos. A tabela agrupa por equipamento, nome do serviço e unidade: número de manutenções, repetições após a primeira, quantidade total e os intervalos em dias entre as execuções filtradas. Quantidades de unidades distintas não são somadas. Registros apenas programados não são presumidos como realizados.
+- O relatório e o PDF não exibem logs de auditoria, aprovações ou negociações; esses registros permanecem nos detalhes da programação.

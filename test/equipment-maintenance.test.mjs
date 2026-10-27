@@ -51,7 +51,7 @@ test('obra existente gera aviso mas não impede confirmação; logística pode t
  const backup=(await req('/pumps',admin,'POST',{name:'BL APOIO',plate:'JKL3M45',branch:'aeroporto'})).body.id;
  assert.equal((await req('/appointments/'+created.body.id,logistics,'PATCH',{pump_id:backup,reason:'Realocado devido à manutenção confirmada'})).status,200);
  const history=(await req('/equipment-maintenance/requests/'+proposed.body.id,maintenance)).body;assert.equal(history.conflicts.length,0);assert(history.events.some(e=>e.note.includes('obra(s) já agendada(s)')));
- const report=(await req('/equipment-maintenance/report?from=2030-04-01&to=2030-04-30',maintenance)).body;assert(report.events.some(e=>e.job_id===proposed.body.id&&e.action==='confirmar programação'));
+ const report=(await req('/equipment-maintenance/report?from=2030-04-01&to=2030-04-30',maintenance)).body;assert.equal(report.events,undefined);assert(report.jobs.some(j=>j.id===proposed.body.id));
 });
 
 test('consultar obras avisa antes da proposta e dois serviços do mesmo CB descontam só um caminhão',async()=>{
@@ -101,4 +101,34 @@ test('logística solicita troca de data e cancelamento; programação original v
  assert.equal((await req('/equipment-maintenance/requests/'+changed.body.id,maintenance)).body.status,'cancelado');
  assert.equal((await req('/equipment-maintenance/calendar?from=2033-03-01&to=2033-03-04',logistics)).body.length,0);
  const history=(await req('/equipment-maintenance/requests/'+retry.id,maintenance)).body;assert(history.events.some(e=>e.action==='aprovar cancelamento'));assert(history.maintenance_approved_by);assert(history.logistics_approved_by);
+});
+
+test('execução registra serviços, quantidades e responsável sem confundir manutenção programada com realizada',async()=>{
+ const original=(await req('/equipment-maintenance/requests',maintenance,'POST',{equipment_type:'bomba',pump_id:pump,starts_at:'2025-01-01T07:00',ends_at:'2025-01-02T18:00',reason:'Revisão realizada'})).body;
+ const base='/equipment-maintenance/requests/'+original.id;
+ const payload={expected_revision:0,completed_date:'2025-01-02',notes:'Filtros substituídos e nível conferido.',services:[{service:'Troca de filtro',quantity:2,unit:'un'},{service:'Troca de óleo',quantity:'20,5',unit:'litros'}]};
+ assert.equal((await req(base+'/complete',maintenance,'POST',payload)).status,409);
+ assert.equal((await req(base+'/accept',logistics,'POST',{side:'logistics',expected_revision:0})).status,200);
+ assert.equal((await req(base+'/complete',logistics,'POST',payload)).status,403);
+ for(const invalid of [{services:[]},{services:[{service:'Teste',quantity:0,unit:'un'}]},{completed_date:'2099-01-01'},{completed_date:'2024-12-31'}])assert.equal((await req(base+'/complete',maintenance,'POST',{...payload,...invalid})).status,400);
+ const completed=await req(base+'/complete',maintenance,'POST',payload);assert.equal(completed.status,200,JSON.stringify(completed.body));assert.equal(completed.body.services[1].quantity,20.5);assert.equal(completed.body.completed_by_name,'manutencao');assert.equal(completed.body.completed_date,'2025-01-02');
+ assert.equal((await req(base+'/complete',maintenance,'POST',payload)).status,409);
+ assert.equal((await req(base+'/cancel',manager,'POST',{side:'logistics',expected_revision:1,note:'Não deve apagar o registro.'})).status,409);
+ assert.equal((await req(base+'/change',logistics,'POST',{action:'cancel',expected_revision:1,note:'Não deve apagar o registro.'})).status,409);
+ const report=(await req('/equipment-maintenance/report?all=1',maintenance)).body;const item=report.jobs.find(j=>j.id===original.id);assert.equal(item.services.length,2);assert.equal(item.execution_notes,payload.notes);assert(item.completed_at);
+ assert(!(await req('/equipment-maintenance/report?from=2026-01-01&to=2026-01-31',maintenance)).body.jobs.some(j=>j.id===original.id));
+ assert.equal((await req(base,maintenance)).body.events.filter(e=>e.action==='registrar execução').length,1);
+});
+
+test('serviços em execução são registrados separadamente das conclusões e o relatório omite auditoria',async()=>{
+ const job=(await req('/equipment-maintenance/requests',maintenance,'POST',{equipment_type:'cb',cb_id:cb,starts_at:'2025-04-01T07:00',ends_at:'2025-04-03T18:00',reason:'Troca de componentes'})).body;
+ const path='/equipment-maintenance/requests/'+job.id;
+ await req(path+'/accept',logistics,'POST',{side:'logistics',expected_revision:0});
+ const payload={expected_revision:0,started_date:'2025-04-01',notes:'Componentes sendo desmontados.'};
+ assert.equal((await req(path+'/start',logistics,'POST',payload)).status,403);
+ assert.equal((await req(path+'/start',maintenance,'POST',{...payload,started_date:'2099-01-01'})).status,400);
+ assert.equal((await req(path+'/start',maintenance,'POST',payload)).status,200);
+ assert.equal((await req(path+'/start',maintenance,'POST',payload)).status,409);
+ const report=(await req('/equipment-maintenance/report?all=1',maintenance)).body,item=report.jobs.find(j=>j.id===job.id);assert.equal(item.started_date,'2025-04-01');assert.equal(item.progress_notes,payload.notes);assert(!item.completed_at);assert.equal(report.events,undefined);
+ assert.equal((await req(path+'/complete',maintenance,'POST',{expected_revision:1,completed_date:'2025-03-31',services:[{service:'Componente',quantity:1,unit:'un'}]})).status,400);
 });
