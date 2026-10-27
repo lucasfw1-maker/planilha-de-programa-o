@@ -1,4 +1,4 @@
-import {contractsApi} from './contracts.mjs';
+import {contractsApi,withContractWorkNames} from './contracts.mjs';
 import http from 'node:http';
 import {onlineUsers,userIsOnline,updatePresence} from './presence.mjs';
 import {customerEditPreview,editCustomer} from './customer-edit.mjs';
@@ -501,7 +501,7 @@ async function api(req, res, url) {
     const appointment=await one('SELECT * FROM appointments WHERE id=?',id);
     if(!appointment || (!manager(u)&&appointment.seller_id!==u.id))fail('Agendamento não encontrado.',404);
     const events=await query('SELECT e.*,u.name actor_name FROM appointment_events e LEFT JOIN users u ON u.id=e.actor_id WHERE appointment_id=? ORDER BY e.id DESC',id);
-    return events.map(e=>({...e,before:JSON.parse(e.before_json),after:JSON.parse(e.after_json),before_json:undefined,after_json:undefined}));
+    return withContractWorkNames(events.map(e=>({...e,before:JSON.parse(e.before_json),after:JSON.parse(e.after_json),before_json:undefined,after_json:undefined})));
   }
   if(path==='/api/changes' && method==='GET') {
     const from=date(url.searchParams.get('from')),to=date(url.searchParams.get('to'));
@@ -516,7 +516,7 @@ async function api(req, res, url) {
     const column={event:'e.event_date',before:"json_extract(e.before_json,'$.date')",after:"json_extract(e.after_json,'$.date')"}[basis];
     const includeUnknown=url.searchParams.get('unknown')==='1' && basis==='event';
     const events=await query(`SELECT e.*,u.name actor_name,s.name seller_name,a.status current_status,a.date current_date FROM appointment_events e JOIN appointments a ON a.id=e.appointment_id LEFT JOIN users u ON u.id=e.actor_id LEFT JOIN users s ON s.id=e.seller_id WHERE ((${column} BETWEEN ? AND ?) OR (?=1 AND e.event_date IS NULL)) AND (?='' OR e.kind=?) AND (?=0 OR e.seller_id=?) AND (?='' OR instr(e.customer_search,?)>0) ORDER BY e.created_at DESC,e.id DESC`,from,to,includeUnknown?1:0,kind,kind,seller,seller,customer,customer);
-    return events.map(e=>({...e,before:JSON.parse(e.before_json),after:JSON.parse(e.after_json),before_json:undefined,after_json:undefined}));
+    return withContractWorkNames(events.map(e=>({...e,before:JSON.parse(e.before_json),after:JSON.parse(e.after_json),before_json:undefined,after_json:undefined})));
   }
   if(path==='/api/customers' && method==='GET') {
     const seller=manager(u)?Number(url.searchParams.get('seller')||0):u.id;

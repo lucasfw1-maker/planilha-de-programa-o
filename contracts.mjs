@@ -12,6 +12,15 @@ export async function readContract(id){
  const row=await one(contractSelect+' WHERE k.id=?',id);
  if(!row)fail('Contrato não encontrado.',404);return contractView(row);
 }
+export async function withContractWorkNames(rows){
+ if(!rows.length)return rows;
+ const contracts=(await query(contractSelect+" WHERE k.status='ativo'")).map(contractView);
+ if(!contracts.length)return rows;
+ const byId=new Map(contracts.map(c=>[c.id,c])),key=r=>JSON.stringify([r.seller_id,customerKey(r.customer),customerKey(r.work)]),byWork=new Map();
+ for(const c of contracts){const k=key({...c,work:c.address}),names=byWork.get(k)||new Set();names.add(c.work_name);byWork.set(k,names);}
+ const linked=new Map((await query('SELECT contract_id,appointment_id FROM contract_bookings')).filter(b=>byId.has(b.contract_id)).map(b=>[b.appointment_id,byId.get(b.contract_id)]));
+ return rows.map(row=>{const contract=linked.get(row.appointment_id??row.id),names=byWork.get(key(row));return {...row,work_name:contract&&contract.seller_id===row.seller_id?contract.work_name:names?.size===1?[...names][0]:row.work_name||''};});
+}
 async function editable(id,input){const row=await readContract(id);if(row.status!=='ativo')fail('Este contrato está encerrado.',409);if(Number(input.expected_version)!==row.version||input.expected_version===undefined)fail('O contrato foi atualizado. Abra novamente para conferir os dados.',409);return row;}
 async function fields(b){
  let customerId=b.customer_id?Number(b.customer_id):null;if(customerId!==null&&(!Number.isInteger(customerId)||customerId<1))fail('Selecione um cliente válido.');
@@ -33,7 +42,7 @@ async function customerReport(id){
  const contract=await readContract(id);
  const appointments=(await query('SELECT a.*,p.name pump_name FROM appointments a LEFT JOIN pumps p ON p.id=a.pump_id WHERE a.seller_id=? ORDER BY a.date,a.start,a.id',contract.seller_id)).filter(a=>customerKey(a.customer)===customerKey(contract.customer));
  const ids=new Set(appointments.map(a=>a.id)),events=(await query('SELECT e.*,u.name actor_name FROM appointment_events e LEFT JOIN users u ON u.id=e.actor_id WHERE e.seller_id=? ORDER BY e.created_at DESC,e.id DESC',contract.seller_id)).filter(e=>ids.has(e.appointment_id));
- return {customer:contract.customer,seller_id:contract.seller_id,seller_name:contract.seller_name,appointments,events,totals:{scheduled:appointments.length,rescheduled:events.filter(e=>e.kind==='remarcado').length,cancelled:events.filter(e=>e.kind==='cancelado').length,currently_cancelled:appointments.filter(a=>a.status==='cancelado').length,planned:appointments.reduce((n,a)=>n+a.planned_volume,0),active_planned:appointments.filter(a=>a.status!=='cancelado').reduce((n,a)=>n+a.planned_volume,0),delivered:appointments.reduce((n,a)=>n+(a.delivered_volume||0),0),missing:appointments.filter(a=>a.delivered_volume===null).length}};
+ return {customer:contract.customer,seller_id:contract.seller_id,seller_name:contract.seller_name,appointments:await withContractWorkNames(appointments),events:await withContractWorkNames(events),totals:{scheduled:appointments.length,rescheduled:events.filter(e=>e.kind==='remarcado').length,cancelled:events.filter(e=>e.kind==='cancelado').length,currently_cancelled:appointments.filter(a=>a.status==='cancelado').length,planned:appointments.reduce((n,a)=>n+a.planned_volume,0),active_planned:appointments.filter(a=>a.status!=='cancelado').reduce((n,a)=>n+a.planned_volume,0),delivered:appointments.reduce((n,a)=>n+(a.delivered_volume||0),0),missing:appointments.filter(a=>a.delivered_volume===null).length}};
 }
 export async function contractsApi({path,method,url,u,body,createAppointment}){
  if(!['programador','gerente','controlador'].includes(u.role))fail('Sem permissão para contratos ativos.',403);

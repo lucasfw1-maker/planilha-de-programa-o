@@ -475,6 +475,8 @@ const ROOT=require('node:path').resolve(__dirname,'..');
  };
  await generatedPdf('contracts-calls-own-footer');
  await page.locator('.sidebar [data-page="contracts"]').click();await activeContractRow.getByRole('button',{name:'Relatório do cliente',exact:true}).click();await page.getByRole('heading',{name:'Relatório do cliente',exact:true}).waitFor();await page.getByText('Agendamentos por obra',{exact:true}).waitFor();await generatedPdf('contract-customer-own-footer');
+ await page.evaluate(async date=>{state.page='next';state.loadingDate=date;await refresh();},dates.today);await page.getByText('Edifício teste',{exact:true}).waitFor();await page.screenshot({path:join(ROOT,'.data','review','loading-contract-work-name.png'),fullPage:true});await generatedPdf('loading-contract-work-name');
+ await page.locator('.sidebar [data-page="reports"]').click();await page.getByText('Edifício teste',{exact:true}).waitFor();
  await page.locator('.sidebar [data-page="contracts"]').click();await activeContractRow.getByRole('button',{name:'Encerrar',exact:true}).click();await page.getByLabel('Motivo do encerramento *',{exact:true}).fill('Obra finalizada');await page.getByRole('button',{name:'Encerrar contrato',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('dialog').open);await activeContractRow.waitFor({state:'detached'});await page.locator('#contract-status').selectOption('encerrado');await activeContractRow.waitFor();
  await page.locator('.sidebar [data-page="next"]').click();const loadingPdf=await generatedPdf('loading-own-footer');assert(loadingPdf.filename.endsWith('.pdf'));
  await page.locator('.sidebar [data-page="reports"]').click();await page.locator('#report-filters').waitFor();await generatedPdf('volumes-own-footer');

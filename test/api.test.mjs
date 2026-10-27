@@ -470,3 +470,16 @@ test('contratos recuperam a concretagem da obra correta e acompanham a unificaç
  assert.equal((await request('/customers/'+customer.id,{method:'PATCH',cookie:admin,data:{name:'Destino contratos',preview_token:preview.preview_token,merge_existing:true}})).status,200);
  for(const id of ids){const c=(await request('/contracts/'+id,{cookie:controller})).body;assert.equal(c.customer_id,destination.id);assert.equal(c.customer,'DESTINO CONTRATOS');assert.equal(c.version,1);}
 });
+
+test('relatórios identificam o nome da obra do contrato ativo pelo cliente, vendedor e endereço',async()=>{
+ const customer='Cliente nomes de obras',a=(await request('/appointments',{method:'POST',cookie:controller,data:{...booking,customer,seller_id:seller.id,type:'convencional',work:'Rua do prédio A',date:'2027-05-03'}})).body.id;
+ const b=(await request('/appointments',{method:'POST',cookie:controller,data:{...booking,customer,seller_id:seller.id,type:'convencional',work:'Rua do prédio B',date:'2027-05-03'}})).body.id;
+ const c=(await request('/contracts',{method:'POST',cookie:controller,data:{customer,seller_id:seller.id,work_name:'Residencial Alameda',address:'Rua do prédio A',next_contact:'2027-05-03'}}));assert.equal(c.status,200);
+ let rows=(await request('/report?from=2027-05-03&to=2027-05-03',{cookie:manager})).body;assert.equal(rows.find(r=>r.id===a).work_name,'Residencial Alameda');assert.equal(rows.find(r=>r.id===b).work_name,'');
+ assert.equal((await request('/appointments/'+a,{cookie:seller.cookie})).body.work_name,'Residencial Alameda');
+ assert.equal((await request('/appointments/'+a,{method:'PATCH',cookie:manager,data:{status:'cancelado',reason:'Cliente solicitou cancelamento'}})).status,200);
+ const events=(await request('/changes?from=2027-05-03&to=2027-05-03&basis=before',{cookie:manager})).body;assert.equal(events.find(e=>e.appointment_id===a).work_name,'Residencial Alameda');
+ const report=(await request('/contracts/'+c.body.id+'/customer-report',{cookie:manager})).body;assert.equal(report.appointments.find(r=>r.id===a).work_name,'Residencial Alameda');assert.equal(report.appointments.find(r=>r.id===b).work_name,'');
+ assert.equal((await request('/contracts/'+c.body.id+'/close',{method:'POST',cookie:controller,data:{expected_version:0,reason:'Contrato encerrado'}})).status,200);
+ rows=(await request('/report?from=2027-05-03&to=2027-05-03&status=cancelado',{cookie:manager})).body;assert.equal(rows.find(r=>r.id===a).work_name||'','');
+});
