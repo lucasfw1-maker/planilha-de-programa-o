@@ -41,7 +41,8 @@ O fluxo reproduz o padrão do sistema de obras enviado: usuário e senha, mostra
 | Perfil | Permissões |
 | --- | --- |
 | Vendedor | Agenda com nomes dos clientes e horários, sem permissão para editar obras de outros vendedores, solicitar reserva, acompanhar seus pedidos, adicionar códigos comerciais nas próprias obras e consultar seu relatório |
-| Controlador de logística | Agendamentos, solicitações, consulta/bloqueio por manutenção, volume entregue e relatórios da filial |
+| Controlador de logística | Agendamentos, solicitações, negociação/aceite logístico de manutenção, volume entregue e relatórios da filial |
+| Manutenção | Módulo Manutenção, propostas, negociação, cadastro de CBs, agenda e relatório técnico; sem acesso a clientes e relatórios comerciais |
 | Gerente | Operação e relatórios, mais o módulo Gerência para cadastrar bombas, ajustar frota e metas |
 | Programador | Tudo, cadastros, aprovação/bloqueio de usuários, redefinição de senha, parâmetros e auditoria |
 
@@ -108,7 +109,7 @@ Os formulários de criação, edição, remarcação, aprovação e disponibilid
 
 ## Frota, produção e metas mensais
 
-A agenda mostra a produção prevista por CB (volume programado ÷ caminhões disponíveis) e o volume entregue informado por CB. A frota inicial é 17. **Gerente e Programador** podem ajustar a quantidade em uma data específica, definir um novo padrão a partir de uma data ou remover um ajuste diário para usar o padrão. O padrão anterior às mudanças é preservado; ajustes específicos têm prioridade. Controlador consulta os indicadores, sem editar frota ou meta. Vendedor não acessa esses totais da filial.
+A agenda mostra a produção prevista por CB (volume programado ÷ caminhões disponíveis) e o volume entregue informado por CB. A frota anterior ao cadastro dos equipamentos é preservada. Ao cadastrar o primeiro CB, a contagem da data atual em diante passa a usar os CBs ativos registrados, descontando uma única vez cada CB com manutenção confirmada no dia. Quantidades históricas anteriores à transição continuam usando os padrões/ajustes existentes. Em Gerência, a contagem é separada por filial. Controlador consulta os indicadores, sem editar frota ou meta. Vendedor não acessa esses totais da filial.
 
 Na visão de dia, a unidade é m³/CB. Na semana e no mês, é uma média de m³/CB/dia: soma dos volumes ÷ soma dos caminhões disponíveis em cada dia do período (CBs-dia), incluindo os dias do calendário selecionado. Frota zero não causa divisão por zero; obras em dia sem frota geram aviso. Não há distribuição por placa nem bloqueio de agendas pela quantidade de CBs nesta versão.
 
@@ -127,9 +128,11 @@ No relatório de produção, o volume programado exclui cancelamentos, mas entre
 
 **Gerência** reúne bombas, quantidade de CBs e metas mensais. Gerente e Programador acessam o módulo e cadastram bombas. Configurações mantém usuários, permissões e parâmetros administrativos. Controlador pode consultar os indicadores e operar a agenda, sem cadastrar bombas ou editar frota/meta.
 
-O botão **Bomba em manutenção** fica no topo da agenda, antes de Consultar disponibilidade. Gerente, Controlador e Programador escolhem a bomba, início/fim (inclusive horários e períodos de vários dias) e motivo obrigatório. O bloqueio é aplicado somente aos serviços que sobrepõem o intervalo, em horários locais de Cascavel. No fim do período, a bomba volta a estar disponível sem depender de um processo agendado. A consulta de disponibilidade e a criação/remarcação verificam os mesmos períodos.
+O botão **Bomba em manutenção** passa a iniciar uma proposta (Gerente/Programador) ou abrir a negociação logística (Controlador). A programação só é confirmada quando manutenção e logística, por pessoas diferentes, aceitam a mesma revisão. O módulo Manutenção é exclusivo de Manutenção, Gerente e Programador; o Controlador negocia em **Agenda de obras → Solicitações → Negociar manutenções**. As rotas antigas de bloqueio imediato recusam novas manutenções sem o acordo. Bloqueios e períodos antigos continuam preservados.
 
-Manutenções que coincidam com obras existentes são registradas e apresentam essas obras para revisão; não cancelam nem removem os agendamentos. Registrar o volume entregue de uma obra existente continua permitido. O cancelamento de um período exige motivo e fica na auditoria. Bloqueios antigos sem datas continuam ativos até serem liberados explicitamente no painel, sem apagar períodos cadastrados. Vendedores veem o bloqueio de disponibilidade, sem os motivos internos de manutenção.
+Se houver obras no período, a consulta da proposta e os detalhes mostram um aviso. Isso **não impede** propor ou confirmar. As obras existentes permanecem na agenda; a logística deve trocar a bomba ou ajustar os atendimentos. A confirmação bloqueia apenas novos agendamentos/remarcações que coincidam com o intervalo. O aviso e os IDs das obras em conflito ficam no histórico de confirmação.
+
+Manutenções que coincidam com obras existentes são registradas e apresentam essas obras para revisão; não cancelam nem removem os agendamentos. Registrar o volume entregue de uma obra existente continua permitido. O cancelamento de um período exige motivo e fica na auditoria. Bloqueios antigos sem datas continuam ativos até serem liberados explicitamente no painel, sem apagar períodos cadastrados. Vendedores veem o bloqueio de disponibilidade; a prévia mensal também identifica os CBs em manutenção e os serviços confirmados.
 
 
 A agenda exibe os indicadores mensais em anéis no topo, acima dos botões: meta, programado, entregue informado e saldo a programar. Produção prevista por CB e frota disponível ficam no mesmo grupo e se referem à data/período da agenda; o arco da produção por CB mostra o entregue em relação ao previsto, e o da frota compara a disponibilidade com o padrão vigente. Valores acima de 100% permanecem nos textos e dados; o arco para em uma volta completa. Sem meta ou denominador disponível, nenhum percentual é inventado.
@@ -218,3 +221,20 @@ Em Gerência, o quadro de caminhões betoneira reúne também o cadastro e a man
 
 
 O menu lateral agrupa **Solicitações** e **Agenda de amanhã** sob **Agenda de obras**, e **Contratos Ativos** sob **Clientes**. A seta abre/fecha cada grupo de forma independente, sem trocar a página; clicar no nome principal continua abrindo a respectiva tela. Os submenus mantêm as permissões de cada perfil e o grupo da tela acessada é aberto automaticamente.
+
+
+## Equipamentos e manutenção negociada
+
+- Em **Gerência**, selecione **Filial Pacaembu** ou **Filial Aeroporto**. Essa separação vale para equipamentos e frota; clientes e agendas comerciais continuam compartilhados como antes.
+- Bombas e CBs têm placa e situação ativa/inativa. Equipamentos antigos entram inicialmente na Filial Pacaembu; confira e ajuste em **Editar equipamento**. Não são inventados números/placas de CBs: cadastre os veículos reais da filial.
+- **Inativar equipamento** preserva todo o histórico. Bombas inativas não entram em novas consultas/reservas; a inativação é recusada enquanto houver obras futuras confirmadas/em atendimento naquela bomba. **Ativar equipamento** devolve o recurso às opções. CBs inativos saem da contagem disponível.
+- Depois do primeiro CB cadastrado, a frota atual/futura é derivada do cadastro, substituindo a edição manual de quantidade. A agenda geral considera a soma das filiais; Gerência permite consultar cada filial. Manutenção confirmada em qualquer parte do dia torna o CB indisponível no indicador diário; dois serviços do mesmo CB no dia descontam apenas um veículo. O fim à meia-noite não desconta no dia seguinte.
+- O perfil **Manutenção** é criado/atribuído pelo Programador em Equipe e acessos. A migração do banco amplia o perfil preservando IDs, senhas, sessões, fotos e referências.
+- **Sugerir manutenção** registra equipamento, período e serviço. A sugestão já representa o aceite técnico do proponente. A outra parte aceita ou negocia. Uma contraproposta reinicia os aceites e incrementa a revisão; respostas a revisões antigas são recusadas.
+- Gerente e Programador podem representar qualquer lado, mas a mesma pessoa não pode assinar pelos dois. O Controlador assina apenas pela logística, e o perfil Manutenção apenas pelo lado técnico.
+- Propostas pendentes não bloqueiam bombas nem descontam CBs. Na confirmação, períodos simultâneos do mesmo equipamento são recusados, mas obras comerciais existentes geram **aviso sem bloquear o acordo**, conforme a regra operacional escolhida.
+- Propostas podem ser recusadas com motivo. Programações já confirmadas só podem ser canceladas por Gerente/Programador, com motivo; isso libera o bloqueio da bomba ou a indisponibilidade do CB sem excluir os registros.
+- **Agenda de manutenção** mostra as programações confirmadas por mês e filial. Na agenda mensal de obras, a prévia do dia inclui ao lado os CBs em manutenção, placa, filial e serviço.
+- **Relatório de manutenção** filtra período, filial, equipamento e situação. Inclui serviços, responsáveis pelos aceites e o histórico completo das negociações/aprovações, com impressão/PDF e identificação do autor. Registros anteriores ao módulo também são mantidos e identificados como anteriores, sem inventar aprovações antigas.
+
+O relatório da **Agenda de amanhã**, inclusive para datas escolhidas em **Outras datas**, inclui uma seção de equipamentos em manutenção confirmada naquele dia, com bombas/CBs, placa, filial, período e serviço. A seção acompanha a impressão/PDF e inclui manutenções que abrangem vários dias. A frota mantém histórico diário de cadastro/ativação/filial dos CBs para que alterações posteriores não modifiquem a quantidade disponível em dias anteriores.

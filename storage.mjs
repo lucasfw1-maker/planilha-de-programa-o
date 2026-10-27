@@ -7,6 +7,8 @@ import { migrateHistory, migrateCustomers } from './history-migration.mjs';
 import { migrateTripEstimates } from './fleet-migration.mjs';
 import { migrateCommercial } from './commercial-migration.mjs';
 import { migrateContacts } from './contact-migration.mjs';
+import {migrateEquipment} from './equipment-migration.mjs';
+import {migrateMaintenanceRole} from './maintenance-role-migration.mjs';
 import {migrateWorkNames} from './work-name-migration.mjs';
 import { migrateConcrete } from './concrete-migration.mjs';
 import { SCHEMA } from './schema.mjs';
@@ -42,6 +44,8 @@ async function open() {
   try {
     if(localMode)await candidate.executeMultiple('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;');
     await candidate.executeMultiple(SCHEMA);
+    await migrateMaintenanceRole(candidate);
+    await migrateEquipment(candidate);
     await migrateContacts(candidate);
     await migrateConcrete(candidate);
     await migrateTripEstimates(candidate);

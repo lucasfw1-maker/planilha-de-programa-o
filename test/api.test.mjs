@@ -66,7 +66,8 @@ test('volume entregue não altera programado e relatório respeita filtros e ven
  const audit=await request('/audit',{cookie:admin});assert(audit.body.some(a=>a.action==='editar'&&a.user_name==='controlador'));assert(!JSON.stringify(audit.body).includes(password));
 });
 test('manutenção bloqueia reservas e datas inválidas são rejeitadas',async()=>{
- assert.equal((await request('/pumps/'+pumpId,{method:'PATCH',cookie:manager,data:{maintenance:true}})).status,200);
+ assert.equal((await request('/pumps/'+pumpId,{method:'PATCH',cookie:manager,data:{maintenance:true}})).status,409);
+ const proposed=await request('/equipment-maintenance/requests',{method:'POST',cookie:admin,data:{equipment_type:'bomba',pump_id:pumpId,starts_at:'2027-01-06T00:00',ends_at:'2027-01-06T23:59',reason:'Teste de manutenção'}});assert.equal(proposed.status,200);assert.equal((await request('/equipment-maintenance/requests/'+proposed.body.id+'/accept',{method:'POST',cookie:controller,data:{side:'logistics',expected_revision:0}})).status,200);
  const data={...booking,date:'2027-01-06',pump_id:pumpId,seller_id:seller.id};
  assert.equal((await request('/appointments',{method:'POST',cookie:admin,data})).status,409);
  assert.equal((await request('/appointments',{method:'POST',cookie:admin,data:{...data,type:'convencional',date:'2027-02-30'}})).status,400);
@@ -226,25 +227,21 @@ test('gerência permite cadastro de bombas ao gerente e mantém controlador sem 
  assert.equal((await request('/pumps',{method:'POST',cookie:manager,data:{name:'BLM1',description:'Bomba de teste'}})).status,200);
 });
 
-test('manutenção por período bloqueia novos serviços, alerta conflitos e preserva obras e produção existentes',async()=>{
+test('manutenção confirmada por duas pessoas bloqueia reservas sem cancelar obras existentes',async()=>{
  const pump=(await request('/meta',{cookie:admin})).body.pumps.find(p=>p.name==='BLM1');
  const created=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,date:'2030-08-10',pump_id:pump.id,seller_id:seller.id}});assert.equal(created.status,200);
- const period={pump_id:pump.id,starts_at:'2030-08-10T08:00',ends_at:'2030-08-10T10:00',reason:'Troca de mangueira'};
- assert.equal((await request('/maintenance',{method:'POST',cookie:seller.cookie,data:period})).status,403);
- assert.equal((await request('/maintenance',{method:'POST',cookie:controller,data:{...period,ends_at:'2030-08-10T07:00'}})).status,400);
- const maintenance=await request('/maintenance',{method:'POST',cookie:controller,data:period});assert.equal(maintenance.status,200);assert.equal(maintenance.body.conflicts.length,1);assert.equal(maintenance.body.conflicts[0].id,created.body.id);
+ const period={equipment_type:'bomba',pump_id:pump.id,starts_at:'2030-08-10T08:00',ends_at:'2030-08-10T10:00',reason:'Troca de mangueira'};
+ const maintenance=await request('/equipment-maintenance/requests',{method:'POST',cookie:admin,data:period});assert.equal(maintenance.status,200);
+ const path='/equipment-maintenance/requests/'+maintenance.body.id;
+ assert.equal(maintenance.body.conflicts.length,1,'A proposta avisa sobre as obras existentes sem impedir sua criação');
  assert.equal((await request('/appointments/'+created.body.id,{cookie:admin})).body.status,'confirmado');
- const block=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,date:'2030-08-10',start:'08:00',pump_id:pump.id,seller_id:seller.id}});assert.equal(block.status,409);assert.match(block.body.error,/manutenção/);
- assert.equal((await request('/appointments/'+created.body.id,{method:'PATCH',cookie:admin,data:{delivered_volume:18}})).status,200);
- assert.equal((await request('/appointments/'+created.body.id,{method:'PATCH',cookie:manager,data:{date:'2030-08-10',start:'08:00',reason:'Tentativa de remarcar em manutenção'}})).status,409);
- const available=await request('/availability?date=2030-08-10&start=10:00&duration=60',{cookie:seller.cookie});assert.equal(available.body.pumps.find(p=>p.id===pump.id).available,true);
- const publicList=await request('/maintenance?from=2030-08-10&to=2030-08-10',{cookie:seller.cookie});assert.equal(publicList.body.length,1);assert(!('reason' in publicList.body[0]));assert(!('created_by' in publicList.body[0]));
- assert.equal((await request('/maintenance/'+maintenance.body.id,{method:'PATCH',cookie:manager,data:{reason:''}})).status,400);
- assert.equal((await request('/maintenance/'+maintenance.body.id,{method:'PATCH',cookie:manager,data:{reason:'Serviço não será necessário'}})).status,200);
- assert.equal((await request('/maintenance/'+maintenance.body.id,{method:'PATCH',cookie:manager,data:{reason:'Repetido'}})).status,409);
- const free=await request('/availability?date=2030-08-10&start=09:30&duration=30',{cookie:seller.cookie});assert.equal(free.body.pumps.find(p=>p.id===pump.id).available,true);
- const overnight=await request('/maintenance',{method:'POST',cookie:admin,data:{pump_id:pump.id,starts_at:'2030-08-10T23:00',ends_at:'2030-08-11T03:00',reason:'Manutenção noturna'}});assert.equal(overnight.status,200);
- const blocked=await request('/availability?date=2030-08-11&start=02:00&duration=60',{cookie:seller.cookie});assert.equal(blocked.body.pumps.find(p=>p.id===pump.id).maintenance,true);
+ assert.equal((await request(path+'/negotiate',{method:'POST',cookie:controller,data:{side:'logistics',expected_revision:0,...period,starts_at:'2030-08-10T12:00',ends_at:'2030-08-10T14:00',note:'Após a obra'}})).status,200);
+ assert.equal((await request(path+'/accept',{method:'POST',cookie:admin,data:{side:'maintenance',expected_revision:1}})).status,200);
+ assert.equal((await request('/appointments',{method:'POST',cookie:admin,data:{...booking,date:'2030-08-10',start:'12:00',pump_id:pump.id,seller_id:seller.id}})).status,409);
+ const publicList=await request('/maintenance?from=2030-08-10&to=2030-08-10',{cookie:seller.cookie});assert.equal(publicList.body.length,1);assert(!('reason' in publicList.body[0]));
+ assert.equal((await request(path+'/cancel',{method:'POST',cookie:manager,data:{side:'maintenance',expected_revision:1,note:'Serviço não será necessário'}})).status,200);
+ const overnight=await request('/equipment-maintenance/requests',{method:'POST',cookie:admin,data:{...period,starts_at:'2030-08-10T23:00',ends_at:'2030-08-11T03:00'}});assert.equal(overnight.status,200);assert.equal((await request('/equipment-maintenance/requests/'+overnight.body.id+'/accept',{method:'POST',cookie:controller,data:{side:'logistics',expected_revision:0}})).status,200);
+ assert.equal((await request('/availability?date=2030-08-11&start=02:00&duration=60',{cookie:seller.cookie})).body.pumps.find(p=>p.id===pump.id).maintenance,true);
  assert.equal((await request('/availability?date=2030-08-11&start=03:00&duration=60',{cookie:seller.cookie})).body.pumps.find(p=>p.id===pump.id).available,true);
 });
 

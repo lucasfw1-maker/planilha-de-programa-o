@@ -1,3 +1,5 @@
+import {equipmentMaintenanceApi,maintenanceAccess} from './equipment-maintenance.mjs';
+import {plateValue,checkBranch,equipmentState} from './equipment.mjs';
 import {contractsApi,withContractWorkNames} from './contracts.mjs';
 import http from 'node:http';
 import {onlineUsers,userIsOnline,updatePresence} from './presence.mjs';
@@ -17,7 +19,7 @@ import {readFileSync} from 'node:fs';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const ROOT = dirname(fileURLToPath(import.meta.url));
-const roles = ['programador', 'gerente', 'controlador', 'vendedor'];
+const roles = ['programador', 'gerente', 'controlador', 'vendedor', 'manutencao'];
 const productionManager=u=>['gerente','programador'].includes(u.role);
 const manager = u => ['programador', 'gerente', 'controlador'].includes(u.role);
 const safeUser = u => ({
@@ -104,6 +106,7 @@ async function checkPump(b, except = 0) {
   }
   const pump = await one('SELECT * FROM pumps WHERE id=?', Number(b.pump_id || 0));
   if (!pump) fail('Selecione a bomba.');
+  if (!pump.active) fail('Esta bomba está inativa.',409);
   if (pump.maintenance) fail('Esta bomba possui um bloqueio antigo de manutenção. Libere-o no painel de manutenções antes de agendar.', 409);
   const window=slotWindow(b.date,b.start,b.duration);
   const maintenance=await one('SELECT * FROM maintenance_periods WHERE pump_id=? AND cancelled_at IS NULL AND starts_at<? AND ends_at>? ORDER BY starts_at LIMIT 1',pump.id,window.end,window.start);
@@ -286,6 +289,8 @@ async function api(req, res, url) {
   }
   if (u.status !== 'aprovado') fail('Acesso não aprovado.', 403);
   if (u.must_change) fail('Troque a senha temporária antes de acessar os módulos.', 403);
+  if(u.role==='manutencao'&&!path.startsWith('/api/equipment-maintenance')&&!['/api/meta','/api/presence','/api/profile/photo'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso exclusivo ao módulo Manutenção.',403);
+  if(path.startsWith('/api/equipment-maintenance'))return equipmentMaintenanceApi({path,method,url,u,body:()=>body(req)});
   if(path.startsWith('/api/contracts'))return contractsApi({path,method,url,u,body:()=>body(req),createAppointment});
   if(path==='/api/presence'&&method==='GET')return {users:await onlineUsers(),ttl_seconds:90};
   if(path==='/api/presence'&&method==='POST'){
@@ -326,12 +331,13 @@ async function api(req, res, url) {
   };
   if(path==='/api/fleet' && method==='GET') {
     if(!manager(u))fail('Sem permissão.',403);
-    return await fleetRange(date(url.searchParams.get('from')),date(url.searchParams.get('to')));
+    return await fleetRange(date(url.searchParams.get('from')),date(url.searchParams.get('to')),checkBranch(url.searchParams.get('branch')||'',true));
   }
   if(path==='/api/fleet' && method==='PATCH') {
     if(!productionManager(u))fail('Sem permissão.',403);
     const b=await body(req),day=date(b.date),scope=b.scope||'day';
     if(!['day','from','clear'].includes(scope))fail('Escolha como aplicar a quantidade de caminhões.');
+    const registry=await one("SELECT value FROM settings WHERE key='fleet_registry_since'");if(registry&&day>=registry.value)fail('A frota desta data é calculada pelos CBs ativos cadastrados na Gerência.',409);
     const trucks=scope==='clear'?null:number(b.trucks,'Caminhões disponíveis',0,1000);
     if(trucks!==null&&!Number.isInteger(trucks))fail('Informe uma quantidade inteira de caminhões.');
     return await transaction(async()=>{
@@ -376,7 +382,7 @@ async function api(req, res, url) {
     const maintenance=await query('SELECT pump_id FROM maintenance_periods WHERE cancelled_at IS NULL AND starts_at<? AND ends_at>?',window.end,window.start);
     return {
       buffer,
-      pumps: (await query('SELECT * FROM pumps ORDER BY name')).map(p => ({
+      pumps: (await query('SELECT * FROM pumps WHERE active=1 ORDER BY name')).map(p => ({
         id: p.id,
         name: p.name,
         maintenance: Boolean(p.maintenance||maintenance.some(m=>m.pump_id===p.id)),
@@ -391,29 +397,13 @@ async function api(req, res, url) {
     const rows=await query(`SELECT m.*,p.name pump_name,u.name created_by_name FROM maintenance_periods m JOIN pumps p ON p.id=m.pump_id JOIN users u ON u.id=m.created_by WHERE starts_at<? AND ends_at>? AND cancelled_at IS NULL ORDER BY starts_at`,end.toISOString().slice(0,10)+'T00:00',from+'T00:00');
     return manager(u)?rows:rows.map(m=>({id:m.id,pump_id:m.pump_id,starts_at:m.starts_at,ends_at:m.ends_at,pump_name:m.pump_name}));
   }
-  if(path==='/api/maintenance' && method==='POST') {
-    if(!manager(u))fail('Sem permissão.',403);
-    const b=await body(req),pumpId=number(b.pump_id,'Bomba',1);
-    for(const key of ['starts_at','ends_at']){
-      if(typeof b[key]!=='string'||!/^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/.test(b[key]))fail('Informe data e horário válidos para a manutenção.');
-      date(b[key].slice(0,10));
-    }
-    if(b.ends_at<=b.starts_at)fail('O fim da manutenção deve ser posterior ao início.');
-    const reason=text(b.reason,'o motivo da manutenção',1000);
-    return await transaction(async()=>{
-      const pump=await one('SELECT * FROM pumps WHERE id=?',pumpId);if(!pump)fail('Bomba não encontrada.',404);
-      const id=Number((await run('INSERT INTO maintenance_periods(pump_id,starts_at,ends_at,reason,created_by) VALUES(?,?,?,?,?)',pumpId,b.starts_at,b.ends_at,reason,u.id)).lastInsertRowid);
-      const bookings=await query("SELECT id,customer,date,start,duration FROM appointments WHERE pump_id=? AND status<>'cancelado' AND date BETWEEN ? AND ? ORDER BY date,start",pumpId,b.starts_at.slice(0,10),b.ends_at.slice(0,10));
-      const conflicts=bookings.filter(a=>overlaps(slotWindow(a.date,a.start,a.duration),{start:b.starts_at,end:b.ends_at}));
-      await audit(u,'registrar manutenção','manutencao',id,{pump_id:pumpId,starts_at:b.starts_at,ends_at:b.ends_at,reason,conflicting_appointments:conflicts.map(a=>a.id)});
-      return {id,conflicts};
-    });
-  }
+  if(path==='/api/maintenance'&&method==='POST'){if(!manager(u))fail('Sem permissão.',403);fail('Use a proposta de manutenção e aguarde a aceitação dos dois lados.',409);}
   if((/^\/api\/maintenance\/\d+$/).test(path)&&method==='PATCH') {
     if(!manager(u))fail('Sem permissão.',403);
     const b=await body(req),id=Number(path.split('/').pop()),reason=text(b.reason,'o motivo para cancelar o período',1000);
     return await transaction(async()=>{
       const item=await one('SELECT * FROM maintenance_periods WHERE id=?',id);if(!item)fail('Manutenção não encontrada.',404);
+      if(await one('SELECT id FROM maintenance_jobs WHERE period_id=?',id))fail('Cancele pela programação de equipamentos para preservar o histórico.',409);
       if(item.cancelled_at)fail('Este período já está cancelado.',409);
       await run('UPDATE maintenance_periods SET cancelled_by=?,cancelled_at=?,cancel_reason=? WHERE id=?',u.id,new Date().toISOString(),reason,id);
       await audit(u,'cancelar manutenção','manutencao',id,{reason,before:item});return {ok:true};
@@ -645,7 +635,8 @@ async function api(req, res, url) {
     if (!productionManager(u)) fail('Sem permissão.', 403);
     const b = await body(req), name = text(b.name, 'nome da bomba', 50);
     if (await one('SELECT id FROM pumps WHERE name=?', name)) fail('Bomba já cadastrada.', 409);
-    const id = Number((await run('INSERT INTO pumps(name,description) VALUES(?,?)', name, String(b.description || '').slice(0, 200))).lastInsertRowid);
+    if(plateValue(b.plate)&&await one('SELECT id FROM pumps WHERE plate=?',plateValue(b.plate)))fail('Essa placa já está cadastrada em outra bomba.',409);
+    const id = Number((await run('INSERT INTO pumps(name,description,plate,branch) VALUES(?,?,?,?)', name, String(b.description || '').slice(0, 200),plateValue(b.plate),checkBranch(b.branch||'pacaembu'))).lastInsertRowid);
     await audit(u, 'criar', 'bomba', id, {
       name
     });
@@ -656,6 +647,8 @@ async function api(req, res, url) {
   if ((/^\/api\/pumps\/\d+$/).test(path) && method === 'PATCH') {
     if (!manager(u)) fail('Sem permissão.', 403);
     const b = await body(req), id = Number(path.split('/').pop());
+    if(b.active!==undefined||b.plate!==undefined||b.branch!==undefined)return equipmentState(u,'bomba',id,b);
+    if(b.maintenance===true)fail('Envie uma proposta de manutenção para aprovação dos dois lados.',409);
     if (typeof b.maintenance !== 'boolean') fail('Estado inválido.');
     if (!await one('SELECT id FROM pumps WHERE id=?', id)) fail('Bomba não encontrada.', 404);
     await run('UPDATE pumps SET maintenance=? WHERE id=?', b.maintenance ? 1 : 0, id);
@@ -687,6 +680,7 @@ const assets = {
   '/contracts.js': ['contracts.js', 'text/javascript; charset=utf-8'],
   '/vendor/html-to-image.js': ['vendor/html-to-image.js', 'text/javascript; charset=utf-8'],
   '/vendor/jspdf.umd.min.js': ['vendor/jspdf.umd.min.js', 'text/javascript; charset=utf-8'],
+  '/equipment-maintenance.js': ['equipment-maintenance.js','text/javascript; charset=utf-8'],
   '/report-pdf.js': ['report-pdf.js', 'text/javascript; charset=utf-8'],
   '/slump-format.js': ['slump-format.js', 'text/javascript; charset=utf-8'],
   '/concretlog.css': ['concretlog.css', 'text/css; charset=utf-8'],
