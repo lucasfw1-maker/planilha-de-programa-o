@@ -1,5 +1,5 @@
 export const SCHEMA = `CREATE TABLE IF NOT EXISTS user_photos(user_id INTEGER PRIMARY KEY REFERENCES users(id), image TEXT NOT NULL, version TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, name TEXT NOT NULL, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('programador','gerente','controlador','vendedor','manutencao')), active INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'aprovado', must_change INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, name TEXT NOT NULL, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('programador','gerente','controlador','vendedor','manutencao','engenharia','gerente_engenharia','gerente_concresuper')), active INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'aprovado', must_change INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, user_id INTEGER REFERENCES users(id), expires INTEGER);
 CREATE TABLE IF NOT EXISTS presence_clients(session_token TEXT NOT NULL REFERENCES sessions(token) ON DELETE CASCADE,client_id TEXT NOT NULL,seen_at INTEGER NOT NULL,PRIMARY KEY(session_token,client_id));
 CREATE INDEX IF NOT EXISTS presence_clients_seen ON presence_clients(seen_at);
@@ -35,6 +35,13 @@ CREATE TABLE IF NOT EXISTS contract_bookings(id INTEGER PRIMARY KEY,contract_id 
 CREATE INDEX IF NOT EXISTS contracts_contacts_date ON contract_contacts(contact_date);
 CREATE INDEX IF NOT EXISTS contracts_contact_history ON contract_contacts(contract_id,id);
 CREATE INDEX IF NOT EXISTS contracts_booking_history ON contract_bookings(contract_id,id);
+CREATE TABLE IF NOT EXISTS technical_tickets(id INTEGER PRIMARY KEY,seller_id INTEGER NOT NULL REFERENCES users(id),created_by INTEGER NOT NULL REFERENCES users(id),customer TEXT NOT NULL,customer_code TEXT NOT NULL,order_code TEXT NOT NULL,mix_code TEXT NOT NULL DEFAULT '',order_item TEXT NOT NULL DEFAULT '',concreting_date TEXT NOT NULL,type TEXT NOT NULL CHECK(type IN ('tecnico','comercial')),status TEXT NOT NULL DEFAULT 'aberto' CHECK(status IN ('aberto','em_atendimento','atendido')),assigned_by INTEGER REFERENCES users(id),assigned_at TEXT,revision INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL,created_date TEXT NOT NULL,attended_at TEXT,attended_date TEXT,attended_by INTEGER REFERENCES users(id));
+CREATE INDEX IF NOT EXISTS technical_tickets_seller ON technical_tickets(seller_id,status,created_at);
+CREATE INDEX IF NOT EXISTS technical_tickets_created ON technical_tickets(created_date);
+CREATE INDEX IF NOT EXISTS technical_tickets_attended ON technical_tickets(attended_date,type,seller_id);
+CREATE TABLE IF NOT EXISTS technical_ticket_messages(id INTEGER PRIMARY KEY,ticket_id INTEGER NOT NULL REFERENCES technical_tickets(id),author_id INTEGER NOT NULL REFERENCES users(id),body TEXT NOT NULL,kind TEXT NOT NULL CHECK(kind IN ('abertura','resposta','complemento')),created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS technical_ticket_messages_ticket ON technical_ticket_messages(ticket_id,id);
+CREATE TABLE IF NOT EXISTS technical_ticket_attachments(id INTEGER PRIMARY KEY,ticket_id INTEGER NOT NULL REFERENCES technical_tickets(id),message_id INTEGER NOT NULL REFERENCES technical_ticket_messages(id),name TEXT NOT NULL,mime TEXT NOT NULL,size INTEGER NOT NULL,data_base64 TEXT NOT NULL,created_by INTEGER NOT NULL REFERENCES users(id));
 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS rate_limits(key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL);
 INSERT OR IGNORE INTO settings VALUES('buffer_minutes','30');`;

@@ -2,8 +2,8 @@ import {checkBranch,plateValue,equipmentState,cbCode,capacityValue} from './equi
 import {query,one,run,transaction} from './storage.mjs';
 import {slotWindow,overlaps} from './maintenance.mjs';
 const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status});};
-export const maintenanceAccess=u=>['manutencao','gerente','programador'].includes(u.role);
-const sideAccess=(u,side)=>side==='maintenance'?maintenanceAccess(u):side==='logistics'&&['controlador','gerente','programador'].includes(u.role);
+export const maintenanceAccess=u=>['manutencao','gerente','programador','gerente_concresuper'].includes(u.role);
+const sideAccess=(u,side)=>side==='maintenance'?maintenanceAccess(u):side==='logistics'&&['controlador','gerente','programador','gerente_concresuper'].includes(u.role);
 const text=(value,label,max=1000)=>{if(typeof value!=='string'||!value.trim()||value.length>max)fail('Informe '+label+' (até '+max+' caracteres).');return value.trim();};
 function day(value){if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value)||!Number.isFinite(Date.parse(value+'T12:00:00Z'))||new Date(value+'T12:00:00Z').toISOString().slice(0,10)!==value)fail('Data inválida.');return value;}
 function period(b){for(const key of ['starts_at','ends_at']){if(typeof b[key]!=='string'||!/^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/.test(b[key]))fail('Informe início e fim com data e horário.');day(b[key].slice(0,10));}if(b.ends_at<=b.starts_at)fail('O fim da manutenção deve ser posterior ao início.');return {starts_at:b.starts_at,ends_at:b.ends_at,reason:text(b.reason,'o serviço/motivo da manutenção')};}
@@ -48,7 +48,7 @@ async function confirm(job,u){
 export async function equipmentMaintenanceApi({path,method,url,u,body}){
  const prefix='/api/equipment-maintenance',route=path.slice(prefix.length);
  if(route==='/calendar'&&method==='GET')return maintenanceCalendar(url.searchParams.get('from'),url.searchParams.get('to'));
- if(!['manutencao','gerente','programador','controlador'].includes(u.role))fail('Sem permissão.',403);
+ if(!['manutencao','gerente','programador','controlador','gerente_concresuper'].includes(u.role))fail('Sem permissão.',403);
  if(route==='/conflicts'&&method==='GET'){const pumpId=Number(url.searchParams.get('pump_id'));if(!Number.isInteger(pumpId)||pumpId<1)fail('Selecione uma bomba.');const data=period({starts_at:url.searchParams.get('starts_at'),ends_at:url.searchParams.get('ends_at'),reason:'Consulta'});return (await withConflicts([{...data,equipment_type:'bomba',pump_id:pumpId,status:'negociando'}]))[0].conflicts;}
  if(route==='/equipment'&&method==='GET')return {pumps:await query('SELECT * FROM pumps ORDER BY name'),cbs:await query('SELECT * FROM maintenance_cbs ORDER BY code')};
  if(route==='/equipment'&&method==='POST'){
@@ -135,7 +135,7 @@ export async function equipmentMaintenanceApi({path,method,url,u,body}){
   const job=await get(id);if(b.expected_revision===undefined||Number(b.expected_revision)!==job.revision)fail('Esta proposta mudou. Abra novamente antes de responder.',409);if(job.status==='cancelado')fail('Proposta já cancelada.',409);
   if(action==='cancel'){
    if(job.completed_at)fail('A manutenção já foi realizada e seu registro deve ser preservado.',409);
-   if(job.status==='confirmado'&&!['gerente','programador'].includes(u.role))fail('Somente Gerente ou Programador pode cancelar uma programação confirmada.',403);
+   if(job.status==='confirmado'&&!['gerente','programador','gerente_concresuper'].includes(u.role))fail('Somente Gerente ou Programador pode cancelar uma programação confirmada.',403);
    const note=text(b.note,'o motivo do cancelamento',2000);await run("UPDATE maintenance_jobs SET status='cancelado',revision=revision+1,updated_at=? WHERE id=?",new Date().toISOString(),id);if(job.period_id)await run('UPDATE maintenance_periods SET cancelled_by=?,cancelled_at=?,cancel_reason=? WHERE id=?',u.id,new Date().toISOString(),note,job.period_id);job.revision++;await event(u,job,'cancelar manutenção',side,note);return get(id);
   }
   if(job.status!=='negociando')fail('A programação já está confirmada. Para outra data, crie uma nova proposta.',409);

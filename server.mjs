@@ -1,3 +1,4 @@
+import {technicalTicketsApi} from './technical-tickets.mjs';
 import {equipmentMaintenanceApi,maintenanceAccess} from './equipment-maintenance.mjs';
 import {plateValue,checkBranch,equipmentState} from './equipment.mjs';
 import {contractsApi,withContractWorkNames} from './contracts.mjs';
@@ -19,9 +20,9 @@ import {readFileSync} from 'node:fs';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const ROOT = dirname(fileURLToPath(import.meta.url));
-const roles = ['programador', 'gerente', 'controlador', 'vendedor', 'manutencao'];
-const productionManager=u=>['gerente','programador'].includes(u.role);
-const manager = u => ['programador', 'gerente', 'controlador'].includes(u.role);
+const roles = ['programador', 'gerente', 'controlador', 'vendedor', 'manutencao', 'engenharia', 'gerente_engenharia', 'gerente_concresuper'];
+const productionManager=u=>['gerente','programador','gerente_concresuper'].includes(u.role);
+const manager = u => ['programador', 'gerente', 'controlador', 'gerente_concresuper'].includes(u.role);
 const safeUser = u => ({
   id: u.id,
   name: u.name,
@@ -290,6 +291,8 @@ async function api(req, res, url) {
   if (u.status !== 'aprovado') fail('Acesso não aprovado.', 403);
   if (u.must_change) fail('Troque a senha temporária antes de acessar os módulos.', 403);
   if(u.role==='manutencao'&&!path.startsWith('/api/equipment-maintenance')&&!['/api/meta','/api/presence','/api/profile/photo'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso exclusivo ao módulo Manutenção.',403);
+  if(['engenharia','gerente_engenharia'].includes(u.role)&&!path.startsWith('/api/technical-tickets')&&!['/api/meta','/api/presence','/api/profile/photo'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso exclusivo ao módulo de chamados da Engenharia.',403);
+  if(path.startsWith('/api/technical-tickets'))return technicalTicketsApi({path,method,url,u,res,body:()=>body(req,3200000)});
   if(path.startsWith('/api/equipment-maintenance'))return equipmentMaintenanceApi({path,method,url,u,body:()=>body(req)});
   if(path.startsWith('/api/contracts'))return contractsApi({path,method,url,u,body:()=>body(req),createAppointment});
   if(path==='/api/presence'&&method==='GET')return {users:await onlineUsers(),ttl_seconds:90};
@@ -680,6 +683,7 @@ const assets = {
   '/contracts.js': ['contracts.js', 'text/javascript; charset=utf-8'],
   '/vendor/html-to-image.js': ['vendor/html-to-image.js', 'text/javascript; charset=utf-8'],
   '/vendor/jspdf.umd.min.js': ['vendor/jspdf.umd.min.js', 'text/javascript; charset=utf-8'],
+  '/technical-tickets.js':['technical-tickets.js','text/javascript; charset=utf-8'],
   '/equipment-maintenance.js': ['equipment-maintenance.js','text/javascript; charset=utf-8'],
   '/report-pdf.js': ['report-pdf.js', 'text/javascript; charset=utf-8'],
   '/slump-format.js': ['slump-format.js', 'text/javascript; charset=utf-8'],

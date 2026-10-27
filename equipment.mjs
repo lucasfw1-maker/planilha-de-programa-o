@@ -5,7 +5,7 @@ export function plateValue(value=''){if(typeof value!=='string')throw Object.ass
 export function cbCode(value){const number=String(value??'').trim().replace(/^CB[\s•-]*/i,'');if(!/^\d{1,6}$/.test(number)||Number(number)<1)throw Object.assign(new Error('Informe somente o número do CB, maior que zero.'),{status:400});return 'CB•'+String(Number(number)).padStart(2,'0');}
 export function capacityValue(value){const capacity=typeof value==='number'?value:typeof value==='string'&&value.trim()?Number(value.replace(',','.')):NaN;if(!Number.isFinite(capacity)||capacity<=0||capacity>100)throw Object.assign(new Error('Informe uma capacidade de carga válida em m³ (maior que zero e até 100).'),{status:400});return capacity;}
 export async function equipmentState(u,kind,id,b){
- if(!['programador','gerente'].includes(u.role))throw Object.assign(new Error('Somente Gerente e Programador podem editar os equipamentos.'),{status:403});
+ if(!['programador','gerente','gerente_concresuper'].includes(u.role))throw Object.assign(new Error('Somente Gerente e Programador podem editar os equipamentos.'),{status:403});
  return transaction(async()=>{
  const table=kind==='bomba'?'pumps':'maintenance_cbs',old=await one('SELECT * FROM '+table+' WHERE id=?',id);if(!old)throw Object.assign(new Error('Equipamento não encontrado.'),{status:404});
  const active=b.active===undefined?old.active:b.active;if(![true,false,0,1].includes(active))throw Object.assign(new Error('Situação inválida.'),{status:400});

@@ -46,7 +46,7 @@ async function customerReport(id){
  return {customer:contract.customer,seller_id:contract.seller_id,seller_name:contract.seller_name,appointments:await withContractWorkNames(appointments),events:await withContractWorkNames(events),totals:{scheduled:appointments.length,rescheduled:events.filter(e=>e.kind==='remarcado').length,cancelled:events.filter(e=>e.kind==='cancelado').length,currently_cancelled:appointments.filter(a=>a.status==='cancelado').length,planned:appointments.reduce((n,a)=>n+a.planned_volume,0),active_planned:appointments.filter(a=>a.status!=='cancelado').reduce((n,a)=>n+a.planned_volume,0),delivered:appointments.reduce((n,a)=>n+(a.delivered_volume||0),0),missing:appointments.filter(a=>a.delivered_volume===null).length}};
 }
 export async function contractsApi({path,method,url,u,body,createAppointment}){
- if(!['programador','gerente','controlador'].includes(u.role))fail('Sem permissão para contratos ativos.',403);
+ if(!['programador','gerente','controlador','gerente_concresuper'].includes(u.role))fail('Sem permissão para contratos ativos.',403);
  if(path==='/api/contracts/customer-info'&&method==='GET'){
   const customer=await one('SELECT * FROM customers WHERE id=?',Number(url.searchParams.get('id')));if(!customer)fail('Cliente não encontrado.',404);
   const works=(await query('SELECT * FROM appointments WHERE seller_id=? ORDER BY date DESC,start DESC,id DESC',customer.seller_id)).filter(a=>customerKey(a.customer)===customer.name_key);

@@ -253,3 +253,18 @@ A logística/gestão pode solicitar cancelamento ou troca de data de uma manuten
 
 
 Na agenda de manutenção, equipamentos concluídos aparecem em verde. Ao passar o mouse ou focar um dia, a prévia permite abrir cada equipamento e executar as ações permitidas ao perfil, sem criar outra manutenção. Clicar na área vazia do dia continua abrindo uma nova proposta. A Manutenção também pode solicitar troca de data ou cancelamento de uma programação confirmada, com aceite da Logística antes de alterar o bloqueio vigente.
+
+
+## Chamados Técnico/Comercial
+
+- Perfis **Engenharia** e **Gerente Engenharia** podem ser atribuídos pelo Programador em Equipe e acessos. Os dois acessam exclusivamente o módulo de chamados e seu próprio perfil. O Programador e o Gerente Concresuper também acessam o módulo e seus indicadores. Vendedores acessam somente seus próprios chamados, respostas, imagens, PDFs e fotos dos participantes, inclusive ao usar links diretos.
+- Na abertura, o vendedor informa cliente, código do cliente, número do pedido, data da concretagem, tipo (Técnico/Comercial) e descrição. Traço e item são opcionais. Clientes já cadastrados do vendedor oferecem preenchimento do código. O Programador pode abrir em nome de um vendedor aprovado.
+- Cards mostram cliente, tipo, vendedor com foto e responsável pelo atendimento com foto. Filtros: Todos, Abertos, Em atendimento e Concluídos. Vermelho identifica aberto; amarelo queimado, em atendimento; verde, concluído.
+- Engenharia ou Gerente Engenharia deve **Assumir atendimento** antes de responder. A operação é atômica: somente uma pessoa assume e responde ao chamado, impedindo atendimento simultâneo por colegas. Mensagens complementares podem manter o atendimento aberto; **Marcar como atendido** conclui. Respostas posteriores do responsável não duplicam a data/contagem de conclusão.
+- O vendedor anexa imagens. A Engenharia e o Gerente Engenharia podem responder com imagens ou PDF. Até 5 anexos por mensagem, 1 MB por arquivo e 2 MB no total. Fotos são ajustadas no navegador; o servidor valida formato e tamanho, guarda no banco e exige autorização em cada acesso/download. PDFs são entregues como arquivo para download. Anexos continuam disponíveis depois da conclusão.
+- O documento do chamado usa o cabeçalho padrão, dados comerciais, conversa e fotos/nomes/funções dos participantes. Pode ser impresso ou baixado como PDF com identificação de quem gerou. Arquivos PDF anexos são listados pelo nome; seu conteúdo é baixado separadamente.
+- Gerente Engenharia e Programador geram indicadores por semana, mês ou período personalizado, com totais de aberturas e atendimentos, tipos, quantidades por vendedor, gráficos verticais e detalhamento. Aberturas são contadas pela data de abertura; atendimentos, pela primeira conclusão, no fuso de São Paulo.
+- Verificação do módulo: `npm run test:tickets-browser`. Ela usa dados fictícios e banco temporário; cobre papéis, isolamento, atendimento exclusivo, anexos/downloads, fotos, filtros, relatórios, PDF e celular.
+
+
+O perfil **Gerente Concresuper** acessa todos os menus de negócio: Início, agenda/solicitações/programação de carregamentos, relatórios, clientes/contratos, Gerência/frota/metas, Manutenção e Chamados Técnico/Comercial (incluindo indicadores). Configurações, administração de usuários e auditoria administrativa continuam exclusivas do Programador. A migração dos novos perfis preserva usuários, senhas, sessões e vínculos existentes.
