@@ -9,7 +9,7 @@ import {slotWindow,overlaps} from './maintenance.mjs';
 import {checkMonth,monthlyProduction} from './production.mjs';
 import {estimateTrips,fleetRange} from './fleet.mjs';
 import {localDay} from './changes.mjs';
-import {saveCustomer,customerKey,customerName,customerAddresses} from './customers.mjs';
+import {saveCustomer,customerKey,customerName,customerAddresses,customerWorks} from './customers.mjs';
 import {changeKind,recordChange,searchName} from './changes.mjs';
 import {query, one, run, transaction, initialize} from './storage.mjs';
 import {randomBytes, scryptSync, timingSafeEqual, createHash} from 'node:crypto';
@@ -80,7 +80,8 @@ function fields(b,{allowLegacyGravel=false}={}) {
     ...scheduling(b),
     ...contactFields(b),
     customer: customerName(text(b.customer, 'cliente')),
-    work: text(b.work, 'obra/endereço', 500),
+    work: text(b.work, 'endereço da obra', 500),
+    work_name: text(allowLegacyGravel?(b.work_name||b.customer):b.work_name,'nome da obra',200),
     planned_volume: number(b.planned_volume, 'Volume', 0.1),
     gravel: gravelValue(b.gravel,{legacy:allowLegacyGravel}),
     slump: slumpValue(b.slump),
@@ -138,7 +139,7 @@ async function createAppointment(b, u, requestId = null) {
     ...data,
     pump_id: b.pump_id
   });
-  const result = await run(`INSERT INTO appointments(customer,work,date,start,duration,type,pump_id,seller_id,planned_volume,gravel,resistance,piece,notes,trips,load_capacity,request_id,customer_code,contact_name,contact_phone,slump) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, data.customer, data.work, data.date, data.start, data.duration, data.type, pump, seller, data.planned_volume, data.gravel, data.resistance, data.piece, data.notes, data.trips, data.load_capacity, requestId, customerCode, data.contact_name, data.contact_phone, data.slump);
+  const result = await run(`INSERT INTO appointments(customer,work,date,start,duration,type,pump_id,seller_id,planned_volume,gravel,resistance,piece,notes,trips,load_capacity,request_id,customer_code,contact_name,contact_phone,slump,work_name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, data.customer, data.work, data.date, data.start, data.duration, data.type, pump, seller, data.planned_volume, data.gravel, data.resistance, data.piece, data.notes, data.trips, data.load_capacity, requestId, customerCode, data.contact_name, data.contact_phone, data.slump,data.work_name);
   const id = Number(result.lastInsertRowid);
   await saveCustomer(data,seller);
   await audit(u, 'criar', 'agendamento', id, data);
@@ -456,7 +457,8 @@ async function api(req, res, url) {
       const {trips,load_capacity}=estimate;
       if(b.action && !['cancelar','remarcar'].includes(b.action))fail('Ação de agendamento inválida.');
       if(b.action==='cancelar' && status!=='cancelado')fail('Confirme o cancelamento do agendamento.');
-      const after={...old,...data,...contact,...concrete,pump_id:pump,status,delivered_volume:delivered,trips,load_capacity};
+      const workName=b.work_name===undefined?old.work_name:text(b.work_name,'nome da obra',200),workNameChanged=workName!==old.work_name;
+      const after={...old,...data,...contact,...concrete,work_name:workName,pump_id:pump,status,delivered_volume:delivered,trips,load_capacity};
       if(old.status==='cancelado' && status==='cancelado' && ['date','start','duration','pump_id','type'].some(key=>old[key]!==after[key]))fail('Para mudar a programação de uma obra cancelada, use Remarcar agendamento.');
       const kind=changeKind(old,after);
       const reason=kind?text(b.reason,'o motivo do cancelamento ou da remarcação',1000):'';
@@ -465,8 +467,9 @@ async function api(req, res, url) {
       if(b.action==='remarcar' && kind!=='remarcado')fail('Altere a data, o horário, a duração ou o recurso para remarcar.');
       await recordChange(u,old,after,reason);
       const contactChanged=contact.contact_name!==old.contact_name||contact.contact_phone!==old.contact_phone,concreteChanged=concrete.gravel!==old.gravel||concrete.slump!==old.slump;
-      if((contactChanged||concreteChanged)&&b.expected_information_version!==undefined&&b.expected_information_version!==old.information_version)fail('As informações foram atualizadas por outra pessoa. Abra a obra novamente.',409);
-      await run('UPDATE appointments SET date=?,start=?,duration=?,type=?,pump_id=?,status=?,delivered_volume=?,trips=?,load_capacity=?,contact_name=?,contact_phone=?,gravel=?,slump=?,information_version=information_version+? WHERE id=?', data.date, data.start, data.duration, data.type, pump, status, delivered, trips, load_capacity, contact.contact_name, contact.contact_phone,concrete.gravel,concrete.slump,contactChanged||concreteChanged?1:0,id);
+      if((contactChanged||concreteChanged||workNameChanged)&&b.expected_information_version!==undefined&&b.expected_information_version!==old.information_version)fail('As informações foram atualizadas por outra pessoa. Abra a obra novamente.',409);
+      await run('UPDATE appointments SET date=?,start=?,duration=?,type=?,pump_id=?,status=?,delivered_volume=?,trips=?,load_capacity=?,contact_name=?,contact_phone=?,gravel=?,slump=?,work_name=?,information_version=information_version+? WHERE id=?', data.date, data.start, data.duration, data.type, pump, status, delivered, trips, load_capacity, contact.contact_name, contact.contact_phone,concrete.gravel,concrete.slump,workName,contactChanged||concreteChanged||workNameChanged?1:0,id);
+      if(workNameChanged)await run("UPDATE customers SET work_name=? WHERE seller_id=? AND name_key=? AND work=? AND (work_name=? OR work_name='')",workName,old.seller_id,customerKey(old.customer),old.work,old.work_name);
       if(contactChanged)await saveContactForAppointment(old,contact);
       if(concreteChanged)await saveConcreteForAppointment(old,{...(concrete.gravel!==old.gravel?{gravel:concrete.gravel}:{}),...(concrete.slump!==old.slump?{slump:concrete.slump}:{})});
       await audit(u, 'editar', 'agendamento', id, {
@@ -524,6 +527,8 @@ async function api(req, res, url) {
     const name=customerKey((url.searchParams.get('q')||'').slice(0,200));
     return await query(`SELECT c.*,u.name seller_name FROM customers c JOIN users u ON u.id=c.seller_id WHERE (?=0 OR c.seller_id=?) AND (?='' OR instr(c.name_key,?)>0) ORDER BY c.name LIMIT 100`,seller,seller,name,name);
   }
+  const customerWorksPath=path.match(/^\/api\/customers\/(\d+)\/works$/);
+  if(customerWorksPath&&method==='GET')return customerWorks(Number(customerWorksPath[1]),u);
   const customerAddressesPath=path.match(/^\/api\/customers\/(\d+)\/addresses$/);
   if(customerAddressesPath&&method==='GET')return customerAddresses(Number(customerAddressesPath[1]),u);
   const customerPreviewPath=path.match(/^\/api\/customers\/(\d+)\/edit-preview$/),customerEditPath=path.match(/^\/api\/customers\/(\d+)$/);
@@ -539,7 +544,7 @@ async function api(req, res, url) {
     const seller = await checkSeller(u.id);
     return await transaction(async () => {
       Object.assign(b,await detailsForCustomer(input,seller));
-      const id = Number((await run('INSERT INTO requests(seller_id,customer,work,date,start,duration,type,planned_volume,gravel,resistance,piece,notes,trips,load_capacity,contact_name,contact_phone,slump) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', seller, b.customer, b.work, b.date, b.start, b.duration, b.type, b.planned_volume, b.gravel, b.resistance, b.piece, b.notes, b.trips, b.load_capacity,b.contact_name,b.contact_phone,b.slump)).lastInsertRowid);
+      const id = Number((await run('INSERT INTO requests(seller_id,customer,work,date,start,duration,type,planned_volume,gravel,resistance,piece,notes,trips,load_capacity,contact_name,contact_phone,slump,work_name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', seller, b.customer, b.work, b.date, b.start, b.duration, b.type, b.planned_volume, b.gravel, b.resistance, b.piece, b.notes, b.trips, b.load_capacity,b.contact_name,b.contact_phone,b.slump,b.work_name)).lastInsertRowid);
       await saveCustomer(b,seller);
       await audit(u, 'solicitar', 'solicitacao', id, b);
       return {

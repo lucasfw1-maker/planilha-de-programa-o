@@ -7,6 +7,7 @@ import { migrateHistory, migrateCustomers } from './history-migration.mjs';
 import { migrateTripEstimates } from './fleet-migration.mjs';
 import { migrateCommercial } from './commercial-migration.mjs';
 import { migrateContacts } from './contact-migration.mjs';
+import {migrateWorkNames} from './work-name-migration.mjs';
 import { migrateConcrete } from './concrete-migration.mjs';
 import { SCHEMA } from './schema.mjs';
 
@@ -47,6 +48,7 @@ async function open() {
     await migrateHistory(candidate);
     await migrateCustomers(candidate);
     await migrateCommercial(candidate);
+    await migrateWorkNames(candidate);
     client=candidate;
   }catch(error){
     candidate.close();

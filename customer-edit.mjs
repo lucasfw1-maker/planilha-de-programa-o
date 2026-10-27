@@ -49,7 +49,7 @@ export async function editCustomer(id,input,actor){
   let resultId=customer.id;
   if(destination){
    const latest=(Date.parse(customer.updated_at)||0)>(Date.parse(destination.updated_at)||0)?customer:destination;
-   const defaults=['work','gravel','resistance','slump','piece','notes','planned_volume','trips','duration','type','load_capacity','customer_code','contact_name','contact_phone'];
+   const defaults=['work','work_name','gravel','resistance','slump','piece','notes','planned_volume','trips','duration','type','load_capacity','customer_code','contact_name','contact_phone'];
    await run('UPDATE active_contracts SET customer_id=? WHERE customer_id=?',destination.id,customer.id);
    await run('DELETE FROM customers WHERE id=?',customer.id);
    await run(`UPDATE customers SET name=?,name_key=?,${defaults.map(field=>field+'=?').join(',')},updated_at=? WHERE id=?`,proposed.name,proposed.name_key,...defaults.map(field=>latest[field]),stamp,destination.id);

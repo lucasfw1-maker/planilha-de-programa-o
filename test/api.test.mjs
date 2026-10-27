@@ -12,7 +12,7 @@ async function request(path, {method='GET',data,cookie,origin}={}) {
  const res=await fetch(base+path,{method,headers:{...(data?{'Content-Type':'application/json'}:{}),...(cookie?{Cookie:cookie}:{}),...(origin?{Origin:origin}:{})},body:data?JSON.stringify(data):undefined});
  return {status:res.status,body:await res.json(),cookie:res.headers.get('set-cookie')?.split(';')[0]};
 }
-const booking={customer:'Cliente Teste',work:'Obra Centro',date:'2027-01-04',start:'07:00',duration:120,type:'bomba',planned_volume:24,gravel:'1+0',resistance:'30 MPa',piece:'Laje',notes:'Com fibra; slump máximo 16',trips:3};
+const booking={customer:'Cliente Teste',work_name:'Obra Centro',work:'Obra Centro',date:'2027-01-04',start:'07:00',duration:120,type:'bomba',planned_volume:24,gravel:'1+0',resistance:'30 MPa',piece:'Laje',notes:'Com fibra; slump máximo 16',trips:3};
 before(async()=>{
  child=spawn(process.execPath,['server.mjs'],{env:{...process.env,PORT:'0',DB_PATH:join(dir,'db.sqlite')},stdio:['ignore','pipe','pipe']});
  await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error('Servidor não iniciou')),10000);child.once('error',reject);child.stdout.on('data',chunk=>{const match=String(chunk).match(/porta (\d+)/);if(match){base='http://127.0.0.1:'+match[1]+'/api';clearTimeout(timeout);resolve();}});child.stderr.on('data',chunk=>{if(String(chunk).includes('Error'))reject(Error(String(chunk)));});});
@@ -472,14 +472,42 @@ test('contratos recuperam a concretagem da obra correta e acompanham a unificaç
 });
 
 test('relatórios identificam o nome da obra do contrato ativo pelo cliente, vendedor e endereço',async()=>{
- const customer='Cliente nomes de obras',a=(await request('/appointments',{method:'POST',cookie:controller,data:{...booking,customer,seller_id:seller.id,type:'convencional',work:'Rua do prédio A',date:'2027-05-03'}})).body.id;
- const b=(await request('/appointments',{method:'POST',cookie:controller,data:{...booking,customer,seller_id:seller.id,type:'convencional',work:'Rua do prédio B',date:'2027-05-03'}})).body.id;
+ const customer='Cliente nomes de obras',a=(await request('/appointments',{method:'POST',cookie:controller,data:{...booking,customer,seller_id:seller.id,type:'convencional',work:'Rua do prédio A',work_name:'Residencial Alameda',date:'2027-05-03'}})).body.id;
+ const b=(await request('/appointments',{method:'POST',cookie:controller,data:{...booking,customer,seller_id:seller.id,type:'convencional',work:'Rua do prédio B',work_name:'Edifício B',date:'2027-05-03'}})).body.id;
  const c=(await request('/contracts',{method:'POST',cookie:controller,data:{customer,seller_id:seller.id,work_name:'Residencial Alameda',address:'Rua do prédio A',next_contact:'2027-05-03'}}));assert.equal(c.status,200);
- let rows=(await request('/report?from=2027-05-03&to=2027-05-03',{cookie:manager})).body;assert.equal(rows.find(r=>r.id===a).work_name,'Residencial Alameda');assert.equal(rows.find(r=>r.id===b).work_name,'');
+ let rows=(await request('/report?from=2027-05-03&to=2027-05-03',{cookie:manager})).body;assert.equal(rows.find(r=>r.id===a).work_name,'Residencial Alameda');assert.equal(rows.find(r=>r.id===b).work_name,'Edifício B');
  assert.equal((await request('/appointments/'+a,{cookie:seller.cookie})).body.work_name,'Residencial Alameda');
  assert.equal((await request('/appointments/'+a,{method:'PATCH',cookie:manager,data:{status:'cancelado',reason:'Cliente solicitou cancelamento'}})).status,200);
  const events=(await request('/changes?from=2027-05-03&to=2027-05-03&basis=before',{cookie:manager})).body;assert.equal(events.find(e=>e.appointment_id===a).work_name,'Residencial Alameda');
- const report=(await request('/contracts/'+c.body.id+'/customer-report',{cookie:manager})).body;assert.equal(report.appointments.find(r=>r.id===a).work_name,'Residencial Alameda');assert.equal(report.appointments.find(r=>r.id===b).work_name,'');
+ const report=(await request('/contracts/'+c.body.id+'/customer-report',{cookie:manager})).body;assert.equal(report.appointments.find(r=>r.id===a).work_name,'Residencial Alameda');assert.equal(report.appointments.find(r=>r.id===b).work_name,'Edifício B');
  assert.equal((await request('/contracts/'+c.body.id+'/close',{method:'POST',cookie:controller,data:{expected_version:0,reason:'Contrato encerrado'}})).status,200);
- rows=(await request('/report?from=2027-05-03&to=2027-05-03&status=cancelado',{cookie:manager})).body;assert.equal(rows.find(r=>r.id===a).work_name||'','');
+ rows=(await request('/report?from=2027-05-03&to=2027-05-03&status=cancelado',{cookie:manager})).body;assert.equal(rows.find(r=>r.id===a).work_name,'Residencial Alameda');
+});
+
+test('nome da obra é obrigatório, salvo por cliente/endereço e acompanha solicitações aprovadas',async()=>{
+ const customer='Cliente catálogo obras',data={...booking,customer,seller_id:seller.id,type:'convencional',date:'2039-09-01'};
+ for(const work_name of [undefined,'','   '])assert.equal((await request('/appointments',{method:'POST',cookie:admin,data:{...data,work_name}})).status,400);
+ assert.equal((await request('/requests',{method:'POST',cookie:seller.cookie,data:{...data,work_name:''}})).status,400);
+ const a=await request('/appointments',{method:'POST',cookie:admin,data:{...data,work_name:'Residencial Sul',work:'Rua Sul'}});assert.equal(a.status,200);
+ const b=await request('/requests',{method:'POST',cookie:seller.cookie,data:{...data,work_name:'Edifício Norte',work:'Rua Norte'}});assert.equal(b.status,200);
+ assert.equal((await request('/requests/'+b.body.id,{method:'PATCH',cookie:controller,data:{status:'aprovada'}})).status,200);
+ const client=(await request('/customers?q=Cliente catálogo obras',{cookie:admin})).body[0];assert.equal(client.work_name,'Edifício Norte');
+ const works=(await request('/customers/'+client.id+'/works',{cookie:seller.cookie})).body;assert.deepEqual(new Set(works.map(w=>w.work_name+'|'+w.address)),new Set(['Residencial Sul|Rua Sul','Edifício Norte|Rua Norte']));
+ const approved=(await request('/appointments?from=2039-09-01&to=2039-09-01',{cookie:admin})).body.find(a=>a.request_id===b.body.id);assert.equal(approved.work_name,'Edifício Norte');
+ assert.equal((await request('/appointments/'+a.body.id,{method:'PATCH',cookie:manager,data:{work_name:'Residencial Sul revisado',expected_information_version:0}})).status,200);
+ assert.equal((await request('/customers?q=Cliente catálogo obras',{cookie:admin})).body[0].work_name,'Edifício Norte','Editar a obra antiga não troca o nome da obra mais recente');
+ assert((await request('/customers/'+client.id+'/works',{cookie:controller})).body.some(w=>w.work_name==='Residencial Sul revisado'));
+ const otherLogin=(await request('/login',{method:'POST',data:{username:'outra.vendedora',password:password+'novo'}})).cookie;assert.equal((await request('/customers/'+client.id+'/works',{cookie:otherLogin})).status,404);
+});
+
+test('um cliente pode ter vários contratos/obras sem duplicar seu cadastro nem os contatos',async()=>{
+ const input={customer:'Cliente várias obras',seller_id:seller.id,work_name:'Obra Um',address:'Endereço Um',contact_name:'Carlos',contact_phone:'45999998888',next_contact:'2039-09-02'};
+ const a=await request('/contracts',{method:'POST',cookie:controller,data:input});assert.equal(a.status,200);
+ const first=(await request('/contracts/'+a.body.id,{cookie:manager})).body;assert(first.customer_id);
+ const b=await request('/contracts',{method:'POST',cookie:manager,data:{...input,customer_id:first.customer_id,work_name:'Obra Dois',address:'Endereço Dois',next_contact:'2039-09-03'}});assert.equal(b.status,200);
+ const second=(await request('/contracts/'+b.body.id,{cookie:controller})).body;assert.equal(second.customer_id,first.customer_id);assert.equal(second.contact_name,'Carlos');assert.equal(second.contact_phone,'(45) 9 9999-8888');
+ assert.equal((await request('/customers?q=Cliente várias obras',{cookie:admin})).body.length,1);
+ assert.equal((await request('/contracts/'+a.body.id+'/close',{method:'POST',cookie:manager,data:{expected_version:0,reason:'Primeira obra finalizada'}})).status,200);
+ assert.equal((await request('/contracts/'+b.body.id,{cookie:manager})).body.status,'ativo');
+ const works=(await request('/customers/'+first.customer_id+'/works',{cookie:controller})).body;assert.deepEqual(new Set(works.map(w=>w.work_name)),new Set(['Obra Um','Obra Dois']));
 });

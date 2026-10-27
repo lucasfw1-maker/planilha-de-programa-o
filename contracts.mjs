@@ -1,5 +1,5 @@
 import {one,query,run,transaction} from './storage.mjs';
-import {customerName,customerKey,customerAddresses} from './customers.mjs';
+import {customerName,customerKey,customerAddresses,saveCustomer} from './customers.mjs';
 import {contactFields} from './contacts.mjs';
 const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status});};
 export const contractToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -14,12 +14,13 @@ export async function readContract(id){
 }
 export async function withContractWorkNames(rows){
  if(!rows.length)return rows;
+ rows=rows.map(row=>({...row,work_name:row.work_name||row.before?.work_name||(()=>{try{return JSON.parse(row.before_json||'{}').work_name||'';}catch{return '';}})()}));
  const contracts=(await query(contractSelect+" WHERE k.status='ativo'")).map(contractView);
  if(!contracts.length)return rows;
  const byId=new Map(contracts.map(c=>[c.id,c])),key=r=>JSON.stringify([r.seller_id,customerKey(r.customer),customerKey(r.work)]),byWork=new Map();
  for(const c of contracts){const k=key({...c,work:c.address}),names=byWork.get(k)||new Set();names.add(c.work_name);byWork.set(k,names);}
  const linked=new Map((await query('SELECT contract_id,appointment_id FROM contract_bookings')).filter(b=>byId.has(b.contract_id)).map(b=>[b.appointment_id,byId.get(b.contract_id)]));
- return rows.map(row=>{const contract=linked.get(row.appointment_id??row.id),names=byWork.get(key(row));return {...row,work_name:contract&&contract.seller_id===row.seller_id?contract.work_name:names?.size===1?[...names][0]:row.work_name||''};});
+ return rows.map(row=>{const contract=linked.get(row.appointment_id??row.id),names=byWork.get(key(row));return {...row,work_name:row.work_name||(contract&&contract.seller_id===row.seller_id?contract.work_name:names?.size===1?[...names][0]:'')};});
 }
 async function editable(id,input){const row=await readContract(id);if(row.status!=='ativo')fail('Este contrato está encerrado.',409);if(Number(input.expected_version)!==row.version||input.expected_version===undefined)fail('O contrato foi atualizado. Abra novamente para conferir os dados.',409);return row;}
 async function fields(b){
@@ -65,7 +66,12 @@ export async function contractsApi({path,method,url,u,body,createAppointment}){
   return rows;
  }
  if(path==='/api/contracts'&&method==='POST')return transaction(async()=>{
-  const data=await fields(await body()),keys=Object.keys(data),result=await run(`INSERT INTO active_contracts(${keys.join(',')},created_by) VALUES(${keys.map(()=>'?').join(',')},?)`,...Object.values(data),u.id),id=Number(result.lastInsertRowid);await log(u,'criar contrato',id,data);return {id};
+  const data=await fields(await body());
+  if(!data.customer_id){
+   await saveCustomer({customer:data.customer,work:data.address,work_name:data.work_name,contact_name:data.contact_name,contact_phone:data.contact_phone,gravel:'',resistance:'',piece:data.last_piece,planned_volume:0,duration:120,type:'bomba'},data.seller_id);
+   data.customer_id=(await one('SELECT id FROM customers WHERE seller_id=? AND name_key=?',data.seller_id,customerKey(data.customer))).id;
+  }
+  const keys=Object.keys(data),result=await run(`INSERT INTO active_contracts(${keys.join(',')},created_by) VALUES(${keys.map(()=>'?').join(',')},?)`,...Object.values(data),u.id),id=Number(result.lastInsertRowid);await log(u,'criar contrato',id,data);return {id};
  });
  const match=path.match(/^\/api\/contracts\/(\d+)(?:\/(contacts|bookings|close|customer-report))?$/);if(!match)fail('Recurso não encontrado.',404);const id=Number(match[1]),action=match[2];
  if(method==='GET'&&action==='customer-report')return customerReport(id);
@@ -75,7 +81,7 @@ export async function contractsApi({path,method,url,u,body,createAppointment}){
   if(action==='contacts'&&method==='POST')return {id:await contact(id,b,u)};
   if(action==='close'&&method==='POST'){const reason=text(b.reason,'o motivo de encerramento',1000);await run("UPDATE active_contracts SET status='encerrado',closed_at=?,closed_by=?,close_reason=?,version=version+1 WHERE id=?",new Date().toISOString(),u.id,reason,id);await log(u,'encerrar contrato',id,{reason});return {ok:true};}
   if(action==='bookings'&&method==='POST'){
-   const contactId=await contact(id,b,u),appointmentId=await createAppointment({...b,customer:old.customer,work:old.address,seller_id:old.seller_id,contact_name:old.contact_name,contact_phone:old.contact_phone},u),appointment=await one('SELECT * FROM appointments WHERE id=?',appointmentId);
+   const contactId=await contact(id,b,u),appointmentId=await createAppointment({...b,customer:old.customer,work:old.address,work_name:old.work_name,seller_id:old.seller_id,contact_name:old.contact_name,contact_phone:old.contact_phone},u),appointment=await one('SELECT * FROM appointments WHERE id=?',appointmentId);
    const customer=await one('SELECT id FROM customers WHERE seller_id=? AND name_key=?',old.seller_id,customerKey(old.customer));if(customer)await run('UPDATE active_contracts SET customer_id=? WHERE id=?',customer.id,id);
    await run('INSERT INTO contract_bookings(contract_id,contact_id,appointment_id,actor_id,booked_at,snapshot_json) VALUES(?,?,?,?,?,?)',id,contactId,appointmentId,u.id,new Date().toISOString(),JSON.stringify({...appointment,work_name:old.work_name,seller_name:old.seller_name}));await log(u,'agendar contrato',id,{appointment_id:appointmentId,contact_id:contactId});return {id:appointmentId};
   }
