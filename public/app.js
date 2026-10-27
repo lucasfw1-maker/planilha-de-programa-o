@@ -79,7 +79,7 @@ function dialog(title, subtitle, html, onSubmit) {
     finally { if (submit) submit.disabled = false; }
   };
   $$('[data-cancel]', modal).forEach(b => b.onclick = () => modal.close());
-  bindTripCalculator();bindContactFields();bindSlumpFields();bindCustomerNameFields();
+  bindTripCalculator();bindContactFields();bindSlumpFields();bindCustomerNameFields();bindPlateFields();
 }
 modal.addEventListener('close', () => { currentDialog = ''; if(!modal.open)modal.replaceChildren(); });
 document.addEventListener('keydown',event=>{if(event.key==='Escape')$$('.month-day[data-day]').forEach(b=>b.classList.add('preview-dismissed'));});
@@ -850,4 +850,12 @@ function reportWorkName(row){const name=String(row.work_name||'').trim();return 
 function goalHistoryTable(){
  const data=state.management.goals,period=data.period;
  return `<div class="goal-history"><div class="goal-history-heading"><h3>Histórico de metas</h3><div class="segmented" aria-label="Período das metas"><button data-goals-period="past" class="${period==='past'?'selected':''}" aria-pressed="${period==='past'}">Metas anteriores</button><button data-goals-period="future" class="${period==='future'?'selected':''}" aria-pressed="${period==='future'}">Metas futuras</button></div></div><p class="muted">${period==='past'?'Meses anteriores':'Meses posteriores'} ao mês atual (${fmt(data.current_month+'-01',{month:'long',year:'numeric'})}). Selecione um mês para consultar ou alterar a meta.</p><div class="table-wrap"><table><thead><tr><th>MÊS</th><th>META</th><th>PROGRAMADO</th><th>ATINGIDO / ENTREGUE</th></tr></thead><tbody>${data.rows.map(goal=>`<tr><td><button class="goal-history-month" data-goal-month="${goal.month}" title="Consultar meta de ${esc(fmt(goal.month+'-01',{month:'long',year:'numeric'}))}">${esc(fmt(goal.month+'-01',{month:'long',year:'numeric'}))}</button></td><td>${num(goal.target)} m³</td><td>${num(goal.programmed)} m³<small>${num(goal.percent)}%</small></td><td>${num(goal.delivered)} m³<small>${num(goal.delivery_percent)}%${goal.missing?' · '+goal.missing+' obra(s) sem entrega informada':''}</small></td></tr>`).join('')||`<tr><td colspan="4"><div class="empty">Nenhuma meta ${period==='past'?'anterior':'futura'} cadastrada.</div></td></tr>`}</tbody></table></div><p class="goal-history-note">O atingido considera o volume entregue informado. Obras canceladas saem do programado; entregas já informadas são preservadas. Os percentuais usam a meta de cada mês.</p></div>`;
+}
+
+function bindPlateFields(){
+ $$('input[name="plate"]',modal).forEach(input=>{
+  input.autocapitalize='characters';input.spellcheck=false;
+  const uppercase=()=>{const start=input.selectionStart,end=input.selectionEnd;input.value=input.value.toUpperCase();if(start!==null&&end!==null)input.setSelectionRange(start,end);};
+  input.addEventListener('input',uppercase);uppercase();
+ });
 }
