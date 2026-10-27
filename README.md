@@ -215,3 +215,6 @@ Em **Gerência**, abaixo da meta mensal, **Histórico de metas** lista os meses 
 
 
 Em Gerência, o quadro de caminhões betoneira reúne também o cadastro e a manutenção das bombas. Ele e o quadro de metas mantêm a mesma altura padrão de 640 px, com cabeçalhos visíveis e rolagem interna independente quando necessário. No celular, os quadros ficam um abaixo do outro e preservam a rolagem individual.
+
+
+O menu lateral agrupa **Solicitações** e **Agenda de amanhã** sob **Agenda de obras**, e **Contratos Ativos** sob **Clientes**. A seta abre/fecha cada grupo de forma independente, sem trocar a página; clicar no nome principal continua abrindo a respectiva tela. Os submenus mantêm as permissões de cada perfil e o grupo da tela acessada é aberto automaticamente.
