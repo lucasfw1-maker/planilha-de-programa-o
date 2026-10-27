@@ -7,13 +7,13 @@ const sideAccess=(u,side)=>side==='maintenance'?maintenanceAccess(u):side==='log
 const text=(value,label,max=1000)=>{if(typeof value!=='string'||!value.trim()||value.length>max)fail('Informe '+label+' (até '+max+' caracteres).');return value.trim();};
 function day(value){if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value)||!Number.isFinite(Date.parse(value+'T12:00:00Z'))||new Date(value+'T12:00:00Z').toISOString().slice(0,10)!==value)fail('Data inválida.');return value;}
 function period(b){for(const key of ['starts_at','ends_at']){if(typeof b[key]!=='string'||!/^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/.test(b[key]))fail('Informe início e fim com data e horário.');day(b[key].slice(0,10));}if(b.ends_at<=b.starts_at)fail('O fim da manutenção deve ser posterior ao início.');return {starts_at:b.starts_at,ends_at:b.ends_at,reason:text(b.reason,'o serviço/motivo da manutenção')};}
-const select="SELECT j.*,progress.started_date,progress.notes progress_notes,x.completed_date,x.notes execution_notes,x.created_at completed_at,technician.name completed_by_name,p.name pump_name,c.code cb_code,u.name proposed_by_name,m.name maintenance_name,l.name logistics_name FROM maintenance_jobs j LEFT JOIN pumps p ON p.id=j.pump_id LEFT JOIN maintenance_cbs c ON c.id=j.cb_id JOIN users u ON u.id=j.proposed_by LEFT JOIN users m ON m.id=j.maintenance_approved_by LEFT JOIN users l ON l.id=j.logistics_approved_by LEFT JOIN maintenance_progress progress ON progress.job_id=j.id LEFT JOIN maintenance_completions x ON x.job_id=j.id LEFT JOIN users technician ON technician.id=x.actor_id";
+const select="SELECT j.*,progress.started_date,progress.notes progress_notes,x.completed_date,x.performed_by,x.notes execution_notes,x.created_at completed_at,technician.name completed_by_name,p.name pump_name,c.code cb_code,u.name proposed_by_name,m.name maintenance_name,l.name logistics_name FROM maintenance_jobs j LEFT JOIN pumps p ON p.id=j.pump_id LEFT JOIN maintenance_cbs c ON c.id=j.cb_id JOIN users u ON u.id=j.proposed_by LEFT JOIN users m ON m.id=j.maintenance_approved_by LEFT JOIN users l ON l.id=j.logistics_approved_by LEFT JOIN maintenance_progress progress ON progress.job_id=j.id LEFT JOIN maintenance_completions x ON x.job_id=j.id LEFT JOIN users technician ON technician.id=x.actor_id";
 function nextDay(value){const d=new Date(value+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+1);return d.toISOString().slice(0,10);}
 async function legacyPeriods(from,to,all=false,branch=''){
  const rows=await query("SELECT m.*,p.name equipment_code,p.plate equipment_plate,p.branch,u.name proposed_by_name FROM maintenance_periods m JOIN pumps p ON p.id=m.pump_id LEFT JOIN users u ON u.id=m.created_by WHERE m.starts_at<? AND m.ends_at>? AND (?=1 OR m.cancelled_at IS NULL) AND (?='' OR p.branch=?) AND NOT EXISTS(SELECT 1 FROM maintenance_jobs j WHERE j.period_id=m.id)",nextDay(to)+'T00:00',from+'T00:00',all?1:0,branch,branch);
  return rows.map(r=>({...r,id:'legacy-'+r.id,equipment_type:'bomba',pump_name:r.equipment_code,status:r.cancelled_at?'cancelado':'confirmado',maintenance_name:'Registro anterior',logistics_name:'Não registrada no cadastro anterior'}));
 }
-export async function maintenanceCalendar(from,to){day(from);day(to);if(from>to||Date.parse(to)-Date.parse(from)>366*86400000)fail('Consulte até 367 dias.');const jobs=await query("SELECT j.id,j.equipment_type,j.pump_id,j.cb_id,j.starts_at,j.ends_at,j.reason,j.branch,j.equipment_plate,p.name pump_name,c.code cb_code FROM maintenance_jobs j LEFT JOIN pumps p ON p.id=j.pump_id LEFT JOIN maintenance_cbs c ON c.id=j.cb_id WHERE j.status='confirmado' AND j.starts_at<? AND j.ends_at>? ORDER BY j.starts_at,j.id",nextDay(to)+'T00:00',from+'T00:00');return [...jobs,...await legacyPeriods(from,to)].sort((a,b)=>a.starts_at.localeCompare(b.starts_at));}
+export async function maintenanceCalendar(from,to){day(from);day(to);if(from>to||Date.parse(to)-Date.parse(from)>366*86400000)fail('Consulte até 367 dias.');const jobs=await query("SELECT j.id,j.equipment_type,j.pump_id,j.cb_id,j.starts_at,j.ends_at,j.reason,j.branch,j.equipment_plate,done.created_at completed_at,done.completed_date,p.name pump_name,c.code cb_code FROM maintenance_jobs j LEFT JOIN maintenance_completions done ON done.job_id=j.id LEFT JOIN pumps p ON p.id=j.pump_id LEFT JOIN maintenance_cbs c ON c.id=j.cb_id WHERE j.status='confirmado' AND j.starts_at<? AND j.ends_at>? ORDER BY j.starts_at,j.id",nextDay(to)+'T00:00',from+'T00:00');return [...jobs,...await legacyPeriods(from,to)].sort((a,b)=>a.starts_at.localeCompare(b.starts_at));}
 
 async function event(u,job,action,side,note){const stamp=new Date().toISOString();await run('INSERT INTO maintenance_job_events(job_id,actor_id,action,side,starts_at,ends_at,reason,note,revision,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',job.id,u.id,action,side,job.starts_at,job.ends_at,job.reason,note,job.revision,stamp);await run('INSERT INTO audit(user_id,action,entity,entity_id,detail) VALUES(?,?,?,?,?)',u.id,action,'manutencao_equipamento',job.id,JSON.stringify({side,revision:job.revision,starts_at:job.starts_at,ends_at:job.ends_at,reason:job.reason,note}));}
 async function withConflicts(jobs){
@@ -21,7 +21,7 @@ async function withConflicts(jobs){
  const dates=pumps.flatMap(j=>[j.starts_at.slice(0,10),j.ends_at.slice(0,10)]).sort();const works=await query("SELECT id,customer,work,date,start,duration,pump_id FROM appointments WHERE status<>'cancelado' AND date BETWEEN ? AND ?",dates[0],dates.at(-1));
  return jobs.map(j=>({...j,conflicts:j.equipment_type==='bomba'&&j.status!=='cancelado'?works.filter(a=>a.pump_id===j.pump_id&&overlaps(slotWindow(a.date,a.start,a.duration),{start:j.starts_at,end:j.ends_at})):[]}));
 }
-async function get(id){const job=await one(select+' WHERE j.id=?',id);if(!job)fail('Proposta não encontrada.',404);return {...(await withConflicts([job]))[0],services:await query('SELECT service,quantity,unit FROM maintenance_services WHERE job_id=? ORDER BY id',id)};}
+async function get(id){const job=await one(select+' WHERE j.id=?',id);if(!job)fail('Proposta não encontrada.',404);const previous=!job.completed_at?await one("SELECT before_json FROM maintenance_execution_history WHERE job_id=? AND action='reabrir conclusão' ORDER BY id DESC LIMIT 1",id):null;return {...(await withConflicts([job]))[0],services:await query('SELECT service,quantity,unit FROM maintenance_services WHERE job_id=? ORDER BY id',id),...(previous?{last_completion:JSON.parse(previous.before_json)}:{})};}
 
 async function confirm(job,u){
  if(!job.maintenance_approved_by||!job.logistics_approved_by)return;
@@ -76,21 +76,34 @@ export async function equipmentMaintenanceApi({path,method,url,u,body}){
    await event(u,job,'iniciar execução','maintenance',notes);return get(job.id);
   });
  }
+ const reopenMatch=route.match(/^\/requests\/(\d+)\/reopen$/);
+ if(reopenMatch&&method==='POST'){
+  if(!maintenanceAccess(u))fail('Somente a manutenção ou gestão pode reabrir a conclusão.',403);
+  const b=await body();return transaction(async()=>{
+   const job=await get(Number(reopenMatch[1]));if(!job.completed_at||job.status!=='confirmado')fail('Não há conclusão para reabrir neste registro.',409);if(Number(b.expected_revision)!==job.revision)fail('Este registro mudou. Abra novamente.',409);
+   const note=text(b.note,'o motivo da reabertura',2000),stamp=new Date().toISOString();
+   await run('INSERT INTO maintenance_execution_history(job_id,actor_id,action,before_json,after_json,created_at) VALUES(?,?,?,?,?,?)',job.id,u.id,'reabrir conclusão',JSON.stringify(job),JSON.stringify({note}),stamp);
+   await run('DELETE FROM maintenance_services WHERE job_id=?',job.id);await run('DELETE FROM maintenance_completions WHERE job_id=?',job.id);await run('UPDATE maintenance_jobs SET revision=revision+1,updated_at=? WHERE id=?',stamp,job.id);job.revision++;
+   await event(u,job,'reabrir conclusão','maintenance',note);return get(job.id);
+  });
+ }
  const completeMatch=route.match(/^\/requests\/(\d+)\/complete$/);
- if(completeMatch&&method==='POST'){
+ if(completeMatch&&['POST','PATCH'].includes(method)){
+  const editing=method==='PATCH';
   if(!maintenanceAccess(u))fail('Somente a manutenção ou gestão pode registrar a execução.',403);
   const b=await body();return transaction(async()=>{
-   const job=await get(Number(completeMatch[1]));if(job.status!=='confirmado'||job.completed_at||job.change_action==='cancel')fail('Só é possível concluir uma manutenção confirmada e ainda não realizada.',409);
+   const job=await get(Number(completeMatch[1]));if(job.status!=='confirmado'||(editing?!job.completed_at:!!job.completed_at)||job.change_action==='cancel')fail(editing?'Esta manutenção não tem uma conclusão para editar.':'Só é possível concluir uma manutenção confirmada e ainda não realizada.',409);
    if(Number(b.expected_revision)!==job.revision)fail('A manutenção mudou. Abra novamente antes de concluir.',409);
    if(await one("SELECT id FROM maintenance_jobs WHERE change_of=? AND status='negociando'",job.id))fail('Resolva o pedido de alteração pendente antes de registrar a execução.',409);
    const date=day(b.completed_date),today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());if(date>today||date<(job.started_date||job.starts_at.slice(0,10)))fail('A data de execução deve estar entre o início programado e hoje.');
    if(!Array.isArray(b.services)||!b.services.length||b.services.length>50)fail('Informe de 1 a 50 serviços realizados.');
+   const performedBy=text(b.performed_by,'quem realizou o serviço ou a empresa responsável',200);
    const services=b.services.map(s=>{const quantity=typeof s.quantity==='number'?s.quantity:typeof s.quantity==='string'&&s.quantity.trim()?Number(s.quantity.replace(',','.')):NaN;if(!Number.isFinite(quantity)||quantity<=0||quantity>100000000)fail('Informe uma quantidade válida e maior que zero para cada serviço.');return {service:text(s.service,'o nome do serviço',200),quantity,unit:text(s.unit,'a unidade do serviço',30)};});
    const notes=typeof b.notes==='string'?b.notes.trim():'';if(notes.length>2000)fail('Use até 2000 caracteres nas observações.');const stamp=new Date().toISOString();
-   await run('INSERT INTO maintenance_completions(job_id,completed_date,notes,actor_id,created_at) VALUES(?,?,?,?,?)',job.id,date,notes,u.id,stamp);
+   if(editing){await run('INSERT INTO maintenance_execution_history(job_id,actor_id,action,before_json,after_json,created_at) VALUES(?,?,?,?,?,?)',job.id,u.id,'editar conclusão',JSON.stringify(job),JSON.stringify({completed_date:date,performed_by:performedBy,services,notes}),stamp);await run('DELETE FROM maintenance_services WHERE job_id=?',job.id);await run('UPDATE maintenance_completions SET completed_date=?,performed_by=?,notes=?,actor_id=?,created_at=? WHERE job_id=?',date,performedBy,notes,u.id,stamp,job.id);}else await run('INSERT INTO maintenance_completions(job_id,completed_date,performed_by,notes,actor_id,created_at) VALUES(?,?,?,?,?,?)',job.id,date,performedBy,notes,u.id,stamp);
    for(const s of services)await run('INSERT INTO maintenance_services(job_id,service,quantity,unit) VALUES(?,?,?,?)',job.id,s.service,s.quantity,s.unit);
    await run('UPDATE maintenance_jobs SET revision=revision+1,updated_at=? WHERE id=?',stamp,job.id);job.revision++;
-   await event(u,job,'registrar execução','maintenance',JSON.stringify({completed_date:date,services,notes}));return get(job.id);
+   await event(u,job,editing?'editar conclusão':'registrar execução','maintenance',JSON.stringify({completed_date:date,performed_by:performedBy,services,notes}));return get(job.id);
   });
  }
 
@@ -103,15 +116,15 @@ export async function equipmentMaintenanceApi({path,method,url,u,body}){
  }
  const changeMatch=route.match(/^\/requests\/(\d+)\/change$/);
  if(changeMatch&&method==='POST'){
-  if(!sideAccess(u,'logistics'))fail('Somente a logística ou gestão pode solicitar esta alteração.',403);
-  const b=await body();return transaction(async()=>{
+  const b=await body(),side=b.side||(u.role==='manutencao'?'maintenance':'logistics');if(!sideAccess(u,side))fail('Sem permissão para solicitar esta alteração.',403);
+  return transaction(async()=>{
    const original=await get(Number(changeMatch[1]));if(original.completed_at)fail('Uma manutenção realizada não pode ser remarcada ou cancelada.',409);if(original.status!=='confirmado'||Number(b.expected_revision)!==original.revision)fail('A programação mudou. Abra novamente antes de solicitar.',409);
    if(await one("SELECT id FROM maintenance_jobs WHERE change_of=? AND status='negociando'",original.id))fail('Já existe um pedido em negociação para esta manutenção.',409);
    if(!['cancel','reschedule'].includes(b.action))fail('Escolha cancelamento ou troca de data.');
    const note=text(b.note,'o motivo da solicitação',2000),data=b.action==='cancel'?original:period({...b,reason:original.reason});
    if(b.action==='reschedule'&&data.starts_at===original.starts_at&&data.ends_at===original.ends_at)fail('Escolha um novo período.');
-   const stamp=new Date().toISOString(),id=Number((await run("INSERT INTO maintenance_jobs(change_of,change_action,equipment_type,pump_id,cb_id,starts_at,ends_at,reason,logistics_approved_by,proposed_by,proposed_side,equipment_code,equipment_plate,branch,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,'logistics',?,?,?,?,?)",original.id,b.action,original.equipment_type,original.pump_id,original.cb_id,data.starts_at,data.ends_at,original.reason,u.id,u.id,original.equipment_code,original.equipment_plate,original.branch,stamp,stamp)).lastInsertRowid);
-   const job=await get(id);await event(u,job,b.action==='cancel'?'solicitar cancelamento':'solicitar troca de data','logistics',note);await event(u,original,'solicitação de alteração','logistics','Pedido #'+id+': '+note);return job;
+   const stamp=new Date().toISOString(),id=Number((await run("INSERT INTO maintenance_jobs(change_of,change_action,equipment_type,pump_id,cb_id,starts_at,ends_at,reason,maintenance_approved_by,logistics_approved_by,proposed_by,proposed_side,equipment_code,equipment_plate,branch,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",original.id,b.action,original.equipment_type,original.pump_id,original.cb_id,data.starts_at,data.ends_at,original.reason,side==='maintenance'?u.id:null,side==='logistics'?u.id:null,u.id,side,original.equipment_code,original.equipment_plate,original.branch,stamp,stamp)).lastInsertRowid);
+   const job=await get(id);await event(u,job,b.action==='cancel'?'solicitar cancelamento':'solicitar troca de data',side,note);await event(u,original,'solicitação de alteração',side,'Pedido #'+id+': '+note);return job;
   });
  }
  const match=route.match(/^\/requests\/(\d+)(?:\/(accept|negotiate|cancel))?$/);if(!match)fail('Recurso não encontrado.',404);const id=Number(match[1]),action=match[2];

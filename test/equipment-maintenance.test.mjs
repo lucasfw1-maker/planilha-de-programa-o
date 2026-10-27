@@ -106,12 +106,12 @@ test('logística solicita troca de data e cancelamento; programação original v
 test('execução registra serviços, quantidades e responsável sem confundir manutenção programada com realizada',async()=>{
  const original=(await req('/equipment-maintenance/requests',maintenance,'POST',{equipment_type:'bomba',pump_id:pump,starts_at:'2025-01-01T07:00',ends_at:'2025-01-02T18:00',reason:'Revisão realizada'})).body;
  const base='/equipment-maintenance/requests/'+original.id;
- const payload={expected_revision:0,completed_date:'2025-01-02',notes:'Filtros substituídos e nível conferido.',services:[{service:'Troca de filtro',quantity:2,unit:'un'},{service:'Troca de óleo',quantity:'20,5',unit:'litros'}]};
+ const payload={expected_revision:0,completed_date:'2025-01-02',performed_by:'Oficina Exemplo',notes:'Filtros substituídos e nível conferido.',services:[{service:'Troca de filtro',quantity:2,unit:'un'},{service:'Troca de óleo',quantity:'20,5',unit:'litros'}]};
  assert.equal((await req(base+'/complete',maintenance,'POST',payload)).status,409);
  assert.equal((await req(base+'/accept',logistics,'POST',{side:'logistics',expected_revision:0})).status,200);
  assert.equal((await req(base+'/complete',logistics,'POST',payload)).status,403);
- for(const invalid of [{services:[]},{services:[{service:'Teste',quantity:0,unit:'un'}]},{completed_date:'2099-01-01'},{completed_date:'2024-12-31'}])assert.equal((await req(base+'/complete',maintenance,'POST',{...payload,...invalid})).status,400);
- const completed=await req(base+'/complete',maintenance,'POST',payload);assert.equal(completed.status,200,JSON.stringify(completed.body));assert.equal(completed.body.services[1].quantity,20.5);assert.equal(completed.body.completed_by_name,'manutencao');assert.equal(completed.body.completed_date,'2025-01-02');
+ for(const invalid of [{performed_by:''},{services:[]},{services:[{service:'Teste',quantity:0,unit:'un'}]},{completed_date:'2099-01-01'},{completed_date:'2024-12-31'}])assert.equal((await req(base+'/complete',maintenance,'POST',{...payload,...invalid})).status,400);
+ const completed=await req(base+'/complete',maintenance,'POST',payload);assert.equal(completed.status,200,JSON.stringify(completed.body));assert.equal(completed.body.services[1].quantity,20.5);assert.equal(completed.body.completed_by_name,'manutencao');assert.equal(completed.body.performed_by,'Oficina Exemplo');assert.equal(completed.body.completed_date,'2025-01-02');
  assert.equal((await req(base+'/complete',maintenance,'POST',payload)).status,409);
  assert.equal((await req(base+'/cancel',manager,'POST',{side:'logistics',expected_revision:1,note:'Não deve apagar o registro.'})).status,409);
  assert.equal((await req(base+'/change',logistics,'POST',{action:'cancel',expected_revision:1,note:'Não deve apagar o registro.'})).status,409);
@@ -131,4 +131,29 @@ test('serviços em execução são registrados separadamente das conclusões e o
  assert.equal((await req(path+'/start',maintenance,'POST',payload)).status,409);
  const report=(await req('/equipment-maintenance/report?all=1',maintenance)).body,item=report.jobs.find(j=>j.id===job.id);assert.equal(item.started_date,'2025-04-01');assert.equal(item.progress_notes,payload.notes);assert(!item.completed_at);assert.equal(report.events,undefined);
  assert.equal((await req(path+'/complete',maintenance,'POST',{expected_revision:1,completed_date:'2025-03-31',services:[{service:'Componente',quantity:1,unit:'un'}]})).status,400);
+});
+
+test('editar e reabrir a conclusão mantém a mesma manutenção e corrige quantitativos sem duplicar',async()=>{
+ const job=(await req('/equipment-maintenance/requests',maintenance,'POST',{equipment_type:'cb',cb_id:cb,starts_at:'2024-06-01T07:00',ends_at:'2024-06-01T18:00',reason:'Revisão para correção'})).body,path='/equipment-maintenance/requests/'+job.id;
+ await req(path+'/accept',logistics,'POST',{side:'logistics',expected_revision:0});
+ const payload={expected_revision:0,completed_date:'2024-06-01',performed_by:'Oficina inicial',services:[{service:'Filtro',quantity:2,unit:'un'}]};
+ assert.equal((await req(path+'/complete',maintenance,'POST',payload)).status,200);
+ assert.equal((await req(path+'/complete',logistics,'PATCH',{...payload,expected_revision:1})).status,403);
+ assert.equal((await req(path+'/complete',maintenance,'PATCH',payload)).status,409);
+ const edited=await req(path+'/complete',maintenance,'PATCH',{...payload,expected_revision:1,performed_by:'Oficina corrigida',services:[{service:'Filtro',quantity:4,unit:'un'}]});assert.equal(edited.status,200);assert.equal(edited.body.services.length,1);assert.equal(edited.body.services[0].quantity,4);assert.equal(edited.body.performed_by,'Oficina corrigida');
+ assert((await req('/equipment-maintenance/calendar?from=2024-06-01&to=2024-06-01',maintenance)).body.find(j=>j.id===job.id).completed_at);
+ assert.equal((await req(path+'/reopen',logistics,'POST',{expected_revision:2,note:'Correção'})).status,403);
+ const reopened=await req(path+'/reopen',maintenance,'POST',{expected_revision:2,note:'Vou conferir os serviços.'});assert.equal(reopened.status,200);assert(!reopened.body.completed_at);assert.equal(reopened.body.services.length,0);
+ assert.equal((await req(path+'/reopen',maintenance,'POST',{expected_revision:3,note:'Duplicado'})).status,409);
+ assert.equal((await req(path+'/complete',maintenance,'POST',{...payload,expected_revision:3})).status,200);
+ const report=(await req('/equipment-maintenance/report?all=1',maintenance)).body;assert.equal(report.jobs.filter(j=>j.id===job.id).length,1);assert.equal(report.jobs.find(j=>j.id===job.id).services[0].quantity,2);
+ const history=(await req(path,maintenance)).body;assert(history.events.some(e=>e.action==='editar conclusão'));assert(history.events.some(e=>e.action==='reabrir conclusão'));
+});
+
+test('a manutenção também pode pedir alteração de programação confirmada para aceite da logística',async()=>{
+ const job=(await req('/equipment-maintenance/requests',maintenance,'POST',{equipment_type:'cb',cb_id:cb,starts_at:'2037-01-01T07:00',ends_at:'2037-01-02T18:00',reason:'Revisão técnica'})).body;
+ await req('/equipment-maintenance/requests/'+job.id+'/accept',logistics,'POST',{side:'logistics',expected_revision:0});
+ const change=await req('/equipment-maintenance/requests/'+job.id+'/change',maintenance,'POST',{action:'cancel',expected_revision:0,note:'Serviço não será necessário.'});assert.equal(change.status,200,JSON.stringify(change.body));assert(change.body.maintenance_approved_by);assert.equal(change.body.logistics_approved_by,null);
+ assert.equal((await req('/equipment-maintenance/requests/'+change.body.id+'/accept',logistics,'POST',{side:'logistics',expected_revision:0})).status,200);
+ assert.equal((await req('/equipment-maintenance/requests/'+job.id,maintenance)).body.status,'cancelado');
 });
