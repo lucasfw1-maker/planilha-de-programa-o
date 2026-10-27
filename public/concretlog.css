@@ -141,3 +141,27 @@ input:focus,select:focus,textarea:focus{background:#fff;border-color:#14962a}
 @media(max-width:760px){.auth{position:relative;display:block;padding:18px;background:#0d4444;isolation:isolate}.auth-brand{position:absolute;inset:0;z-index:-1;background-position:30% center}.auth-form-area{height:100%;padding:0;display:flex;align-items:center;justify-content:center}.auth-form-area:before{display:none}.auth-form{padding:24px;max-width:370px;background:linear-gradient(135deg,#fffffffa,#f0f4f8fa);border:1px solid #ffffff80;border-radius:15px;box-shadow:0 14px 50px #03272c45}.auth-concretlog-logo{height:90px;max-width:290px;margin-bottom:20px}.auth-unit{margin-bottom:20px}.auth--setup .auth-form,.auth--register .auth-form{margin:auto 0}.auth--setup .auth-form-area,.auth--register .auth-form-area{align-items:safe center}.auth-form h2{font-size:21px}}
 @media(max-width:760px) and (max-height:650px){.auth{padding:12px}.auth-form{padding:19px 21px}.auth-concretlog-logo{height:72px;margin-bottom:14px}.auth-unit{margin-bottom:14px}.auth--login .auth-login-field input{height:43px}.auth--login .auth-login-field{margin-bottom:12px}.auth-form button.primary{height:40px}.auth-footnote{margin-top:12px}.auth--setup .auth-concretlog-logo,.auth--register .auth-concretlog-logo{height:48px;margin-bottom:10px}.auth--setup .auth-unit,.auth--register .auth-unit{display:none}.auth--setup .auth-footnote,.auth--register .auth-footnote{display:none}.auth-form label{margin-bottom:9px}.auth-form input{height:36px}.auth--setup .auth-form>p,.auth--register .auth-form>p{margin:6px 0 10px}}
 @media(max-width:760px) and (max-height:480px){.auth-concretlog-logo{height:50px;margin-bottom:9px}.auth-unit,.auth-footnote{display:none}.auth-form{padding:16px 20px}.auth-form #recover-access{margin-top:6px}.auth--login .auth-login-field input{height:38px}.auth-form button.primary{height:36px}}
+
+/* Calendar previews use the already-loaded month; no request on hover. */
+.panel:has(.month-grid){overflow:visible}
+.panel:has(.month-grid)>.panel-header{border-radius:var(--radius) var(--radius) 0 0}
+.month-day[data-day]{position:relative}
+.month-preview{display:none;position:absolute;top:100%;left:8px;width:310px;padding-top:8px;z-index:40;text-align:left;white-space:normal;cursor:default;font-weight:400;color:var(--ink)}
+.month-preview-card{display:block;overflow:hidden;border:1px solid #dce8df;border-radius:11px;background:#fff;box-shadow:0 10px 32px #133f3433}
+.month-preview-heading{display:block;padding:13px 14px;background:#eef7ee;color:#185a2d;font-size:11px;font-weight:650;text-transform:capitalize;line-height:1.6;border-bottom:1px solid #dfebdf}
+.month-preview-heading>span{display:block;text-transform:none;font-size:10px;font-weight:400;color:#6c8175}
+.month-preview-items{display:block;max-height:min(290px,42vh);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#adc4b7 transparent}
+.month-preview-work{display:grid;grid-template-columns:45px minmax(0,1fr);gap:10px;padding:11px 14px;border-bottom:1px solid #edf1ee;line-height:1.5}
+.month-preview-work:last-child{border-bottom:0}
+.month-preview-time{font-size:11px;color:#12822c;font-weight:650}
+.month-preview-client{min-width:0}
+.month-preview-client strong{display:block;font-size:11px;font-weight:650;white-space:normal;overflow-wrap:anywhere;color:var(--ink)}
+.month-day .month-preview-client small{display:block;margin-top:4px;font-size:10px;color:#71817c}
+.month-preview-empty{display:block;padding:20px 14px;font-size:11px;line-height:1.6;color:var(--muted)}
+.month-preview-footer{display:block;border-top:1px solid #e6eee9;padding:9px 14px;font-size:9px;color:#82928a;background:#fafcfb}
+.month-day:nth-child(7n) .month-preview,.month-day:nth-child(7n+6) .month-preview{left:auto;right:8px}
+.month-day:nth-last-child(-n+14) .month-preview{top:auto;bottom:100%;padding-top:0;padding-bottom:8px}
+@media(hover:hover){.month-day:hover:not(.preview-dismissed)>.month-preview{display:block}}
+.month-day:focus-visible:not(.preview-dismissed)>.month-preview{display:block}
+@media(max-width:760px){.month-day .month-preview,.month-day:nth-child(7n) .month-preview,.month-day:nth-child(7n+6) .month-preview,.month-day:nth-last-child(-n+14) .month-preview{position:fixed;top:auto;bottom:78px;left:15px;right:15px;width:auto;padding:0}.month-preview-items{max-height:35vh}}
+@media print{.month-preview{display:none!important}}

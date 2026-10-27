@@ -388,7 +388,7 @@ async function api(req, res, url) {
     const full=await withCustomerCodes(manager(u)?rows:rows.filter(a=>a.seller_id===u.id));
     if(manager(u))return full;
     const own=new Map(full.map(a=>[a.id,a]));
-    return rows.filter(a=>a.status!=='cancelado').map(a=>a.seller_id===u.id?{...own.get(a.id),own_booking:true}:{id:a.id,date:a.date,start:a.start,duration:a.duration,type:a.type,pump_id:a.pump_id,status:'ocupado'});
+    return rows.filter(a=>a.status!=='cancelado').map(a=>a.seller_id===u.id?{...own.get(a.id),own_booking:true}:{id:a.id,date:a.date,start:a.start,duration:a.duration,type:a.type,pump_id:a.pump_id,customer:a.customer,status:'ocupado'});
   }
   if (path === '/api/appointments' && method === 'POST') {
     if (!manager(u)) fail('Sem permissão.', 403);

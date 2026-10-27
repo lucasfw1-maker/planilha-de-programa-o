@@ -40,7 +40,7 @@ O fluxo reproduz o padrão do sistema de obras enviado: usuário e senha, mostra
 
 | Perfil | Permissões |
 | --- | --- |
-| Vendedor | Disponibilidade sem nomes/dados de clientes de outros vendedores, solicitar reserva, acompanhar seus pedidos, adicionar códigos comerciais nas próprias obras e consultar seu relatório |
+| Vendedor | Agenda com nomes dos clientes e horários, sem permissão para editar obras de outros vendedores, solicitar reserva, acompanhar seus pedidos, adicionar códigos comerciais nas próprias obras e consultar seu relatório |
 | Controlador de logística | Agendamentos, solicitações, consulta/bloqueio por manutenção, volume entregue e relatórios da filial |
 | Gerente | Operação e relatórios, mais o módulo Gerência para cadastrar bombas, ajustar frota e metas |
 | Programador | Tudo, cadastros, aprovação/bloqueio de usuários, redefinição de senha, parâmetros e auditoria |
@@ -138,10 +138,12 @@ O relatório Produção e metas também compara o programado e o entregue por ve
 
 ### Informações comerciais e foto de perfil
 
-Na agenda, **Adicionar informações** permite preencher código do cliente, pedido e item. O vendedor altera somente suas próprias obras; obras de outros vendedores mostram apenas ocupação. Programador, gerente e controlador podem alterar qualquer agendamento. O código do cliente é reutilizado em novas agendas da mesma carteira; pedido e item pertencem exclusivamente à obra. A agenda de amanhã apresenta, por exemplo, **Dallo 5310/2020-1**, inclusive na exportação.
+Na agenda, **Adicionar informações** permite preencher código do cliente, pedido e item. O vendedor altera somente suas próprias obras; obras de outros vendedores exibem cliente e horário, sem o botão para adicionar informações. Programador, gerente e controlador podem alterar qualquer agendamento. O código do cliente é reutilizado em novas agendas da mesma carteira; pedido e item pertencem exclusivamente à obra. A agenda de amanhã apresenta, por exemplo, **Dallo 5310/2020-1**, inclusive na exportação.
 
 Clique na foto ou nas iniciais no rodapé do menu para escolher ou remover sua foto. O navegador recorta a imagem centralmente e reduz para JPEG de 192 × 192; o banco persistente guarda a foto, inclusive na Vercel. Cada pessoa troca apenas a própria foto. Fotos circulares aparecem nas identificações dos vendedores em relatórios e abaixo dos nomes no gráfico de volumes, inclusive na impressão/PDF. Sem foto, aparecem as iniciais.
 
 ### Tela inicial ConcretLog
 
 Após o login, **Início** apresenta os totais de hoje, atalhos aos módulos existentes, o volume programado de hoje e dos próximos seis dias e a lista das obras nesse período. Os dados vêm dos agendamentos e solicitações existentes. Para vendedores, os indicadores e a lista incluem somente suas próprias obras; os atalhos seguem as permissões do perfil. A agenda diária/semanal/mensal, as fotos, os relatórios e as regras operacionais continuam disponíveis. Não foram criados módulos de laboratório ou ensaios que aparecem apenas na referência visual.
+
+No calendário mensal, passe o mouse sobre um dia ou use o foco do teclado para consultar a prévia de cliente, horário e bomba/entrega convencional. A prévia usa os dados do mês já carregados e exclui agendas canceladas. Todos os vendedores podem ver os nomes; somente o vendedor responsável e os perfis de gestão podem alterar as informações comerciais da obra. Escape fecha a prévia; clicar no dia abre a agenda diária.
