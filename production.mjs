@@ -29,3 +29,10 @@ export async function monthlyProduction(month,options={}){
   const remaining=target?Math.max(0,target-programmed):null,deliveryRemaining=target?Math.max(0,target-delivered):null,daysRemaining=calendar.filter(d=>d.remaining).length;
   return {month,target,programmed,delivered,works,missing,percent:target?programmed/target*100:null,remaining,remaining_percent:target?Math.max(0,100-programmed/target*100):null,surplus:target?Math.max(0,programmed-target):null,delivery_percent:target?delivered/target*100:null,delivery_remaining:deliveryRemaining,delivery_remaining_percent:target?Math.max(0,100-delivered/target*100):null,reference,basis,operating_days:calendar.filter(d=>d.operating).length,days_remaining:daysRemaining,required_programming_daily:target?(remaining===0?0:daysRemaining?remaining/daysRemaining:null):null,required_delivery_daily:target?(deliveryRemaining===0?0:daysRemaining?deliveryRemaining/daysRemaining:null):null,daily,sellers};
 }
+
+export async function monthlyGoalHistory(period='past',currentMonth=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit'}).format(new Date())){
+ checkMonth(currentMonth);
+ if(!['past','future'].includes(period))throw Object.assign(new Error('Escolha metas anteriores ou futuras.'),{status:400});
+ const rows=await query(`SELECT g.month,g.volume target,COALESCE(SUM(CASE WHEN a.status<>'cancelado' THEN a.planned_volume ELSE 0 END),0) programmed,COALESCE(SUM(a.delivered_volume),0) delivered,SUM(CASE WHEN a.id IS NOT NULL AND a.status<>'cancelado' AND a.delivered_volume IS NULL THEN 1 ELSE 0 END) missing FROM monthly_goals g LEFT JOIN appointments a ON substr(a.date,1,7)=g.month WHERE g.month ${period==='past'?'<':'>'} ? GROUP BY g.month,g.volume ORDER BY g.month ${period==='past'?'DESC':'ASC'}`,currentMonth);
+ return {period,current_month:currentMonth,rows:rows.map(row=>({...row,percent:row.programmed/row.target*100,delivery_percent:row.delivered/row.target*100}))};
+}

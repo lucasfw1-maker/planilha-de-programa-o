@@ -511,3 +511,15 @@ test('um cliente pode ter vários contratos/obras sem duplicar seu cadastro nem 
  assert.equal((await request('/contracts/'+b.body.id,{cookie:manager})).body.status,'ativo');
  const works=(await request('/customers/'+first.customer_id+'/works',{cookie:controller})).body;assert.deepEqual(new Set(works.map(w=>w.work_name)),new Set(['Obra Um','Obra Dois']));
 });
+
+test('histórico de metas separa meses anteriores/futuros e calcula volumes e percentuais sem duplicar cancelamentos',async()=>{
+ assert.equal((await request('/production/goals')).status,401);assert.equal((await request('/production/goals',{cookie:seller.cookie})).status,403);assert.equal((await request('/production/goals?period=invalid',{cookie:manager})).status,400);
+ const month=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit'}).format(new Date());
+ for(const [month,volume] of [['1999-01',50],['2099-01',200]])assert.equal((await request('/production',{method:'PATCH',cookie:manager,data:{month,volume}})).status,200);
+ const a=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,type:'convencional',seller_id:seller.id,date:'1999-01-05',planned_volume:80}});assert.equal(a.status,200);await request('/appointments/'+a.body.id,{method:'PATCH',cookie:manager,data:{delivered_volume:60,status:'concluido'}});
+ const b=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,type:'convencional',seller_id:seller.id,date:'1999-01-06',planned_volume:40}});assert.equal(b.status,200);await request('/appointments/'+b.body.id,{method:'PATCH',cookie:manager,data:{delivered_volume:10,status:'cancelado',reason:'Saldo cancelado'}});
+ assert.equal((await request('/appointments',{method:'POST',cookie:admin,data:{...booking,type:'convencional',seller_id:seller.id,date:'2099-01-05',planned_volume:100}})).status,200);
+ const past=(await request('/production/goals?period=past',{cookie:manager})).body;assert.equal(past.current_month,month);assert(past.rows.every(g=>g.month<month));const history=past.rows.find(g=>g.month==='1999-01');assert.equal(history.target,50);assert.equal(history.programmed,80);assert.equal(history.delivered,70);assert.equal(history.percent,160);assert.equal(history.delivery_percent,140);
+ const future=(await request('/production/goals?period=future',{cookie:controller})).body;assert(future.rows.every(g=>g.month>month));const planned=future.rows.find(g=>g.month==='2099-01');assert.equal(planned.programmed,100);assert.equal(planned.delivered,0);assert.equal(planned.percent,50);assert.equal(planned.delivery_percent,0);assert.equal(planned.missing,1);
+ assert.equal((await request('/appointments/'+a.body.id,{method:'PATCH',cookie:manager,data:{date:'1999-02-05',reason:'Mudança de mês'}})).status,200);const updated=(await request('/production/goals?period=past',{cookie:manager})).body.rows.find(g=>g.month==='1999-01');assert.equal(updated.programmed,0);assert.equal(updated.delivered,10);assert.equal(updated.delivery_percent,20);
+});

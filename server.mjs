@@ -6,7 +6,7 @@ import {gravelValue,slumpValue} from './concrete.mjs';
 import {contactFields} from './contacts.mjs';
 import {commercialCode,savedCustomerCode,withCustomerCodes} from './commercial.mjs';
 import {slotWindow,overlaps} from './maintenance.mjs';
-import {checkMonth,monthlyProduction} from './production.mjs';
+import {checkMonth,monthlyProduction,monthlyGoalHistory} from './production.mjs';
 import {estimateTrips,fleetRange} from './fleet.mjs';
 import {localDay} from './changes.mjs';
 import {saveCustomer,customerKey,customerName,customerAddresses,customerWorks} from './customers.mjs';
@@ -342,6 +342,10 @@ async function api(req, res, url) {
       await audit(u,'ajustar frota','frota',0,{date:day,scope,trucks,before:before.days[0]});
       return await fleetRange(day,day);
     });
+  }
+  if(path==='/api/production/goals'&&method==='GET'){
+    if(!manager(u))fail('Sem permissão.',403);
+    return monthlyGoalHistory(url.searchParams.get('period')||'past');
   }
   if(path==='/api/production' && method==='GET') {
     if(!manager(u))fail('Sem permissão.',403);
