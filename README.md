@@ -156,7 +156,7 @@ A agenda de amanhã inclui a coluna **Contato**, com nome em negrito e telefone 
 
 ### Slump e opções de brita
 
-Agendamentos e solicitações incluem **Slump** opcional (por exemplo, `12 ± 2 cm`). O valor acompanha a aprovação da reserva, é salvo no cliente e pode ser ajustado nas obras autorizadas ao perfil. Na programação de carregamentos, aparece abaixo da brita com o mesmo estilo de texto, inclusive no PDF e no CSV.
+Agendamentos e solicitações incluem **Slump** opcional (por exemplo, `12 ± 2`). Digitar `12+-2` ou `12+/-2` produz `12 ± 2`; o sufixo `cm` é removido automaticamente. A mesma apresentação vale para registros anteriores, agendas, prévias, relatórios e CSV. O valor acompanha a aprovação da reserva, é salvo no cliente e pode ser ajustado nas obras autorizadas ao perfil. Na programação de carregamentos, aparece abaixo da brita com o mesmo estilo de texto, inclusive no PDF e no CSV.
 
 Novos cadastros usam as opções de **Brita** `1+0`, `0`, `2` e `Massa Preta`. Registros antigos preservam a brita informada originalmente; a aprovação de reservas anteriores continua funcionando. Ao reutilizar um cadastro com uma brita fora da lista atual, escolha uma das opções atuais para o novo agendamento.
 

@@ -657,6 +657,7 @@ async function api(req, res, url) {
   fail('Recurso não encontrado.', 404);
 }
 const assets = {
+  '/slump-format.js': ['slump-format.js', 'text/javascript; charset=utf-8'],
   '/concretlog.css': ['concretlog.css', 'text/css; charset=utf-8'],
   '/concretlog-logo.png': ['concretlog-logo.png', 'image/png'],
   '/concretlog-symbol.png': ['concretlog-symbol.png', 'image/png'],
