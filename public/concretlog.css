@@ -245,3 +245,5 @@ input[name=customer],#customer-edit-form input[name=name]{text-transform:upperca
 .equipment-conflict-warning{padding:9px 12px;background:#fff3dd;border:1px solid #ead6ad;border-radius:7px;color:#95621a!important;font-size:11px!important}
 @media(min-width:761px){.month-preview.with-cbs{width:min(580px,calc(100vw - 290px))}.month-day:nth-child(7n+4) .month-preview.with-cbs,.month-day:nth-child(7n+5) .month-preview.with-cbs{left:auto;right:8px}}
 .loading-maintenance-report{margin-top:24px}.loading-maintenance-report td{white-space:normal}
+
+.equipment-day[role="button"]{cursor:pointer}.equipment-day[role="button"]:hover{background:#edf7ef}.equipment-day[role="button"]:focus-visible{outline:2px solid var(--green,#008c21);outline-offset:-3px}

@@ -7,7 +7,7 @@ import {join} from 'node:path';
 const dir=mkdtempSync(join(tmpdir(),'equipment-maintenance-')),password='Teste-Equipamentos-2027!';let server,base,admin,maintenance,logistics,manager,seller,pump,cb;
 async function req(path,cookie,method='GET',data){const res=await fetch(base+path,{method,headers:{...(cookie?{cookie}:{}),...(data?{'Content-Type':'application/json'}:{})},body:data?JSON.stringify(data):undefined});return {status:res.status,body:await res.json(),cookie:res.headers.get('set-cookie')?.split(';')[0]};}
 before(async()=>{server=spawn(process.execPath,['server.mjs'],{env:{...process.env,DB_PATH:join(dir,'db.sqlite'),PORT:'0'},stdio:['ignore','pipe','pipe']});base=await new Promise((resolve,reject)=>{server.stdout.on('data',value=>{const m=String(value).match(/porta (\d+)/);if(m)resolve('http://127.0.0.1:'+m[1]+'/api');});server.once('error',reject);});admin=(await req('/bootstrap',null,'POST',{name:'Admin',username:'admin.equip',password})).cookie;for(const role of ['manutencao','controlador','gerente','vendedor']){assert.equal((await req('/users',admin,'POST',{name:role,username:role,password,role})).status,200);const login=await req('/login',null,'POST',{username:role,password}),changed=await req('/change-password',login.cookie,'POST',{currentPassword:password,newPassword:password+'novo'});assert.equal(changed.status,200);if(role==='manutencao')maintenance=changed.cookie;if(role==='controlador')logistics=changed.cookie;if(role==='gerente')manager=changed.cookie;if(role==='vendedor')seller=changed.cookie;}
- pump=(await req('/pumps',admin,'POST',{name:'BL TESTE',plate:'ABC-1234',branch:'pacaembu'})).body.id;cb=(await req('/equipment-maintenance/equipment',manager,'POST',{code:'CB 01',plate:'DEF1G23',branch:'pacaembu'})).body.id;});
+ pump=(await req('/pumps',admin,'POST',{name:'BL TESTE',plate:'ABC-1234',branch:'pacaembu'})).body.id;cb=(await req('/equipment-maintenance/equipment',manager,'POST',{code:'01',capacity_m3:8,plate:'DEF1G23',branch:'pacaembu'})).body.id;});
 after(()=>{server?.kill();rmSync(dir,{recursive:true,force:true});});
 test('perfil Manutenção tem apenas seu módulo, cadastro de equipamentos e perfil próprio',async()=>{for(const path of ['/appointments?from=2030-01-01&to=2030-01-31','/requests','/customers','/report?from=2030-01-01&to=2030-01-31','/users','/audit','/production?month=2030-01'])assert.equal((await req(path,maintenance)).status,403,path);assert.equal((await req('/equipment-maintenance/equipment',maintenance)).status,200);assert.equal((await req('/equipment-maintenance/requests',seller)).status,403);assert.equal((await req('/equipment-maintenance/equipment',logistics,'POST',{code:'CB 99'})).status,403);});
 test('acordo exige pessoas diferentes e contraproposta invalida o aceite anterior',async()=>{
@@ -24,15 +24,15 @@ test('acordo exige pessoas diferentes e contraproposta invalida o aceite anterio
  const self=await req('/equipment-maintenance/requests',manager,'POST',{equipment_type:'bomba',pump_id:pump,starts_at:'2030-01-11T07:00',ends_at:'2030-01-11T09:00',reason:'Inspeção'});assert.equal((await req('/equipment-maintenance/requests/'+self.body.id+'/accept',manager,'POST',{side:'logistics',expected_revision:0})).status,409);
 });
 test('CBs disponíveis são calculados por filial e manutenção só desconta após os dois aceites',async()=>{
- const other=(await req('/equipment-maintenance/equipment',manager,'POST',{code:'CB 02',plate:'GHI2J34',branch:'aeroporto'})).body.id;
+ const other=(await req('/equipment-maintenance/equipment',manager,'POST',{code:'02',capacity_m3:10,plate:'GHI2J34',branch:'aeroporto'})).body.id;
  assert.equal((await req('/fleet?from=2030-02-01&to=2030-02-01',admin)).body.days[0].trucks,2);assert.equal((await req('/fleet?from=2030-02-01&to=2030-02-01&branch=pacaembu',admin)).body.days[0].trucks,1);
  const job=await req('/equipment-maintenance/requests',maintenance,'POST',{equipment_type:'cb',cb_id:cb,starts_at:'2030-02-01T07:00',ends_at:'2030-02-02T00:00',reason:'Revisão dos freios'});assert.equal(job.status,200);
  assert.equal((await req('/fleet?from=2030-02-01&to=2030-02-01',admin)).body.days[0].trucks,2);
  assert.equal((await req('/equipment-maintenance/requests/'+job.body.id+'/accept',logistics,'POST',{side:'logistics',expected_revision:0})).status,200);
  const fleet=(await req('/fleet?from=2030-02-01&to=2030-02-02',admin)).body.days;assert.equal(fleet[0].trucks,1);assert.equal(fleet[0].maintenance_trucks,1);assert.equal(fleet[0].default_trucks,2);assert.equal(fleet[1].trucks,2);
- const calendar=(await req('/equipment-maintenance/calendar?from=2030-02-01&to=2030-02-01',seller)).body;assert.equal(calendar[0].cb_code,'CB 01');assert.equal(calendar[0].reason,'Revisão dos freios');assert.equal(calendar[0].equipment_plate,'DEF1G23');
+ const calendar=(await req('/equipment-maintenance/calendar?from=2030-02-01&to=2030-02-01',seller)).body;assert.equal(calendar[0].cb_code,'CB•01');assert.equal(calendar[0].reason,'Revisão dos freios');assert.equal(calendar[0].equipment_plate,'DEF1G23');
  assert.equal((await req('/equipment-maintenance/equipment/'+other,manager,'PATCH',{active:false})).status,200);assert.equal((await req('/fleet?from=2030-02-03&to=2030-02-03',admin)).body.days[0].trucks,1);assert.equal((await req('/equipment-maintenance/equipment/'+other,manager,'PATCH',{active:true})).status,200);
- const report=(await req('/equipment-maintenance/report?from=2030-02-01&to=2030-02-02&branch=pacaembu',maintenance)).body;assert.equal(report.jobs.length,1);assert.equal(report.jobs[0].equipment_code,'CB 01');assert.equal((await req('/equipment-maintenance/report?from=2030-02-01&to=2030-02-02',logistics)).status,403);
+ const report=(await req('/equipment-maintenance/report?from=2030-02-01&to=2030-02-02&branch=pacaembu',maintenance)).body;assert.equal(report.jobs.length,1);assert.equal(report.jobs[0].equipment_code,'CB•01');assert.equal((await req('/equipment-maintenance/report?from=2030-02-01&to=2030-02-02',logistics)).status,403);
 });
 test('bombas inativas não aparecem para novas reservas, placas e histórico são preservados',async()=>{
  assert.equal((await req('/pumps/'+pump,manager,'PATCH',{active:false})).status,200);assert(!(await req('/availability?date=2030-03-01&start=07:00&duration=60',seller)).body.pumps.some(p=>p.id===pump));
@@ -60,7 +60,7 @@ test('consultar obras avisa antes da proposta e dois serviços do mesmo CB desco
  const conflicts=await req('/equipment-maintenance/conflicts?pump_id='+pump+'&starts_at=2030-05-01T07:00&ends_at=2030-05-01T10:00',maintenance);assert.equal(conflicts.status,200);assert.equal(conflicts.body[0].id,work.body.id);
  for(const [start,end] of [['07:00','09:00'],['13:00','15:00']]){const job=await req('/equipment-maintenance/requests',maintenance,'POST',{equipment_type:'cb',cb_id:cb,starts_at:'2030-05-01T'+start,ends_at:'2030-05-01T'+end,reason:'Serviço '+start});assert.equal(job.status,200);assert.equal((await req('/equipment-maintenance/requests/'+job.body.id+'/accept',logistics,'POST',{side:'logistics',expected_revision:0})).status,200);}
  const fleet=(await req('/fleet?from=2030-05-01&to=2030-05-01&branch=pacaembu',admin)).body.days[0];assert.equal(fleet.maintenance_trucks,1);assert.equal(fleet.trucks,0);
- assert.equal((await req('/equipment-maintenance/equipment',manager,'POST',{code:'CB DUPLICADO',plate:'DEF1G23',branch:'aeroporto'})).status,409);
+ assert.equal((await req('/equipment-maintenance/equipment',manager,'POST',{code:'03',capacity_m3:8,plate:'DEF1G23',branch:'aeroporto'})).status,409);
 });
 
 test('um CB em manutenção por vários dias é descontado em cada dia abrangido e retorna fora do período',async()=>{
@@ -69,4 +69,14 @@ test('um CB em manutenção por vários dias é descontado em cada dia abrangido
  const days=(await req('/fleet?from=2030-06-09&to=2030-06-14&branch=pacaembu',admin)).body.days;assert.deepEqual(days.map(d=>d.trucks),[1,0,0,0,0,1]);assert.deepEqual(days.map(d=>d.maintenance_trucks),[0,1,1,1,1,0]);
  for(const day of ['2030-06-10','2030-06-11','2030-06-12','2030-06-13']){const calendar=(await req('/equipment-maintenance/calendar?from='+day+'&to='+day,seller)).body;assert(calendar.some(j=>j.id===proposed.body.id&&j.reason==='Reforma da betoneira por vários dias'));}
  assert(!(await req('/equipment-maintenance/calendar?from=2030-06-14&to=2030-06-14',seller)).body.some(j=>j.id===proposed.body.id));
+});
+
+test('capacidade de carga é validada, editável e número do CB é padronizado',async()=>{
+ const rows=(await req('/equipment-maintenance/equipment',manager)).body.cbs;
+ assert.equal(rows.find(c=>c.id===cb).code,'CB•01');assert.equal(rows.find(c=>c.id===cb).capacity_m3,8);
+ for(const capacity_m3 of [0,-1,'abc','',null])assert.equal((await req('/equipment-maintenance/equipment',manager,'POST',{code:'88',capacity_m3})).status,400);
+ assert.equal((await req('/equipment-maintenance/equipment',manager,'POST',{code:'001',capacity_m3:8})).status,409);
+ assert.equal((await req('/equipment-maintenance/equipment/'+cb,manager,'PATCH',{capacity_m3:'9,5'})).status,200);
+ assert.equal((await req('/equipment-maintenance/equipment',manager)).body.cbs.find(c=>c.id===cb).capacity_m3,9.5);
+ assert.equal((await req('/equipment-maintenance/equipment/'+cb,manager,'PATCH',{capacity_m3:-8})).status,400);
 });
