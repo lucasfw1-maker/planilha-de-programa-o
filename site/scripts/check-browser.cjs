@@ -1,0 +1,29 @@
+const {chromium}=require('playwright');
+const {spawn}=require('node:child_process');
+const {mkdirSync,readFileSync}=require('node:fs');
+const {resolve}=require('node:path');
+const assert=require('node:assert/strict');
+(async()=>{
+ const root=resolve(__dirname,'..'),review=resolve(root,'../.data/review'),errors=[];mkdirSync(review,{recursive:true});
+ const server=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PORT:'0'},stdio:['ignore','pipe','pipe']});let browser;
+ try{
+  const port=await new Promise((res,rej)=>{server.stdout.on('data',value=>{const match=String(value).match(/porta (\d+)/);if(match)res(match[1]);});server.once('error',rej);});
+  browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+  const page=await browser.newPage({viewport:{width:1440,height:1000},locale:'pt-BR'});page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error')errors.push(e.text());});
+  const response=await page.goto('http://127.0.0.1:'+port);assert.equal(response.status(),200);await page.evaluate(()=>document.fonts.ready);await page.waitForLoadState('networkidle');
+  assert.equal(await page.getByRole('heading',{level:1}).count(),1);assert.equal(await page.getByRole('heading',{name:'Laboratório de concreto',exact:true}).count(),1);await page.getByText('Recursos previstos. Módulo ainda não disponível.',{exact:true}).waitFor();
+  assert(!/concresuper|dallo|jl legacy|vendedor teste/i.test(await page.locator('body').innerText()));assert.equal(await page.locator('.contact-channel:disabled').count(),3);assert.equal(await page.locator('a[href^="mailto:"],a[href*="wa.me"],a[href*="instagram.com"]').count(),0);
+  const mixer=readFileSync(resolve(root,'public/index.html'),'utf8').match(/<symbol id="i-mixer"[^>]*>(.*?)<\/symbol>/s)[1];const app=readFileSync(resolve(root,'../public/app.js'),'utf8');assert(app.includes(mixer),'Ícone de betoneira idêntico ao sistema');
+  await page.getByRole('tab',{name:'Contratos',exact:true}).click();await page.getByRole('tabpanel',{name:'Contratos',exact:true}).getByText('Contratos ativos',{exact:true}).waitFor();
+  await page.getByRole('tab',{name:'Contratos',exact:true}).focus();await page.keyboard.press('ArrowRight');assert.equal(await page.getByRole('tab',{name:'Indicadores',exact:true}).getAttribute('aria-selected'),'true');await page.getByRole('tabpanel',{name:'Indicadores',exact:true}).getByText('Produção e metas',{exact:true}).waitFor();await page.getByRole('tab',{name:'Programação',exact:true}).click();
+  await page.locator('.header-demo').click();await page.getByRole('heading',{name:'Demonstrações em breve.',exact:true}).waitFor();assert.equal(await page.locator('dialog .contact-channel:disabled').count(),3);await page.keyboard.press('Escape');assert.equal(await page.locator('dialog').evaluate(d=>d.open),false);
+  await page.getByRole('button',{name:'Conhecer o que vem por aí',exact:true}).click();await page.getByRole('dialog').getByText('Em desenvolvimento',{exact:true}).waitFor();await page.getByRole('dialog').getByText('Recursos previstos. Este módulo ainda não está disponível no sistema.',{exact:true}).waitFor();await page.getByRole('button',{name:'Fechar janela',exact:true}).click();
+  await page.getByRole('button',{name:'Privacidade',exact:true}).click();await page.getByRole('heading',{name:'Sua privacidade.',exact:true}).waitFor();await page.keyboard.press('Escape');
+  await page.locator('body').press('Control+Home');await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:resolve(review,'concretlog-site-desktop.png'),fullPage:true});await page.screenshot({path:resolve(review,'concretlog-site-hero.png')});
+  for(const width of [360,390,768,1024,1440]){await page.setViewportSize({width,height:900});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Sem transbordamento em '+width);}
+  await page.setViewportSize({width:390,height:844});await page.evaluate(()=>scrollTo(0,0));await page.getByRole('button',{name:'Abrir menu',exact:true}).click();await page.locator('#site-nav').getByRole('link',{name:'Módulos',exact:true}).click();assert.equal(await page.locator('.menu-toggle').getAttribute('aria-expanded'),'false');await page.getByRole('button',{name:'Abrir menu',exact:true}).click();await page.keyboard.press('Escape');assert.equal(await page.locator('.menu-toggle').getAttribute('aria-expanded'),'false');await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:resolve(review,'concretlog-site-mobile.png'),fullPage:true});
+  const broken=await page.locator('img').evaluateAll(images=>images.filter(image=>!image.complete||!image.naturalWidth).map(image=>image.src));assert.deepEqual(broken,[]);assert.deepEqual(errors,[]);
+  const configured=await browser.newPage();await configured.route('**/site.config.js',route=>route.fulfill({contentType:'text/javascript',body:"window.CONCRETLOG_SITE={whatsapp:'5545999999999',instagram:'https://www.instagram.com/perfil.ficticio.de.teste/',email:'comercial@example.com'};"}));await configured.goto('http://127.0.0.1:'+port);assert.equal(await configured.locator('.contact-channels a').count(),3);assert((await configured.locator('[data-channel=whatsapp]').getAttribute('href')).startsWith('https://wa.me/5545999999999'));await configured.locator('.header-demo').click();await configured.getByRole('heading',{name:'Conheça o ConcretLog.',exact:true}).waitFor();assert.equal(await configured.locator('dialog .dialog-channels a').count(),3);await configured.close();
+  console.log('PASS site: desktop/celular, abas, teclado, menus, modais, privacidade, contatos inativos, laboratório futuro, betoneira original e nenhuma marca/dado da Concresuper.');
+ }finally{await browser?.close();server.kill();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

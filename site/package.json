@@ -1,0 +1,14 @@
+{
+  "name": "concretlog-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Site comercial ConcretLog",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "start": "node server.mjs",
+    "build": "node scripts/build.mjs",
+    "check": "node --check server.mjs && node --check scripts/build.mjs && node --check public/site.js && node --check public/site.config.js"
+  },
+  "engines": { "node": ">=22" }
+}
