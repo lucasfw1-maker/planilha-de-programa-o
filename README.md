@@ -175,3 +175,13 @@ Ao selecionar um cliente cadastrado, **Endereços cadastrados** lista os endere�
 ### Relatório de carregamentos para outras datas
 
 Em **Agenda de amanhã → Outras datas**, escolha qualquer dia para consultar a programação e gerar o CSV ou a impressão/PDF dessa data. O cabeçalho e o nome do arquivo acompanham a data selecionada. **Voltar para amanhã** restaura o padrão; entrar novamente pelo menu também abre amanhã. A consulta mostra a situação registrada atualmente para o dia; para investigar alterações e cancelamentos, use também o relatório de ocorrências.
+
+### Usuários online
+
+No canto direito da faixa de unidade em **Início**, aparecem somente as pessoas conectadas, com foto circular ou iniciais. Passe o mouse ou use o foco do teclado para ver nome e função. Cada aba envia presença a cada 30 segundos; sair remove a sessão imediatamente, fechar a aba envia uma saída e a falta de comunicação expira em até 90 segundos. Abas e dispositivos da mesma pessoa aparecem uma única vez. Sessões expiradas, contas bloqueadas e acessos pendentes não aparecem.
+
+### Impressão com identificação do responsável
+
+Os botões **Imprimir** dos quatro relatórios (programação e volumes, carregamentos de qualquer data, cancelamentos/remarcações e produção/metas) preparam um PDF com prévia, impressão e download. Todas as páginas levam no rodapé a foto circular (ou iniciais), nome e cargo da pessoa que gerou o documento, data/hora e numeração. O PDF conserva os filtros e os gráficos, repete cabeçalhos de tabelas nas continuações e não contém o endereço do site no rodapé. A identificação é capturada no momento de gerar o documento.
+
+As bibliotecas de PDF são servidas localmente, sem CDN; `npm run build`, `npm start`, `npm run dev` e `npm run test:browser` preparam os arquivos em `public/vendor`. O atalho de impressão do próprio navegador continua sendo uma função do navegador; use os botões do sistema para gerar o PDF com esse rodapé.

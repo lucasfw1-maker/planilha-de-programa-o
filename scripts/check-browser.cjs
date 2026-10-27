@@ -1,5 +1,5 @@
 const {chromium}=require('playwright');
-const {spawn}=require('node:child_process');
+const {spawn,execFileSync}=require('node:child_process');
 const {mkdtempSync,mkdirSync,rmSync,existsSync}=require('node:fs');
 const {tmpdir}=require('node:os');
 const {join}=require('node:path');
@@ -396,6 +396,40 @@ const ROOT=require('node:path').resolve(__dirname,'..');
  await page.getByRole('button',{name:'Outras datas',exact:true}).click();await page.getByLabel('Data da programação',{exact:true}).fill('2001-01-01');await page.getByRole('button',{name:'Gerar relatório',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('dialog').open);
  await page.getByText('Não há obras programadas para esta data.',{exact:true}).waitFor();
  await page.getByRole('button',{name:'Voltar para amanhã',exact:true}).click();await page.getByRole('heading',{name:'Agenda de amanhã',exact:true}).waitFor();
+ // Only connected people are shown, with round photos and a name/role tooltip.
+ await page.locator('.sidebar [data-page="home"]').click();await page.getByRole('heading',{name:'Olá, Lucas!',exact:true}).waitFor();
+ await page.getByRole('button',{name:'Alterar foto de perfil',exact:true}).click();await page.locator('#profile-photo-file').setInputFiles(join(ROOT,'public','concretlog-symbol.png'));await page.locator('#photo-preview img').waitFor();await page.getByRole('button',{name:'Salvar foto',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('dialog').open);await page.evaluate(()=>refreshPresence());
+ const onlineContext=await browser.newContext({viewport:{width:1200,height:850},locale:'pt-BR'}),onlinePage=await onlineContext.newPage();
+ onlinePage.on('pageerror',e=>errors.push(e.message));onlinePage.on('console',e=>{if(e.type()==='error')errors.push(e.text());});
+ try{
+  await onlinePage.goto('http://127.0.0.1:'+port);await onlinePage.getByLabel('Nome de usuário',{exact:true}).fill('mariana.silva');await onlinePage.getByLabel('Senha',{exact:true}).fill('Browser-Test-2027!Pessoal');await onlinePage.getByRole('button',{name:'Entrar na central'}).click();await onlinePage.getByRole('heading',{name:'Olá, Mariana!',exact:true}).waitFor();
+  await onlinePage.evaluate(()=>refreshPresence());await page.evaluate(()=>refreshPresence());
+  const onlineMariana=page.locator('#online-users .online-user').filter({has:page.getByText('Mariana Silva',{exact:true})});
+  await onlineMariana.waitFor();assert.equal(await page.locator('#online-users .online-user').count(),2);await onlineMariana.hover();await onlineMariana.getByRole('tooltip').getByText('Vendedor',{exact:true}).waitFor();
+  await page.waitForLoadState('networkidle');await page.locator('.branch-tabs').screenshot({path:join(ROOT,'.data','review','online-users.png')});
+  await onlinePage.waitForFunction(()=>[...document.querySelectorAll('#online-users img')].length===2&&[...document.querySelectorAll('#online-users img')].every(img=>img.complete&&img.naturalWidth===192));
+  await onlinePage.locator('.topbar [data-logout]').click();await onlinePage.locator('#auth-form').waitFor();await page.evaluate(()=>refreshPresence());
+  assert.equal(await page.locator('#online-users .online-user').count(),1);assert.equal(await page.locator('#online-users').getByText('Mariana Silva',{exact:true}).count(),0);
+ }finally{await onlineContext.close();}
+ // All print actions prepare a PDF with its own author footer, without the browser URL.
+ const generatedPdf=async(name)=>{
+  await page.locator('#print').click();await page.getByRole('heading',{name:'Relatório pronto para impressão',exact:true}).waitFor({timeout:90000});
+  const downloadEvent=page.waitForEvent('download');await page.getByRole('link',{name:'Baixar PDF',exact:true}).click();const pdfDownload=await downloadEvent,path=join(ROOT,'.data','review',name+'.pdf');await pdfDownload.saveAs(path);
+  const extracted=execFileSync('pdftotext',[path,'-'],{encoding:'utf8'});assert(extracted.includes('Lucas Programador'));assert(extracted.includes('Programador'));assert(!extracted.includes('http://'));assert(!extracted.includes('https://'));
+  const pages=extracted.split('\f').filter(text=>text.trim());assert(pages.length>0);assert(pages.every(text=>text.includes('Lucas Programador')&&text.includes('Programador')),'Autor em todas as páginas');
+  for(let number=1;number<=pages.length;number++){
+   const ppm=execFileSync('pdftoppm',['-f',String(number),'-l',String(number),'-scale-to','400','-singlefile',path]);
+   const header=ppm.subarray(0,80).toString('ascii').match(/^P6\s+(\d+)\s+(\d+)\s+255\s/);assert(header,'Página renderizada');
+   const offset=header[0].length,limit=Number(header[1])*Math.floor(Number(header[2])*.8)*3;let ink=0;
+   for(let pixel=0;pixel<limit;pixel+=3)if(Math.min(ppm[offset+pixel],ppm[offset+pixel+1],ppm[offset+pixel+2])<225)ink++;
+   assert(ink>150,'Conteúdo visível acima do rodapé na página '+number+' de '+name);
+  }
+  await page.getByRole('button',{name:'Fechar',exact:true}).click();return {pages:pages.length,filename:pdfDownload.suggestedFilename()};
+ };
+ await page.locator('.sidebar [data-page="next"]').click();const loadingPdf=await generatedPdf('loading-own-footer');assert(loadingPdf.filename.endsWith('.pdf'));
+ await page.locator('.sidebar [data-page="reports"]').click();await page.locator('#report-filters').waitFor();await generatedPdf('volumes-own-footer');
+ await page.getByRole('button',{name:'Cancelamentos e remarcações',exact:true}).click();await page.locator('#changes-filters').waitFor();await generatedPdf('changes-own-footer');
+ await page.getByRole('button',{name:'Produção e metas',exact:true}).click();await page.locator('#production-filters').waitFor();const productionPdf=await generatedPdf('production-own-footer');assert(productionPdf.pages>1);
  assert.deepEqual(errors,[]);
  console.log('PASS navegador: primeiro acesso, sessão, agenda dia/semana/mês, registro do entregue, filtros de relatório, exportação CSV, celular sem transbordamento, favicon, coroa exclusiva, troca de senha, disponibilidade, solicitação do vendedor, clientes, cancelamento, remarcações, histórico, gráficos e nenhum erro JS/CSP.');
  }finally{await browser?.close();server.kill();rmSync(dir,{recursive:true,force:true});}

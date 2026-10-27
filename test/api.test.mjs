@@ -406,3 +406,20 @@ test('edição do cliente rejeita prévia desatualizada e mantém dados atômico
  assert.equal((await request(path,{method:'PATCH',cookie:admin,data:{name:'Cliente corrigido',preview_token:current.preview_token}})).status,200);
  assert.equal((await request('/appointments/'+bookingResult.body.id,{cookie:seller.cookie})).body.customer,'CLIENTE CORRIGIDO');
 });
+
+test('usuários online dependem de atividade, não apenas do login, e nunca expõem sessões',async()=>{
+ assert.equal((await request('/presence')).status,401);assert.deepEqual((await request('/presence',{cookie:admin})).body.users,[]);
+ assert.equal((await request('/presence',{method:'POST',cookie:seller.cookie,data:{client_id:'bad',online:true}})).status,400);
+ const target=(await request('/session',{cookie:other})).body.user.id;
+ let presence=await request('/presence',{method:'POST',cookie:seller.cookie,data:{client_id:'presence-seller-tab-one',online:true,user_id:target}});assert.equal(presence.status,200);assert.equal(presence.body.users.length,1);assert.equal(presence.body.users[0].id,seller.id);assert.equal(presence.body.users[0].role,'vendedor');
+ await request('/presence',{method:'POST',cookie:seller.cookie,data:{client_id:'presence-seller-tab-two',online:true}});
+ assert.equal((await request('/presence',{cookie:controller})).body.users.length,1);
+ await request('/presence',{method:'POST',cookie:seller.cookie,data:{client_id:'presence-seller-tab-one',online:false}});
+ assert.equal((await request('/presence',{cookie:manager})).body.users.length,1);
+ presence=await request('/presence',{method:'POST',cookie:other,data:{client_id:'presence-other-user-tab',online:true}});assert.equal(presence.body.users.length,2);
+ const serialized=JSON.stringify(presence.body);assert(!serialized.includes('session_token'));assert(!serialized.includes('password'));assert(!serialized.includes('contact_phone'));assert(!serialized.includes('username'));
+ await request('/logout',{method:'POST',cookie:other,data:{}});
+ assert(!(await request('/presence',{cookie:admin})).body.users.some(user=>user.id===target));
+ await request('/presence',{method:'POST',cookie:seller.cookie,data:{client_id:'presence-seller-tab-two',online:false}});
+ assert.deepEqual((await request('/presence',{cookie:admin})).body.users,[]);
+});

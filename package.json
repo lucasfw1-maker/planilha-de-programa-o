@@ -2,14 +2,16 @@
   "name": "central-programacao-concreto",
   "version": "0.1.0",
   "private": true,
-  "description": "Agenda e log\u00edstica da concreteira \u2014 Cascavel PR",
+  "description": "Agenda e logística da concreteira — Cascavel PR",
   "scripts": {
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check server.mjs && node --check storage.mjs && node --check fleet.mjs && node --check fleet-migration.mjs && node --check production.mjs && node --check maintenance.mjs && node --check changes.mjs && node --check concrete.mjs && node --check concrete-migration.mjs && node --check contacts.mjs && node --check contact-migration.mjs && node --check commercial.mjs && node --check commercial-migration.mjs && node --check customer-edit.mjs && node --check customers.mjs && node --check history-migration.mjs && node --check schema.mjs && node --check api/index.mjs && node --check public/slump-format.js && node --check public/app.js",
-    "test:browser": "node scripts/check-browser.cjs",
-    "build": "npm run check"
+    "check": "node --check server.mjs && node --check presence.mjs && node --check storage.mjs && node --check fleet.mjs && node --check fleet-migration.mjs && node --check production.mjs && node --check maintenance.mjs && node --check changes.mjs && node --check concrete.mjs && node --check concrete-migration.mjs && node --check contacts.mjs && node --check contact-migration.mjs && node --check commercial.mjs && node --check commercial-migration.mjs && node --check customer-edit.mjs && node --check customers.mjs && node --check history-migration.mjs && node --check schema.mjs && node --check api/index.mjs && node --check public/slump-format.js && node --check public/app.js && node --check public/report-pdf.js",
+    "test:browser": "node scripts/build-report-assets.mjs && node scripts/check-browser.cjs",
+    "build": "node scripts/build-report-assets.mjs && npm run check",
+    "prestart": "node scripts/build-report-assets.mjs",
+    "predev": "node scripts/build-report-assets.mjs"
   },
   "engines": {
     "node": "24.x"
@@ -18,6 +20,8 @@
     "playwright": "1.64.1"
   },
   "dependencies": {
-    "@libsql/client": "0.18.0"
+    "@libsql/client": "0.18.0",
+    "html-to-image": "^1.11.13",
+    "jspdf": "^4.2.1"
   }
 }

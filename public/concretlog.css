@@ -176,3 +176,52 @@ input:focus,select:focus,textarea:focus{background:#fff;border-color:#14962a}
 .customer-actions{justify-content:flex-end;min-width:155px}.customer-actions button{font-size:11px}.customer-edit-preview{border:1px solid var(--line);border-radius:9px;padding:14px;font-size:12px;line-height:1.7}.customer-edit-counts{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}.customer-edit-counts span{background:var(--green-soft);color:var(--green);padding:3px 8px;border-radius:5px;font-size:11px}.customer-edit-preview p{margin-top:10px;color:var(--muted)}
 input[name=customer],#customer-edit-form input[name=name]{text-transform:uppercase}
 .analytics-grid>.panel{min-width:0}
+
+.online-users{margin-left:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:5px;max-width:min(340px,48%);padding-bottom:11px}
+.online-user{display:inline-flex;position:relative;flex-shrink:0;border:1px solid #cde5d1;border-radius:50%;padding:2px;outline-offset:3px}
+.online-user .profile-avatar{width:24px;height:24px;font-size:9px}
+.online-user-tooltip{display:none;position:absolute;top:calc(100% + 9px);right:0;z-index:50;background:#153b35;color:white;padding:10px 12px;border-radius:8px;box-shadow:0 5px 20px #173c4928;white-space:nowrap;font-size:11px;line-height:1.5;pointer-events:none}
+.online-user-tooltip strong{display:block;font-weight:600}
+.online-user-tooltip small{display:block;margin-top:3px;color:#c4dacf;font-size:10px}
+.online-user:hover>.online-user-tooltip,.online-user:focus-visible>.online-user-tooltip{display:block}
+@media(max-width:760px){.online-users{max-width:52%;gap:4px}.online-user .profile-avatar{width:22px;height:22px}.online-user-tooltip{position:fixed;top:115px;right:15px;max-width:calc(100vw - 30px)}}
+@media print{.online-users{display:none!important}}
+
+.pdf-export-surface{position:fixed;left:-12000px;top:0;width:900px;min-width:900px;overflow:hidden;background:white;color:#172e32;pointer-events:none;z-index:-100;font-family:Arial,sans-serif;font-size:13px}
+.pdf-export-content{width:900px;transform-origin:top left;padding:0}
+.pdf-export-surface .panel,.pdf-export-surface .stat{border:0;border-radius:0;box-shadow:none;background:white}
+.pdf-export-surface .report-brand-banner{background:#f0f5f2;border-top:4px solid #167444;padding:10px 20px;gap:25px;border-radius:9px;display:flex}
+.pdf-export-surface .report-official-logo{width:225px;max-width:45%;height:100px;object-fit:contain;object-position:left center}
+.pdf-export-surface .report-platform-logo{width:245px;max-width:45%;height:90px;object-fit:contain;object-position:right center}
+.pdf-export-surface .report-document-header{margin-bottom:20px}
+.pdf-export-surface .report-document-title{margin-top:13px}
+.pdf-export-surface .report-document-title h2{font-size:20px;line-height:1.4}
+.pdf-export-surface .report-document-period{font-size:12px}
+.pdf-export-surface .table-wrap{overflow:visible}
+.pdf-export-surface table{width:100%;table-layout:fixed;font-size:13px}
+.pdf-export-surface th{padding:10px 7px;font-size:11px;white-space:normal;overflow-wrap:anywhere}
+.pdf-export-surface td{padding:11px 7px;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.pdf-export-surface td small{font-size:11px}
+.pdf-export-surface .report-contact,.pdf-export-surface .reason-cell{min-width:0;max-width:none}
+.pdf-export-surface .contact-name{font-size:13px}
+.pdf-export-surface .contact-phone{font-size:11px;white-space:normal}
+.pdf-export-surface .seller-identity{font-size:11px;gap:5px;max-width:100%;white-space:normal}
+.pdf-export-surface .seller-identity .profile-avatar{width:24px;height:24px;flex-shrink:0}
+.pdf-export-surface .report-summary{padding:17px 12px;gap:12px;grid-template-columns:repeat(4,minmax(0,1fr));background:#fff}
+.pdf-export-surface .report-summary small{font-size:11px}
+.pdf-export-surface .report-summary strong{font-size:25px}
+.pdf-export-surface .report-summary strong span{font-size:12px}
+.pdf-export-surface .analytics-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:17px}
+.pdf-export-surface .analytics-chart{overflow:visible;padding:15px}
+.pdf-export-surface .analytics-chart svg,.pdf-export-surface .seller-volume-panel .analytics-chart svg{min-width:0;width:100%;max-width:100%;height:auto}
+.pdf-export-surface .production-report-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.pdf-export-surface .projection-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.pdf-export-surface .projection-card{padding:16px}
+.pdf-export-surface .panel-header{padding:14px 10px;flex-wrap:wrap}
+.pdf-export-surface .panel-header h2{font-size:15px}
+.pdf-export-surface .legend{font-size:11px;flex-wrap:wrap}
+.pdf-export-surface .section-title{font-size:17px}
+.pdf-repeat-heading{position:absolute;top:0;background:white;z-index:5}
+.report-pdf-preview{display:block;width:100%;height:min(63vh,750px);border:1px solid var(--line);border-radius:8px;background:#e8edef}
+.report-pdf-actions a{display:inline-flex;align-items:center;gap:8px;text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:13px;font-weight:600;background:white;color:var(--ink)}
+@media print{.pdf-export-surface{display:none!important}}

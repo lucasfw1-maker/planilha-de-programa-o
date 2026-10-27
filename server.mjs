@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {onlineUsers,userIsOnline,updatePresence} from './presence.mjs';
 import {customerEditPreview,editCustomer} from './customer-edit.mjs';
 import {gravelValue,slumpValue} from './concrete.mjs';
 import {contactFields} from './contacts.mjs';
@@ -259,7 +260,7 @@ async function api(req, res, url) {
   if (!u) fail('Entre para continuar.', 401);
   if (path === '/api/logout' && method === 'POST') {
     const token = (req.headers.cookie || '').match(/(?:^|;\s*)session=([^;]+)/)?.[1];
-    if (token) await run('DELETE FROM sessions WHERE token=?', digest(token));
+    if (token) await transaction(async()=>{await run('DELETE FROM presence_clients WHERE session_token=?',digest(token));await run('DELETE FROM sessions WHERE token=?',digest(token));});
     res.setHeader('Set-Cookie', 'session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');
     return {
       ok: true
@@ -283,6 +284,12 @@ async function api(req, res, url) {
   }
   if (u.status !== 'aprovado') fail('Acesso não aprovado.', 403);
   if (u.must_change) fail('Troque a senha temporária antes de acessar os módulos.', 403);
+  if(path==='/api/presence'&&method==='GET')return {users:await onlineUsers(),ttl_seconds:90};
+  if(path==='/api/presence'&&method==='POST'){
+    const b=await body(req),token=(req.headers.cookie||'').split(';').map(value=>value.trim()).find(value=>value.startsWith('session='))?.slice(8);
+    await updatePresence(digest(token),b.client_id,b.online);
+    return b.online?{users:await onlineUsers(),ttl_seconds:90}:{ok:true};
+  }
   const userPhotoPath=path.match(/^\/api\/users\/(\d+)\/photo$/);
   if((path==='/api/profile/photo'||userPhotoPath) && method==='PATCH') {
     if(userPhotoPath&&u.role!=='programador')fail('Somente o Programador pode alterar fotos da equipe.',403);
@@ -300,7 +307,7 @@ async function api(req, res, url) {
   }
   if(/^\/api\/profile-photo\/\d+$/.test(path)&&method==='GET'){
     const id=Number(path.split('/').pop());
-    if(!manager(u)&&id!==u.id)fail('Foto não encontrada.',404);
+    if(!manager(u)&&id!==u.id&&!await userIsOnline(id))fail('Foto não encontrada.',404);
     const photo=await one('SELECT image FROM user_photos WHERE user_id=?',id);if(!photo)fail('Foto não encontrada.',404);
     res.setHeader('Content-Type','image/jpeg');res.end(Buffer.from(photo.image.split(',')[1],'base64'));return;
   }
@@ -666,6 +673,9 @@ async function api(req, res, url) {
   fail('Recurso não encontrado.', 404);
 }
 const assets = {
+  '/vendor/html-to-image.js': ['vendor/html-to-image.js', 'text/javascript; charset=utf-8'],
+  '/vendor/jspdf.umd.min.js': ['vendor/jspdf.umd.min.js', 'text/javascript; charset=utf-8'],
+  '/report-pdf.js': ['report-pdf.js', 'text/javascript; charset=utf-8'],
   '/slump-format.js': ['slump-format.js', 'text/javascript; charset=utf-8'],
   '/concretlog.css': ['concretlog.css', 'text/css; charset=utf-8'],
   '/concretlog-logo.png': ['concretlog-logo.png', 'image/png'],
@@ -682,7 +692,7 @@ export async function handler(req, res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'same-origin');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' blob:; frame-src 'self' blob:; object-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
   try {
     await initialize();
     const url = new URL(req.url, 'http://localhost');

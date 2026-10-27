@@ -47,7 +47,9 @@ const iconPaths = {
 const icon = name => `<svg viewBox="0 0 24 24" aria-hidden="true">${iconPaths[name] || iconPaths.grid}</svg>`;
 const brand = () => '<div class="brand concretlog-brand"><img class="brand-logo" src="/concretlog-symbol.png" alt="Símbolo ConcretLog"><div><strong>Concret<span>Log</span></strong><small>Tecnologia que move o concreto</small></div></div>';
 const badge = s => `<span class="badge ${esc(s)}">${esc(statusNames[s] || s)}</span>`;
-let state = {user:null, page:'home',loadingDate:'', mode:'day', date:today(), appointments:[], requests:[],maintenances:[], meta:{pumps:[],sellers:[],buffer:30},fleet:null,production:null,goalMonth:'',productionReport:null,productionFleet:null,management:null,managementDate:today(),managementMonth:today().slice(0,7),productionFilters:{month:today().slice(0,7),reference:today(),basis:'mon_sat'}, from:today().slice(0,8)+'01', to:today(), seller:'', type:'', status:'', report:[], users:[], audit:[], changes:[], customers:[], customerQuery:'', changeFilters:{from:today().slice(0,8)+'01',to:today(),basis:'event',kind:'',customer:'',seller:'',unknown:''}};
+let state = {user:null,onlineUsers:[],onlineUpdatedAt:0, page:'home',loadingDate:'', mode:'day', date:today(), appointments:[], requests:[],maintenances:[], meta:{pumps:[],sellers:[],buffer:30},fleet:null,production:null,goalMonth:'',productionReport:null,productionFleet:null,management:null,managementDate:today(),managementMonth:today().slice(0,7),productionFilters:{month:today().slice(0,7),reference:today(),basis:'mon_sat'}, from:today().slice(0,8)+'01', to:today(), seller:'', type:'', status:'', report:[], users:[], audit:[], changes:[], customers:[], customerQuery:'', changeFilters:{from:today().slice(0,8)+'01',to:today(),basis:'event',kind:'',customer:'',seller:'',unknown:''}};
+const presenceClientId=crypto.randomUUID?.()||Array.from(crypto.getRandomValues(new Uint32Array(4)),value=>value.toString(16).padStart(8,'0')).join('-');
+let presenceTimer,presenceRequest,presenceController,presenceGeneration=0;
 let poll, seen = new Map(), currentDialog = '', polling = false;
 const app = $('#app'), modal = $('#modal');
 async function api(path, options = {}) {
@@ -83,6 +85,7 @@ modal.addEventListener('close', () => { currentDialog = ''; if(!modal.open)modal
 document.addEventListener('keydown',event=>{if(event.key==='Escape')$$('.month-day[data-day]').forEach(b=>b.classList.add('preview-dismissed'));});
 const footer = (submit = 'Salvar') => `<div class="form-error" role="alert"></div><div class="modal-footer"><button type="button" data-cancel>Cancelar</button><button type="submit" class="primary">${esc(submit)}</button></div>`;
 function authScreen(setup, register=false) {
+  stopPresence();
   modal.close();modal.replaceChildren();state.appointments=[];state.requests=[];state.maintenances=[];state.report=[];state.users=[];state.audit=[];state.changes=[];state.customers=[];state.fleet=null;state.production=null;state.goalMonth='';state.productionReport=null;state.productionFleet=null;state.management=null;seen=new Map();
   app.innerHTML = `<main class="auth auth--${setup?'setup':register?'register':'login'}"><section class="auth-brand"><div class="auth-visual-label">SISTEMA INTEGRADO DE PROGRAMAÇÃO</div><div class="auth-message"><div class="eyebrow">TECNOLOGIA QUE MOVE O CONCRETO</div><h1>Sua operação.<br>Em movimento.</h1><p>Uma visão completa da programação, das bombas e das entregas. Toda a operação, no mesmo lugar.</p></div><div class="auth-footer">CONCRETLOG · PROGRAMAÇÃO E LOGÍSTICA</div></section><section class="auth-form-area"><form class="auth-form" id="auth-form"><img class="auth-concretlog-logo" src="/concretlog-logo.png" alt="ConcretLog — Tecnologia que move o concreto"><div class="auth-unit">${icon('pin')} Unidade Cascavel · Paraná</div><h2>${setup?'Vamos começar':register?'Solicite seu acesso':'Bem-vindo ao ConcretLog'}</h2><p>${setup?'Cadastre sua conta de Programador para configurar a filial e os acessos da equipe.':register?'Seu acesso e perfil dependerão da aprovação do Programador.':'Entre com seu usuário para acessar a central de programação.'}</p>${setup||register?'<label>Nome completo<input name="name" autocomplete="name" required maxlength="200" placeholder="Nome completo"></label>':''}<label class="auth-login-field"><span class="auth-field-label">Nome de usuário</span><span class="auth-field-icon">${icon('users')}</span><input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required minlength="3" maxlength="32" pattern="(?:[A-Za-z0-9_.]|-){3,32}" placeholder="${setup||register?'Ex.: joao.silva':'Usuário'}"></label><label class="auth-login-field"><span class="auth-field-label">Senha</span><span class="auth-field-icon">${icon('lock')}</span><input name="password" type="password" autocomplete="${setup||register?'new-password':'current-password'}" minlength="8" maxlength="128" required placeholder="${setup||register?'Pelo menos 8 caracteres':'Sua senha'}"></label>${setup?'<label>Código de configuração da hospedagem<input name="setupToken" type="password" autocomplete="off" placeholder="Opcional apenas no desenvolvimento local"></label>':''}<div class="form-error" role="alert"></div><button type="submit" class="primary" ${!setup&&!register?'aria-label="Entrar na central"':''}>${setup?'Criar conta e configurar':register?'Solicitar cadastro':'Entrar'} ${setup||register?icon('right'):''}</button>${!setup&&!register?'<button type="button" id="recover-access">Esqueceu sua senha?</button>':''}${!setup?`<button type="button" id="switch-auth">${register?'Já tenho acesso — entrar':'Solicitar meu cadastro'}</button>`:''}<div class="auth-footnote">Acesso individual · Contas sujeitas à aprovação.<br>Tecnologia que move o concreto.</div></form></section></main>`;
   if($('#switch-auth'))$('#switch-auth').onclick=()=>authScreen(false,!register);
@@ -147,8 +150,8 @@ function heading(title, subtitle, actions='') {return `<div class="page-heading"
 function nav(page,name,ico,count='') {return `<button class="nav-item ${state.page===page?'active':''}" data-page="${page}">${icon(ico)}${name}${count?`<span class="count">${count}</span>`:''}</button>`;}
 function render() {
   const pending=state.requests.filter(r=>r.status==='pendente').length;
-  app.innerHTML=`<div class="shell"><aside class="sidebar">${brand()}<div class="nav-caption">OPERAÇÃO</div><nav>${nav('home','Início','home')}${nav('agenda','Agenda de obras','calendar')}${nav('requests',isManager()?'Solicitações':'Minhas solicitações','request',pending)}${nav(['changes','production'].includes(state.page)?state.page:'reports','Relatórios','chart')}${nav('customers','Clientes','users')}${isManager()?nav('next','Agenda de amanhã','truck'):''}${canManageProduction()?nav('management','Gerência','pump'):''}${state.user.role==='programador'?nav('settings','Configurações','settings'):''}<button class="nav-item" id="my-password">${icon('settings')} Alterar senha</button></nav><div class="sidebar-bottom"><div class="unit-tag">UNIDADE ATUAL<strong>Cascavel · PR</strong></div><div class="user-box"><button class="profile-photo-button" id="my-photo" aria-label="Alterar foto de perfil">${profileAvatar(state.user.id,state.user.name)}</button><div><strong>${state.user.role==='programador'?programmerCrown+' ':''}${esc(state.user.name)}</strong><small>${roleNames[state.user.role]}</small></div><button class="logout" data-logout aria-label="Sair">${icon('logout')}</button></div></div></aside><main class="main"><header class="topbar"><div class="breadcrumb">Operação ${icon('right')} <strong>${({home:'Início',agenda:'Agenda de obras',requests:'Solicitações',reports:'Relatórios',next:'Agenda de amanhã',settings:'Configurações',changes:'Cancelamentos e remarcações',customers:'Clientes',production:'Produção e metas',management:'Gerência'})[state.page]}</strong></div><div class="top-actions"><button class="top-profile" id="top-profile" aria-label="Meu perfil">${profileAvatar(state.user.id,state.user.name)}<span>${esc(state.user.name.split(' ')[0])}</span></button><span class="live"><i class="dot"></i> Cascavel · PR</span><button class="icon-only" id="notifications" aria-label="Notificações">${icon('bell')}${pending?`<span class="badge pendente">${pending}</span>`:''}</button><button class="icon-only mobile-password" id="mobile-password" aria-label="Alterar minha senha">${icon('settings')}</button><button class="icon-only" data-logout aria-label="Sair">${icon('logout')}</button></div></header><div class="content"><div class="branch-tabs"><button class="branch-tab">${icon('pin')} Cascavel · PR</button><span class="branch-note">Unidade de programação</span></div><section id="page-content">${pageContent()}</section><footer class="footer-note"><span>ConcretLog · Tecnologia que move o concreto</span><span>Horários locais de Cascavel · UTC−3</span></footer></div></main></div>`;
-  bindShell();bindPage();
+  app.innerHTML=`<div class="shell"><aside class="sidebar">${brand()}<div class="nav-caption">OPERAÇÃO</div><nav>${nav('home','Início','home')}${nav('agenda','Agenda de obras','calendar')}${nav('requests',isManager()?'Solicitações':'Minhas solicitações','request',pending)}${nav(['changes','production'].includes(state.page)?state.page:'reports','Relatórios','chart')}${nav('customers','Clientes','users')}${isManager()?nav('next','Agenda de amanhã','truck'):''}${canManageProduction()?nav('management','Gerência','pump'):''}${state.user.role==='programador'?nav('settings','Configurações','settings'):''}<button class="nav-item" id="my-password">${icon('settings')} Alterar senha</button></nav><div class="sidebar-bottom"><div class="unit-tag">UNIDADE ATUAL<strong>Cascavel · PR</strong></div><div class="user-box"><button class="profile-photo-button" id="my-photo" aria-label="Alterar foto de perfil">${profileAvatar(state.user.id,state.user.name)}</button><div><strong>${state.user.role==='programador'?programmerCrown+' ':''}${esc(state.user.name)}</strong><small>${roleNames[state.user.role]}</small></div><button class="logout" data-logout aria-label="Sair">${icon('logout')}</button></div></div></aside><main class="main"><header class="topbar"><div class="breadcrumb">Operação ${icon('right')} <strong>${({home:'Início',agenda:'Agenda de obras',requests:'Solicitações',reports:'Relatórios',next:'Agenda de amanhã',settings:'Configurações',changes:'Cancelamentos e remarcações',customers:'Clientes',production:'Produção e metas',management:'Gerência'})[state.page]}</strong></div><div class="top-actions"><button class="top-profile" id="top-profile" aria-label="Meu perfil">${profileAvatar(state.user.id,state.user.name)}<span>${esc(state.user.name.split(' ')[0])}</span></button><span class="live"><i class="dot"></i> Cascavel · PR</span><button class="icon-only" id="notifications" aria-label="Notificações">${icon('bell')}${pending?`<span class="badge pendente">${pending}</span>`:''}</button><button class="icon-only mobile-password" id="mobile-password" aria-label="Alterar minha senha">${icon('settings')}</button><button class="icon-only" data-logout aria-label="Sair">${icon('logout')}</button></div></header><div class="content"><div class="branch-tabs"><button class="branch-tab">${icon('pin')} Cascavel · PR</button><span class="branch-note">Unidade de programação</span>${state.page==='home'?'<div id="online-users" class="online-users" role="group" aria-label="Usuários online"></div>':''}</div><section id="page-content">${pageContent()}</section><footer class="footer-note"><span>ConcretLog · Tecnologia que move o concreto</span><span>Horários locais de Cascavel · UTC−3</span></footer></div></main></div>`;
+  bindShell();bindPage();renderOnlineUsers();
 }
 function pageContent() {return ({home:homePage,agenda:agendaPage,requests:requestsPage,reports:reportPage,next:nextPage,settings:settingsPage,changes:changesPage,customers:customersPage,production:productionReportPage,management:managementPage})[state.page]();}
 function stat(label,value,unit,note,ico) {return `<div class="stat"><div class="stat-top">${label}<span class="stat-icon">${icon(ico)}</span></div><div class="stat-value">${value} <span>${unit}</span></div><small>${note}</small></div>`;}
@@ -218,7 +221,7 @@ function bindShell() {
   $('#my-photo').onclick=()=>openProfilePhoto();
   $('#top-profile').onclick=()=>openProfilePhoto();
   $$('[data-home-date]').forEach(b=>b.onclick=async()=>{state.page='agenda';state.mode='day';state.date=b.dataset.homeDate;await refresh();});
-  $$('[data-logout]').forEach(b=>b.onclick=async()=>{try{await api('/logout',{method:'POST',body:'{}'});clearInterval(poll);state.user=null;await boot();}catch(e){toast(e.message,true);}});
+  $$('[data-logout]').forEach(b=>b.onclick=async()=>{try{stopPresence();await api('/logout',{method:'POST',body:'{}'});clearInterval(poll);state.user=null;await boot();}catch(e){toast(e.message,true);}});
   $('#notifications').onclick=()=>showNotifications();
   if($('#my-password'))$('#my-password').onclick=()=>passwordChange(false);
   if($('#mobile-password'))$('#mobile-password').onclick=()=>passwordChange(false);
@@ -243,7 +246,7 @@ function bindPage() {
   $$('[data-information]').forEach(b=>b.onclick=()=>openCommercialInformation(Number(b.dataset.information)));
   $$('[data-booking]').forEach(b=>b.onclick=()=>editBooking(state.appointments.find(a=>a.id===Number(b.dataset.booking))));
   $$('[data-request]').forEach(b=>b.onclick=()=>requestDetails(state.requests.find(r=>r.id===Number(b.dataset.request))));
-  if($('#print'))$('#print').onclick=()=>window.print();
+  if($('#print'))$('#print').onclick=printReport;
   if($('#export'))$('#export').onclick=state.page==='changes'?exportChanges:state.page==='production'?exportProduction:exportCsv;
   bindChangesAndCustomers();
   if($('#management-fleet-date'))$('#management-fleet-date').onchange=async e=>{if(e.target.value){state.managementDate=e.target.value;await refresh();}};
@@ -307,7 +310,7 @@ function showNotifications(changed) {
   $$('[data-open-request]',modal).forEach(b=>b.onclick=()=>requestDetails(state.requests.find(r=>r.id===Number(b.dataset.openRequest))));
 }
 function startPolling() {
-  clearInterval(poll);
+  clearInterval(poll);startPresence();
   // Existing pending requests are shown once when the user signs in.
   const pending=state.requests.filter(r=>isManager()&&r.status==='pendente');
   if(pending.length&&!modal.open)showNotifications(pending.slice(0,5));
@@ -786,3 +789,36 @@ function loadingReportDate(){return state.loadingDate||shift(today(),1);}
 function loadingDateForm(){
  dialog('Relatório de outra data','Consulte a programação de carregamentos de qualquer dia.',`<form><label>Data da programação<input type="date" name="date" required value="${loadingReportDate()}"></label><div class="hint">O CSV e a impressão/PDF usarão a data escolhida. Para conferir alterações de datas ou cancelamentos, consulte também o relatório de ocorrências.</div>${footer('Gerar relatório')}</form>`,async data=>{state.loadingDate=data.date;modal.close();await refresh();});
 }
+
+function renderOnlineUsers(){
+ const host=$('#online-users');if(!host)return;
+ const users=state.user&&Date.now()-state.onlineUpdatedAt<90000?state.onlineUsers:[];
+ host.innerHTML=users.map(user=>`<span class="online-user" tabindex="0" data-online-user="${user.id}" aria-label="${esc(user.name+' · '+(roleNames[user.role]||user.role))}" aria-describedby="online-user-tip-${user.id}">${user.version?`<img class="profile-avatar" src="/api/profile-photo/${user.id}?v=${esc(user.version)}" alt="Foto de ${esc(user.name)}">`:`<span class="avatar profile-avatar" aria-hidden="true">${esc(user.name.split(/\s+/).filter(Boolean).map(word=>word[0]).slice(0,2).join(''))}</span>`}<span class="online-user-tooltip" id="online-user-tip-${user.id}" role="tooltip"><strong>${esc(user.name)}</strong><small>${esc(roleNames[user.role]||user.role)}</small></span></span>`).join('');
+}
+function stopPresence(){
+ clearInterval(presenceTimer);presenceTimer=null;++presenceGeneration;presenceController?.abort();presenceController=null;presenceRequest=null;state.onlineUsers=[];state.onlineUpdatedAt=0;renderOnlineUsers();
+}
+function startPresence(){stopPresence();refreshPresence();presenceTimer=setInterval(refreshPresence,30000);}
+async function refreshPresence(){
+ if(!state.user||state.user.mustChangePassword)return;
+ if(presenceRequest)return presenceRequest;
+ const userId=state.user.id,generation=presenceGeneration,controller=new AbortController();presenceController=controller;
+ const request=(async()=>{
+  try{
+   const response=await fetch('/api/presence',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:presenceClientId,online:true}),signal:controller.signal});
+   if(!response.ok)throw Error('Presença indisponível');
+   const data=await response.json();
+   if(state.user?.id===userId&&generation===presenceGeneration){state.onlineUsers=data.users;state.onlineUpdatedAt=Date.now();renderOnlineUsers();}
+  }catch(error){if(error.name!=='AbortError'&&generation===presenceGeneration){state.onlineUsers=[];state.onlineUpdatedAt=0;renderOnlineUsers();}}
+  finally{if(presenceRequest===request)presenceRequest=null;if(presenceController===controller)presenceController=null;}
+ })();
+ presenceRequest=request;return request;
+}
+window.addEventListener('pagehide',()=>{
+ if(state.user&&!state.user.mustChangePassword)navigator.sendBeacon('/api/presence',new Blob([JSON.stringify({client_id:presenceClientId,online:false})],{type:'application/json'}));
+ stopPresence();
+});
+window.addEventListener('pageshow',event=>{if(event.persisted&&state.user)startPresence();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.user)refreshPresence();});
+window.addEventListener('online',()=>{if(state.user)refreshPresence();});
+window.addEventListener('offline',()=>{state.onlineUsers=[];state.onlineUpdatedAt=0;renderOnlineUsers();});
