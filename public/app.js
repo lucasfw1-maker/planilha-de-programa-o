@@ -161,7 +161,7 @@ async function load(options={}) {
   if(page==='labSpecimens'){state.labSpecimenFilters??={...labMonth(),basis:'planned',status:''};fetchState('labSpecimens','/laboratory/specimens?'+new URLSearchParams(state.labSpecimenFilters));}
   if(page==='labDocuments')fetchState('labDocuments','/laboratory/documents');
   if(page==='labDocument')fetchState('labDocument','/laboratory/documents/'+state.selectedLabDocumentId);
-  if(page==='labReports'){state.labReportFilters??={...labMonth(),group:'by_fck'};fetchState('labReport','/laboratory/report?'+new URLSearchParams(state.labReportFilters));}
+  if(page==='labReports'){state.labReportFilters??={month:today().slice(0,7),driver:''};fetchState('labReport','/laboratory/report?'+new URLSearchParams(state.labReportFilters));}
   if(page==='labMoisture'){state.labMoistureFilters??={from:shift(today(),-((new Date(today()+'T12:00:00').getDay()+6)%7)),to:today(),weather:'',stock:''};fetchState('labMoisture','/laboratory/moisture?'+new URLSearchParams(state.labMoistureFilters));}
  }
 

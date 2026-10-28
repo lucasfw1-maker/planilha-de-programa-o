@@ -9,7 +9,7 @@ function reportLibrary(src){
 }
 function reportFileName(page){
  if(['labDocument','ticketLabDocument'].includes(page))return 'laudo-laboratorial-LAB-'+String(state.labDocument.id).padStart(6,'0')+'.pdf';
- if(page==='labReports')return 'laboratorio-'+state.labReportFilters.from+'.pdf';
+ if(page==='labReports')return 'laboratorio-'+(state.labReportFilters.month||state.labReportFilters.from)+'.pdf';
  if(page==='labMoisture')return 'umidade-areia-'+state.labMoistureFilters.from+'.pdf';
  if(page==='ticketView')return 'chamado-'+state.selectedTicketId+'.pdf';
  if(page==='ticketReport')return 'relatorio-chamados-'+state.ticketReportFilters.from+'.pdf';
