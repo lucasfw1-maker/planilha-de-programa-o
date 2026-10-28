@@ -8,6 +8,9 @@ function reportLibrary(src){
  return reportPdfLibraries.get(src);
 }
 function reportFileName(page){
+ if(['labDocument','ticketLabDocument'].includes(page))return 'laudo-laboratorial-LAB-'+String(state.labDocument.id).padStart(6,'0')+'.pdf';
+ if(page==='labReports')return 'laboratorio-'+state.labReportFilters.from+'.pdf';
+ if(page==='labMoisture')return 'umidade-areia-'+state.labMoistureFilters.from+'.pdf';
  if(page==='ticketView')return 'chamado-'+state.selectedTicketId+'.pdf';
  if(page==='ticketReport')return 'relatorio-chamados-'+state.ticketReportFilters.from+'.pdf';
  if(page==='maintenanceReport')return 'manutencoes-'+state.maintenanceReportFilters.from+'.pdf';
@@ -71,7 +74,7 @@ function repeatedReportHeader(info){
  table.append(columns,info.table.tHead.cloneNode(true));wrapper.append(table);return wrapper;
 }
 async function printReport(){
- if(!state.user||!['reports','next','changes','production','contractReport','customerContractReport','maintenanceReport','ticketView','ticketReport'].includes(state.page))return;
+ if(!state.user||!['reports','next','changes','production','contractReport','customerContractReport','maintenanceReport','ticketView','ticketReport','labDocument','ticketLabDocument','labReports','labMoisture'].includes(state.page))return;
  const button=$('#print');if(!button||button.disabled||preparingReportPdf)return;
  const original=button.innerHTML,filename=reportFileName(state.page),generatedAt=new Date(),author={id:state.user.id,name:state.user.name,role:roleNames[state.user.role],version:state.meta.profiles?.find(profile=>profile.id===state.user.id)?.version};
  const content=$('#page-content').cloneNode(true);content.removeAttribute('id');content.className='pdf-export-content';

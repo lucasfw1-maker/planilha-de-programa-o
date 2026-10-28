@@ -1,3 +1,4 @@
+import {laboratoryApi} from './laboratory.mjs';
 import {technicalTicketsApi} from './technical-tickets.mjs';
 import {equipmentMaintenanceApi,maintenanceAccess} from './equipment-maintenance.mjs';
 import {plateValue,checkBranch,equipmentState} from './equipment.mjs';
@@ -291,7 +292,8 @@ async function api(req, res, url) {
   if (u.status !== 'aprovado') fail('Acesso não aprovado.', 403);
   if (u.must_change) fail('Troque a senha temporária antes de acessar os módulos.', 403);
   if(u.role==='manutencao'&&!path.startsWith('/api/equipment-maintenance')&&!['/api/meta','/api/presence','/api/profile/photo'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso exclusivo ao módulo Manutenção.',403);
-  if(['engenharia','gerente_engenharia'].includes(u.role)&&!path.startsWith('/api/technical-tickets')&&!['/api/meta','/api/presence','/api/profile/photo'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso exclusivo ao módulo de chamados da Engenharia.',403);
+  if(['engenharia','gerente_engenharia'].includes(u.role)&&!path.startsWith('/api/technical-tickets')&&!path.startsWith('/api/laboratory')&&!['/api/meta','/api/presence','/api/profile/photo'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso restrito aos módulos de Engenharia e Laboratório.',403);
+  if(path.startsWith('/api/laboratory'))return laboratoryApi({path,method,url,u,body:()=>body(req,200000)});
   if(path.startsWith('/api/technical-tickets'))return technicalTicketsApi({path,method,url,u,res,body:()=>body(req,3200000)});
   if(path.startsWith('/api/equipment-maintenance'))return equipmentMaintenanceApi({path,method,url,u,body:()=>body(req)});
   if(path.startsWith('/api/contracts'))return contractsApi({path,method,url,u,body:()=>body(req),createAppointment});
@@ -687,6 +689,7 @@ const assets = {
   '/contracts.js': ['contracts.js', 'text/javascript; charset=utf-8'],
   '/vendor/html-to-image.js': ['vendor/html-to-image.js', 'text/javascript; charset=utf-8'],
   '/vendor/jspdf.umd.min.js': ['vendor/jspdf.umd.min.js', 'text/javascript; charset=utf-8'],
+  '/laboratory.js':['laboratory.js','text/javascript; charset=utf-8'],
   '/technical-tickets.js':['technical-tickets.js','text/javascript; charset=utf-8'],
   '/equipment-maintenance.js': ['equipment-maintenance.js','text/javascript; charset=utf-8'],
   '/report-pdf.js': ['report-pdf.js', 'text/javascript; charset=utf-8'],
