@@ -49,8 +49,8 @@ O domínio e o registro da marca são processos separados; a proteção da marca
 - Mesmo símbolo de betoneira usado no sistema, no arquivo SVG incorporado ao HTML.
 - Mesmas imagens ConcretLog já aprovadas, sem imagens de relatórios de clientes.
 - Dados de demonstração ilustrativos e nomes fictícios.
-- Módulos disponíveis: programação/logística, clientes/contratos e indicadores/relatórios.
-- Laboratório de concreto identificado como **Em desenvolvimento**; a página não apresenta esse módulo como disponível.
+- Módulos disponíveis: programação/logística, clientes/contratos, indicadores/relatórios, manutenção/frota, chamados e laboratório.
+- Laboratório divulgado como disponível: CPs e rompimentos, laudos vinculados aos chamados, ocorrências, umidade da areia e ensaios comparativos de traços, cimentos e aditivos, com dosagens, preços de referência e custos.
 - Propostas sob consulta, sem preços, depoimentos ou resultados comerciais inventados.
 - WhatsApp, Instagram e e-mail visíveis como ícones, ainda sem contatos publicados.
 - Montserrat servida localmente; licença das fontes em `public/assets/fonts/LICENSE.txt`.
@@ -64,9 +64,9 @@ npm run build --prefix site
 node site/scripts/check-browser.cjs
 ```
 
-O último comando é executado a partir da raiz do repositório, usa o Playwright já instalado no projeto principal e `/usr/bin/chromium`, e verifica tamanhos de tela, navegação com teclado, menus, abas, modais, contatos, o estado futuro do laboratório e o ícone original. As capturas ficam em `.data/review/concretlog-site-*.png` (fora do site publicado).
+O último comando é executado a partir da raiz do repositório, usa o Playwright já instalado no projeto principal e `/usr/bin/chromium`, e verifica tamanhos de tela, navegação com teclado, menus, abas, modais, contatos, a prévia e os recursos disponíveis do laboratório e o ícone original. As capturas ficam em `.data/review/concretlog-site-*.png` (fora do site publicado).
 
 
 ## Módulos divulgados
 
-O site apresenta Programação e logística, Clientes e contratos, Indicadores e relatórios, Manutenção e frota e Chamados Técnico/Comercial como recursos disponíveis. A prévia interativa usa somente dados fictícios e a marca ConcretLog, com abas de manutenção e chamados. Laboratório de concreto continua identificado como em desenvolvimento. Os contatos permanecem inativos até a definição dos canais comerciais.
+O site apresenta Programação e logística, Clientes e contratos, Indicadores e relatórios, Manutenção e frota e Chamados Técnico/Comercial como recursos disponíveis. A prévia interativa usa somente dados fictícios e a marca ConcretLog, com abas de manutenção e chamados. Laboratório de concreto tem card, modal, aba ilustrativa e seção dedicada aos recursos de CPs, laudos, umidade e ensaios. Os exemplos usam somente dados fictícios, sem informações de clientes ou resultados reais. Os contatos permanecem inativos até a definição dos canais comerciais.
