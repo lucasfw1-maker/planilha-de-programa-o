@@ -157,7 +157,7 @@ async function load(options={}) {
   if(page==='labDocuments')fetchState('labDocuments','/laboratory/documents');
   if(page==='labDocument')fetchState('labDocument','/laboratory/documents/'+state.selectedLabDocumentId);
   if(page==='labReports'){state.labReportFilters??={...labMonth(),group:'by_fck'};fetchState('labReport','/laboratory/report?'+new URLSearchParams(state.labReportFilters));}
-  if(page==='labMoisture'){state.labMoistureFilters??={from:shift(today(),-((new Date(today()+'T12:00:00').getDay()+6)%7)),to:today(),material:'',stock:''};fetchState('labMoisture','/laboratory/moisture?'+new URLSearchParams(state.labMoistureFilters));}
+  if(page==='labMoisture'){state.labMoistureFilters??={from:shift(today(),-((new Date(today()+'T12:00:00').getDay()+6)%7)),to:today(),weather:'',stock:''};fetchState('labMoisture','/laboratory/moisture?'+new URLSearchParams(state.labMoistureFilters));}
  }
 
  if(['equipmentMaintenance','maintenanceInbox'].includes(page)&&['manutencao','gerente','programador','controlador','gerente_concresuper'].includes(state.user.role))fetchState('maintenanceJobs','/equipment-maintenance/requests');

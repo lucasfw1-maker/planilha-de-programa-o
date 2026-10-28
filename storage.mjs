@@ -11,6 +11,7 @@ import {migrateEquipment} from './equipment-migration.mjs';
 import {migrateMaintenanceRole} from './maintenance-role-migration.mjs';
 import {migrateWorkNames} from './work-name-migration.mjs';
 import { migrateConcrete } from './concrete-migration.mjs';
+import {migrateLabMoisture} from './laboratory-migration.mjs';
 import { SCHEMA } from './schema.mjs';
 
 const context = new AsyncLocalStorage();
@@ -53,6 +54,7 @@ async function open() {
     await migrateCustomers(candidate);
     await migrateCommercial(candidate);
     await migrateWorkNames(candidate);
+    await migrateLabMoisture(candidate);
     client=candidate;
   }catch(error){
     candidate.close();

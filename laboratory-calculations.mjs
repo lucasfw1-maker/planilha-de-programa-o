@@ -12,3 +12,10 @@ export function laboratoryStats(samples,specimens,policy,from,to){
 }
 
 export function inmetDays(data,city,today){const days=new Map();function visit(node){if(!node||typeof node!=='object')return;for(const [key,item] of Object.entries(node)){if(/^\d{2}\/\d{2}\/\d{4}$/.test(key)||/^\d{4}-\d{2}-\d{2}$/.test(key)){const date=key.includes('/')?key.split('/').reverse().join('-'):key,place=item?.[city]||item,periods=place?.manha||place?.tarde||place?.noite?Object.values(place).filter(x=>x&&typeof x==='object'):[place],numericField=key=>periods.map(p=>String(p?.[key]??'').trim()).filter(Boolean).map(v=>Number(v.replace(',','.'))).filter(n=>Number.isFinite(n));const min=numericField('temp_min'),max=numericField('temp_max'),description=periods.map(p=>p?.resumo||p?.tempo).find(v=>typeof v==='string');if(date>=today&&(min.length||max.length||description))days.set(date,{date,min:min.length?Math.min(...min):null,max:max.length?Math.max(...max):null,description:description||'Consulte o INMET'});}else visit(item);}}visit(data);return [...days.values()].sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5);}
+
+export function sandMoisture(wet,dry){
+ const mass=value=>{if(value===null||value===undefined||typeof value==='boolean'||String(value).trim()==='')return NaN;return Number(String(value).replace(',','.'));};
+ const wetMass=mass(wet),dryMass=mass(dry);
+ if(!Number.isFinite(wetMass)||!Number.isFinite(dryMass)||dryMass<=0||wetMass<dryMass)throw Object.assign(new Error('Informe pesos válidos: o peso seco deve ser maior que zero e não pode superar o peso coletado.'),{status:400});
+ return {wet_mass_g:wetMass,dry_mass_g:dryMass,moisture_percent:(wetMass-dryMass)/dryMass*100};
+}
