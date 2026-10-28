@@ -47,6 +47,11 @@ async function confirm(job,u){
 }
 export async function equipmentMaintenanceApi({path,method,url,u,body}){
  const prefix='/api/equipment-maintenance',route=path.slice(prefix.length);
+ if(route==='/summary'&&method==='GET'){
+  if(!['manutencao','gerente','programador','controlador','gerente_concresuper'].includes(u.role))fail('Sem permissão.',403);
+  const row=await one("SELECT COUNT(*) total,COALESCE(MAX(id),0) last_id,COALESCE(MAX(updated_at),'') updated_at,COALESCE(SUM(revision),0) revisions,COALESCE(SUM(status='negociando'),0) pending_total,COALESCE(SUM(status='negociando' AND maintenance_approved_by IS NULL),0) pending_maintenance,COALESCE(SUM(status='negociando' AND logistics_approved_by IS NULL),0) pending_logistics FROM maintenance_jobs");
+  return {...row,version:[row.total,row.last_id,row.updated_at,row.revisions,row.pending_maintenance,row.pending_logistics].join(':')};
+ }
  if(route==='/calendar'&&method==='GET')return maintenanceCalendar(url.searchParams.get('from'),url.searchParams.get('to'));
  if(!['manutencao','gerente','programador','controlador','gerente_concresuper'].includes(u.role))fail('Sem permissão.',403);
  if(route==='/conflicts'&&method==='GET'){const pumpId=Number(url.searchParams.get('pump_id'));if(!Number.isInteger(pumpId)||pumpId<1)fail('Selecione uma bomba.');const data=period({starts_at:url.searchParams.get('starts_at'),ends_at:url.searchParams.get('ends_at'),reason:'Consulta'});return (await withConflicts([{...data,equipment_type:'bomba',pump_id:pumpId,status:'negociando'}]))[0].conflicts;}

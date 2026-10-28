@@ -26,6 +26,10 @@ export async function technicalTicketsApi({path,method,url,u,res,body}){
  if(!ticketsAccess(u))fail('Sem acesso aos chamados técnico/comerciais.',403);
  const route=path.slice('/api/technical-tickets'.length)||'/';
  if(route==='/meta'&&method==='GET')return {types:[{value:'tecnico',label:'Técnico'},{value:'comercial',label:'Comercial'}],sellers:['programador','gerente_concresuper'].includes(u.role)?await query("SELECT id,name FROM users WHERE role='vendedor' AND active=1 AND status='aprovado' ORDER BY name"):[],customers:u.role==='vendedor'?await query('SELECT name,customer_code FROM customers WHERE seller_id=? ORDER BY name',u.id):[]};
+ if(route==='/summary'&&method==='GET'){
+  const row=await one("SELECT COUNT(*) total,COALESCE(MAX(id),0) last_id,COALESCE(SUM(revision),0) revisions,COALESCE(SUM(status='aberto'),0) opened,COALESCE(SUM(status='em_atendimento'),0) in_progress FROM technical_tickets WHERE (?<>'vendedor' OR seller_id=?)",u.role,u.id);
+  return {...row,pending:row.opened+row.in_progress,version:row.total+':'+row.last_id+':'+row.revisions};
+ }
  if(route==='/report'&&method==='GET'){
   if(!reporting(u))fail('Somente Gerente Engenharia e Programador podem gerar os indicadores de chamados.',403);
   const from=day(url.searchParams.get('from')),to=day(url.searchParams.get('to'));if(from>to)fail('Confira o período do relatório.');

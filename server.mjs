@@ -322,16 +322,20 @@ async function api(req, res, url) {
     const photo=await one('SELECT image FROM user_photos WHERE user_id=?',id);if(!photo)fail('Foto não encontrada.',404);
     res.setHeader('Content-Type','image/jpeg');res.end(Buffer.from(photo.image.split(',')[1],'base64'));return;
   }
-  if (path === '/api/meta' && method === 'GET') return {
-    profiles: await query('SELECT u.id,u.name,p.version FROM users u LEFT JOIN user_photos p ON p.user_id=u.id WHERE (?=1 OR u.id=?)',manager(u)?1:0,u.id),
-    pumps: await query('SELECT * FROM pumps ORDER BY name'),
-    sellers: manager(u) ? await query("SELECT id,name FROM users WHERE role='vendedor' AND active=1 AND status='aprovado' ORDER BY name") : [{
-      id: u.id,
-      name: u.name
-    }],
-    buffer: Number((await one("SELECT value FROM settings WHERE key='buffer_minutes'")).value),
-    branch: 'Cascavel – PR'
-  };
+  if(path==='/api/agenda-version'&&method==='GET'){
+    const latest=await one('SELECT COALESCE(MAX(id),0) revision FROM audit');
+    return {version:digest('agenda:'+latest.revision)};
+  }
+  if (path === '/api/meta' && method === 'GET') {
+    const [profiles,pumps,sellers,settings]=await Promise.all([
+      query('SELECT u.id,u.name,p.version FROM users u LEFT JOIN user_photos p ON p.user_id=u.id WHERE (?=1 OR u.id=?)',manager(u)?1:0,u.id),
+      query('SELECT * FROM pumps ORDER BY name'),
+      manager(u)?query("SELECT id,name FROM users WHERE role='vendedor' AND active=1 AND status='aprovado' ORDER BY name"):Promise.resolve([{id:u.id,name:u.name}]),
+      one("SELECT value FROM settings WHERE key='buffer_minutes'")
+    ]);
+    return {profiles,pumps,sellers,buffer:Number(settings.value),branch:'Cascavel – PR'};
+  }
+
   if(path==='/api/fleet' && method==='GET') {
     if(!manager(u))fail('Sem permissão.',403);
     return await fleetRange(date(url.searchParams.get('from')),date(url.searchParams.get('to')),checkBranch(url.searchParams.get('branch')||'',true));

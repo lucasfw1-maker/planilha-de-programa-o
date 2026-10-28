@@ -157,3 +157,19 @@ test('a manutenção também pode pedir alteração de programação confirmada 
  assert.equal((await req('/equipment-maintenance/requests/'+change.body.id+'/accept',logistics,'POST',{side:'logistics',expected_revision:0})).status,200);
  assert.equal((await req('/equipment-maintenance/requests/'+job.id,maintenance)).body.status,'cancelado');
 });
+
+test('resumo leve mantém contadores de manutenção corretos e respeita acesso',async()=>{
+ assert.equal((await req('/equipment-maintenance/summary',seller)).status,403);
+ const before=(await req('/equipment-maintenance/summary',logistics)).body;
+ const job=(await req('/equipment-maintenance/requests',maintenance,'POST',{equipment_type:'cb',cb_id:cb,starts_at:'2038-02-01T07:00',ends_at:'2038-02-01T18:00',reason:'Revisão de teste do resumo'})).body;
+ const pending=(await req('/equipment-maintenance/summary',logistics)).body;assert.equal(pending.pending_logistics,before.pending_logistics+1);assert.notEqual(pending.version,before.version);
+ await req('/equipment-maintenance/requests/'+job.id+'/accept',logistics,'POST',{side:'logistics',expected_revision:0});
+ const after=(await req('/equipment-maintenance/summary',maintenance)).body;assert.equal(after.pending_logistics,before.pending_logistics);assert.notEqual(after.version,pending.version);
+});
+
+test('versão leve da agenda sinaliza novas obras sem expor auditoria',async()=>{
+ const before=(await req('/agenda-version',seller)).body.version;assert.match(before,/^[a-f0-9]{64}$/);
+ const sellerId=(await req('/meta',admin)).body.sellers[0].id;
+ const created=await req('/appointments',logistics,'POST',{customer:'Cliente atualização da agenda',work_name:'Obra exemplo',work:'Rua Exemplo',date:'2039-01-01',start:'07:00',duration:60,type:'convencional',seller_id:sellerId,planned_volume:10,gravel:'1+0',resistance:'30',piece:'Laje'});assert.equal(created.status,200);
+ const after=(await req('/agenda-version',seller)).body;assert.notEqual(after.version,before);assert.deepEqual(Object.keys(after),['version']);assert.equal((await req('/agenda-version',maintenance)).status,403);
+});

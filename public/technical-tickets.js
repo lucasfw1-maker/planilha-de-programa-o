@@ -3,6 +3,7 @@ const engineeringRole=()=>['engenharia','gerente_engenharia'].includes(state.use
 const canTickets=()=>['vendedor','engenharia','gerente_engenharia','programador','gerente_concresuper'].includes(state.user.role);
 const canAnswerTickets=()=>['engenharia','gerente_engenharia','programador','gerente_concresuper'].includes(state.user.role);
 const canTicketReports=()=>['gerente_engenharia','programador','gerente_concresuper'].includes(state.user.role);
+const ticketPendingCount=()=>state.ticketSummary?.pending??(state.technicalTickets||[]).filter(t=>t.status!=='atendido').length;
 const ticketStatusLabel=t=>t.status==='atendido'?'Concluído':t.status==='em_atendimento'?'Em atendimento':'Em aberto';
 const ticketStatusBadge=t=>t.status==='atendido'?'concluido':t.status==='em_atendimento'?'pendente':'cancelado';
 const ticketType=type=>type==='comercial'?'Comercial':'Técnico';

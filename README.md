@@ -268,3 +268,12 @@ Na agenda de manutenção, equipamentos concluídos aparecem em verde. Ao passar
 
 
 O perfil **Gerente Concresuper** acessa todos os menus de negócio: Início, agenda/solicitações/programação de carregamentos, relatórios, clientes/contratos, Gerência/frota/metas, Manutenção e Chamados Técnico/Comercial (incluindo indicadores). Configurações, administração de usuários e auditoria administrativa continuam exclusivas do Programador. A migração dos novos perfis preserva usuários, senhas, sessões e vínculos existentes.
+
+
+## Carregamento dos menus
+
+Cada tela solicita somente seus dados e executa leituras independentes em paralelo, incluindo os metadados básicos do servidor. Contadores de chamados e manutenção usam endpoints de resumo autorizados, sem transferir todo o histórico a cada navegação ou atualização periódica. Respostas atrasadas de menus anteriores não substituem a tela atual. Um aviso de carregamento fora do fluxo da página indica a abertura sem deslocar o layout.
+
+A verificação de navegação cobre consultas específicas por tela, execução paralela e respostas fora de ordem. Em simulação com 100 ms por requisição, Clientes passou de 7 chamadas em 5 etapas sequenciais (503 ms) para 4 chamadas paralelas (101 ms). É uma medição controlada; o tempo em produção depende da conexão, da hospedagem e do banco. Nenhuma alteração de dados, permissões ou regras de agendamento foi necessária.
+
+A atualização automática de manutenção e chamados continua a cada 15 segundos por versões leves. Agenda e início também verificam uma versão de alterações e atualizam os dados ao detectar mudanças de outros usuários, sem recarregar enquanto há modal ou campo de edição em uso. A versão da agenda é lida antes dos dados do período para não perder alterações concorrentes. `node scripts/check-navigation-browser.cjs` verifica a atualização entre duas sessões, a preservação do formulário e a ausência de deslocamento visual.

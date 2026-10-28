@@ -271,3 +271,5 @@ input[name=customer],#customer-edit-form input[name=name]{text-transform:upperca
 @media(max-width:760px){.topbar{gap:10px}.topbar .breadcrumb{min-width:0;flex:1;overflow:hidden}.topbar .breadcrumb>strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.topbar .top-actions{flex-shrink:0}}
 
 .ticket-attachments{align-items:flex-start}
+
+#page-content.page-is-loading{position:relative;cursor:progress}.page-loading-status{position:fixed;top:85px;right:24px;z-index:50;pointer-events:none;padding:10px 16px;border:1px solid #d7e6dd;border-radius:8px;background:#f2f8f4;color:#12653b;font-size:12px;font-weight:600;box-shadow:0 4px 14px #173c3110}
