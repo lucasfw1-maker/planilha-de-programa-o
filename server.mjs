@@ -205,7 +205,7 @@ function userFields(b) {
 }
 async function api(req, res, url) {
   const path = url.pathname, method = req.method;
-  if (!['GET', 'POST', 'PATCH'].includes(method)) fail('Método não permitido.', 405);
+  if (!['GET', 'POST', 'PATCH'].includes(method)&&!(method==='DELETE'&&/^\/api\/laboratory\/moisture\/\d+$/.test(path))) fail('Método não permitido.', 405);
   if (method !== 'GET' && req.headers.origin) {
     const expected = process.env.APP_ORIGIN || `${process.env.VERCEL ? 'https' : 'http'}://${req.headers.host}`;
     if (req.headers.origin !== expected) fail('Origem não permitida.', 403);

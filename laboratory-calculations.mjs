@@ -19,3 +19,4 @@ export function sandMoisture(wet,dry){
  if(!Number.isFinite(wetMass)||!Number.isFinite(dryMass)||dryMass<=0||wetMass<dryMass)throw Object.assign(new Error('Informe pesos válidos: o peso seco deve ser maior que zero e não pode superar o peso coletado.'),{status:400});
  return {wet_mass_g:wetMass,dry_mass_g:dryMass,moisture_percent:(wetMass-dryMass)/dryMass*100};
 }
+export function moistureStock(value){const stock=String(value||'').trim(),match=stock.normalize('NFD').replace(/[\u0300-\u036f]/g,'').match(/^baia\s*0*(\d+)$/i);return match?'Baia '+String(Number(match[1])).padStart(2,'0'):stock;}

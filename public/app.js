@@ -24,6 +24,8 @@ const roleNames = {gerente_concresuper:'Gerente Concresuper',engenharia:'Engenha
 const programmerCrown = '<svg class="programmer-crown" viewBox="0 0 24 24" role="img" aria-label="Programador"><path d="m3 6 4 4 5-7 5 7 4-4-3 12H6Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 21h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
 const statusNames = {confirmado:'Confirmado',andamento:'Em atendimento',concluido:'Concluído',cancelado:'Cancelado',remarcado:'Remarcado',pendente:'Pendente',aprovada:'Aprovada',recusada:'Recusada',ajuste:'Aguardando ajuste',ocupado:'Ocupado'};
 const iconPaths = {
+ edit:'<path d="m16 3 5 5M4 20l4-1 13-13-4-4L4 15v5ZM13 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-8"/>',
+ trash:'<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/>',
  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
  cloud:'<path d="M7 19a5 5 0 1 1 .5-10 7 7 0 0 1 13.4 2A4 4 0 0 1 20 19Z"/>',
  rain:'<path d="M6 15a4 4 0 1 1 .7-7.9A6 6 0 0 1 18 8a3.5 3.5 0 0 1 1 7M8 17l-1 3M13 17l-1 3M18 17l-1 3"/>',
@@ -829,7 +831,7 @@ function displayGravel(value){const raw=normalizedGravel(value);return raw==='Ma
 function displaySlump(value){const raw=normalizeSlump(value);return raw?'Slump '+raw:'Slump não informado';}
 
 function bindSlumpFields(){
- $$('[name=slump]',modal).forEach(input=>input.addEventListener('blur',()=>{input.value=normalizeSlump(input.value);}));
+ $$('[name=slump],[name=molding_slump]',modal).forEach(input=>input.addEventListener('blur',()=>{input.value=normalizeSlump(input.value);}));
 }
 
 async function customerEditForm(id){
