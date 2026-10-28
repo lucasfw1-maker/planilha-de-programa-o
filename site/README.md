@@ -65,3 +65,8 @@ node site/scripts/check-browser.cjs
 ```
 
 O último comando é executado a partir da raiz do repositório, usa o Playwright já instalado no projeto principal e `/usr/bin/chromium`, e verifica tamanhos de tela, navegação com teclado, menus, abas, modais, contatos, o estado futuro do laboratório e o ícone original. As capturas ficam em `.data/review/concretlog-site-*.png` (fora do site publicado).
+
+
+## Módulos divulgados
+
+O site apresenta Programação e logística, Clientes e contratos, Indicadores e relatórios, Manutenção e frota e Chamados Técnico/Comercial como recursos disponíveis. A prévia interativa usa somente dados fictícios e a marca ConcretLog, com abas de manutenção e chamados. Laboratório de concreto continua identificado como em desenvolvimento. Os contatos permanecem inativos até a definição dos canais comerciais.
