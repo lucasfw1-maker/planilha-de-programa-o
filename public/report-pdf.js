@@ -8,6 +8,7 @@ function reportLibrary(src){
  return reportPdfLibraries.get(src);
 }
 function reportFileName(page){
+ if(page==='labTrialReport')return 'ensaio-ENS-'+state.selectedTrialId+'.pdf';
  if(page==='labMoldingSheet')return 'ficha-de-moldagem-A4.pdf';
  if(['labDocument','ticketLabDocument'].includes(page))return 'laudo-laboratorial-LAB-'+String(state.labDocument.id).padStart(6,'0')+'.pdf';
  if(page==='labReports')return 'laboratorio-'+(state.labReportFilters.month||state.labReportFilters.from)+'.pdf';
@@ -46,7 +47,7 @@ function reportFooter(pdf,author,avatar,page,total,generatedAt){
 }
 function reportGeometry(content){
  const origin=content.getBoundingClientRect(),box=element=>{const r=element.getBoundingClientRect();return {top:r.top-origin.top,bottom:r.bottom-origin.top};},protectedBoxes=[];
- for(const element of content.querySelectorAll('tr,.report-document-header,.report-summary,.stat,.projection-card,.analytics-chart,.legend')){
+ for(const element of content.querySelectorAll('tr,.report-document-header,.report-summary,.stat,.projection-card,.analytics-chart,.trial-chart,.legend')){
   const bounds=box(element);if(bounds.bottom>bounds.top)protectedBoxes.push(bounds);
  }
  for(const header of content.querySelectorAll('.panel-header')){
@@ -75,7 +76,7 @@ function repeatedReportHeader(info){
  table.append(columns,info.table.tHead.cloneNode(true));wrapper.append(table);return wrapper;
 }
 async function printReport(){
- if(!state.user||!['reports','next','changes','production','contractReport','customerContractReport','maintenanceReport','ticketView','ticketReport','labDocument','ticketLabDocument','labReports','labMoisture','labMoldingSheet'].includes(state.page))return;
+ if(!state.user||!['reports','next','changes','production','contractReport','customerContractReport','maintenanceReport','ticketView','ticketReport','labDocument','ticketLabDocument','labReports','labMoisture','labMoldingSheet','labTrialReport'].includes(state.page))return;
  const moldingSheet=state.page==='labMoldingSheet';
  const button=$('#print');if(!button||button.disabled||preparingReportPdf)return;
  const original=button.innerHTML,filename=reportFileName(state.page),generatedAt=new Date(),author={id:state.user.id,name:state.user.name,role:roleNames[state.user.role],version:state.meta.profiles?.find(profile=>profile.id===state.user.id)?.version};

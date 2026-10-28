@@ -691,6 +691,7 @@ const assets = {
   '/contracts.js': ['contracts.js', 'text/javascript; charset=utf-8'],
   '/vendor/html-to-image.js': ['vendor/html-to-image.js', 'text/javascript; charset=utf-8'],
   '/vendor/jspdf.umd.min.js': ['vendor/jspdf.umd.min.js', 'text/javascript; charset=utf-8'],
+  '/laboratory-trials.js':['laboratory-trials.js','text/javascript; charset=utf-8'],
   '/laboratory.js':['laboratory.js','text/javascript; charset=utf-8'],
   '/technical-tickets.js':['technical-tickets.js','text/javascript; charset=utf-8'],
   '/equipment-maintenance.js': ['equipment-maintenance.js','text/javascript; charset=utf-8'],
