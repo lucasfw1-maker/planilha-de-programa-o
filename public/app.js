@@ -157,7 +157,7 @@ async function load(options={}) {
  if(page==='ticketLabDocument')fetchState('labDocument','/technical-tickets/'+state.selectedTicketId+'/lab-documents/'+state.selectedLabDocumentId);
  if(labPages.includes(page)&&canLab()){
   fetchState('labMeta','/laboratory/meta');
-  if(page==='laboratory'){state.labSampleFilters??=labMonth();fetchState('labSamples','/laboratory/samples?'+new URLSearchParams(state.labSampleFilters));}
+  if(page==='laboratory'){state.labSampleFilters??={...labMonth(),all:true};fetchState('labSamples','/laboratory/samples?'+new URLSearchParams(state.labSampleFilters));}
   if(page==='labSpecimens'){state.labSpecimenFilters??={...labMonth(),basis:'planned',status:''};fetchState('labSpecimens','/laboratory/specimens?'+new URLSearchParams(state.labSpecimenFilters));}
   if(page==='labDocuments')fetchState('labDocuments','/laboratory/documents');
   if(page==='labDocument')fetchState('labDocument','/laboratory/documents/'+state.selectedLabDocumentId);
