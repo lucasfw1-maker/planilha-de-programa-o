@@ -11,6 +11,7 @@ import {migrateEquipment} from './equipment-migration.mjs';
 import {migrateMaintenanceRole} from './maintenance-role-migration.mjs';
 import {migrateWorkNames} from './work-name-migration.mjs';
 import { migrateConcrete } from './concrete-migration.mjs';
+import {migrateLabStaff} from './laboratory-staff-migration.mjs';
 import {migrateLabMolding} from './laboratory-molding-migration.mjs';
 import {migrateLabExpiryHours} from './laboratory-expiry-hours-migration.mjs';
 import {migrateLabSlump} from './laboratory-slump-migration.mjs';
@@ -65,6 +66,7 @@ async function open() {
     await migrateLabSlump(candidate);
     await migrateLabExpiryHours(candidate);
     await migrateLabMolding(candidate);
+    await migrateLabStaff(candidate);
     client=candidate;
   }catch(error){
     candidate.close();

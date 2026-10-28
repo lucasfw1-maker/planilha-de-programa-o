@@ -76,11 +76,12 @@ function repeatedReportHeader(info){
 }
 async function printReport(){
  if(!state.user||!['reports','next','changes','production','contractReport','customerContractReport','maintenanceReport','ticketView','ticketReport','labDocument','ticketLabDocument','labReports','labMoisture','labMoldingSheet'].includes(state.page))return;
+ const moldingSheet=state.page==='labMoldingSheet';
  const button=$('#print');if(!button||button.disabled||preparingReportPdf)return;
  const original=button.innerHTML,filename=reportFileName(state.page),generatedAt=new Date(),author={id:state.user.id,name:state.user.name,role:roleNames[state.user.role],version:state.meta.profiles?.find(profile=>profile.id===state.user.id)?.version};
  const content=$('#page-content').cloneNode(true);content.removeAttribute('id');content.className='pdf-export-content';
  content.querySelectorAll('.page-heading,.report-tabs,.filters,.no-print,button').forEach(element=>element.remove());
- const surface=document.createElement('div');surface.className='pdf-export-surface';surface.setAttribute('aria-hidden','true');surface.append(content);
+ const surface=document.createElement('div');surface.className='pdf-export-surface'+(moldingSheet?' pdf-molding-sheet':'');surface.setAttribute('aria-hidden','true');surface.append(content);
  preparingReportPdf=true;button.disabled=true;button.textContent='Preparando PDF…';
  try{
   await Promise.all([reportLibrary('/vendor/html-to-image.js'),reportLibrary('/vendor/jspdf.umd.min.js')]);

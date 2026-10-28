@@ -1,4 +1,4 @@
-import {laboratoryApi} from './laboratory.mjs';
+import {laboratoryApi,labStaffRole} from './laboratory.mjs';
 import {technicalTicketsApi} from './technical-tickets.mjs';
 import {equipmentMaintenanceApi,maintenanceAccess} from './equipment-maintenance.mjs';
 import {plateValue,checkBranch,equipmentState} from './equipment.mjs';
@@ -21,7 +21,7 @@ import {readFileSync} from 'node:fs';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const ROOT = dirname(fileURLToPath(import.meta.url));
-const roles = ['programador', 'gerente', 'controlador', 'vendedor', 'manutencao', 'engenharia', 'gerente_engenharia', 'gerente_concresuper'];
+const roles = ['programador', 'gerente', 'controlador', 'vendedor', 'manutencao', 'engenharia', 'gerente_engenharia', 'gerente_concresuper', 'laboratorista', 'auxiliar_laboratorio'];
 const productionManager=u=>['gerente','programador','gerente_concresuper'].includes(u.role);
 const manager = u => ['programador', 'gerente', 'controlador', 'gerente_concresuper'].includes(u.role);
 const safeUser = u => ({
@@ -291,9 +291,10 @@ async function api(req, res, url) {
   }
   if (u.status !== 'aprovado') fail('Acesso não aprovado.', 403);
   if (u.must_change) fail('Troque a senha temporária antes de acessar os módulos.', 403);
+  if(labStaffRole(u)&&!path.startsWith('/api/laboratory')&&!['/api/meta','/api/presence','/api/profile/photo'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso restrito ao Laboratório, CPs e Umidade da areia.',403);
   if(u.role==='manutencao'&&!path.startsWith('/api/equipment-maintenance')&&!['/api/meta','/api/presence','/api/profile/photo'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso exclusivo ao módulo Manutenção.',403);
   if(['engenharia','gerente_engenharia'].includes(u.role)&&!path.startsWith('/api/technical-tickets')&&!path.startsWith('/api/laboratory')&&!['/api/meta','/api/presence','/api/profile/photo'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso restrito aos módulos de Engenharia e Laboratório.',403);
-  if(path.startsWith('/api/laboratory'))return laboratoryApi({path,method,url,u,body:()=>body(req,200000)});
+  if(path.startsWith('/api/laboratory'))return laboratoryApi({path,method,url,u,res,body:()=>body(req,200000)});
   if(path.startsWith('/api/technical-tickets'))return technicalTicketsApi({path,method,url,u,res,body:()=>body(req,3200000)});
   if(path.startsWith('/api/equipment-maintenance'))return equipmentMaintenanceApi({path,method,url,u,body:()=>body(req)});
   if(path.startsWith('/api/contracts'))return contractsApi({path,method,url,u,body:()=>body(req),createAppointment});
@@ -329,6 +330,7 @@ async function api(req, res, url) {
     return {version:digest('agenda:'+latest.revision)};
   }
   if (path === '/api/meta' && method === 'GET') {
+    if(labStaffRole(u))return {profiles:await query('SELECT u.id,u.name,p.version FROM users u LEFT JOIN user_photos p ON p.user_id=u.id WHERE u.id=?',u.id),pumps:[],sellers:[],buffer:0,branch:'Cascavel – PR'};
     const [profiles,pumps,sellers,settings]=await Promise.all([
       query('SELECT u.id,u.name,p.version FROM users u LEFT JOIN user_photos p ON p.user_id=u.id WHERE (?=1 OR u.id=?)',manager(u)?1:0,u.id),
       query('SELECT * FROM pumps ORDER BY name'),
