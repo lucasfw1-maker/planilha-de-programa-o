@@ -24,6 +24,9 @@ const roleNames = {gerente_concresuper:'Gerente Concresuper',engenharia:'Engenha
 const programmerCrown = '<svg class="programmer-crown" viewBox="0 0 24 24" role="img" aria-label="Programador"><path d="m3 6 4 4 5-7 5 7 4-4-3 12H6Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 21h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
 const statusNames = {confirmado:'Confirmado',andamento:'Em atendimento',concluido:'Concluído',cancelado:'Cancelado',remarcado:'Remarcado',pendente:'Pendente',aprovada:'Aprovada',recusada:'Recusada',ajuste:'Aguardando ajuste',ocupado:'Ocupado'};
 const iconPaths = {
+ sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+ cloud:'<path d="M7 19a5 5 0 1 1 .5-10 7 7 0 0 1 13.4 2A4 4 0 0 1 20 19Z"/>',
+ rain:'<path d="M6 15a4 4 0 1 1 .7-7.9A6 6 0 0 1 18 8a3.5 3.5 0 0 1 1 7M8 17l-1 3M13 17l-1 3M18 17l-1 3"/>',
  lab:'<path d="M9 3h6M10 3v6l-6 10a1.3 1.3 0 0 0 1 2h14a1.3 1.3 0 0 0 1-2L14 9V3M7 15h10"/>',droplet:'<path d="M12 3c-2 4-7 8-7 12a7 7 0 0 0 14 0c0-4-5-8-7-12Z"/>',
  lock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/>',
  home:'<path d="m3 10 9-7 9 7v11h-6v-7H9v7H3Z"/>',
