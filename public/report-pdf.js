@@ -48,7 +48,7 @@ function reportFooter(pdf,author,avatar,page,total,generatedAt){
 }
 function reportGeometry(content){
  const origin=content.getBoundingClientRect(),box=element=>{const r=element.getBoundingClientRect();return {top:r.top-origin.top,bottom:r.bottom-origin.top};},protectedBoxes=[];
- for(const element of content.querySelectorAll('tr,.report-document-header,.report-summary,.stat,.projection-card,.analytics-chart,.trial-chart,.legend')){
+ for(const element of content.querySelectorAll('tr,.shift-pump-report-card,.report-document-header,.report-summary,.stat,.projection-card,.analytics-chart,.trial-chart,.legend')){
   const bounds=box(element);if(bounds.bottom>bounds.top)protectedBoxes.push(bounds);
  }
  for(const header of content.querySelectorAll('.panel-header')){
