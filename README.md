@@ -351,4 +351,4 @@ Os botões de retorno nos chamados, contratos, laudos/ficha do laboratório, ens
 
 Bombas com código **BL** usam um ícone vetorial em contorno de caminhão com lança articulada; **BM** usam caminhão com equipamento na carroceria, sem lança. Os ícones aparecem no editor e no relatório da escala e seguem as cores e a espessura dos demais símbolos. O ícone dos CBs é preservado.
 
-Os ícones de BL e BM mantêm o padrão de seleção: verde quando a bomba está incluída na escala e cinza quando não está marcada. A BL é espelhada para que a cabine fique no mesmo sentido da BM. As URLs dos arquivos atualizados são versionadas para carregar a nova versão ao recarregar a página.
+Os ícones de BL e BM mantêm o padrão de seleção: verde quando a bomba está incluída na escala e tem obra de início definida; cinza quando não está marcada ou está sem obra de início. A mesma regra de obra se aplica ao ícone no relatório salvo. A BL é espelhada para que a cabine fique no mesmo sentido da BM. As URLs dos arquivos atualizados são versionadas para carregar a nova versão ao recarregar a página.
