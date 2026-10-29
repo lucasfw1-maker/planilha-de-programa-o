@@ -65,3 +65,18 @@ test('salvamentos concorrentes de tipos diferentes não se sobrescrevem',async()
 test('gerar motoristas não revalida nem altera o documento de bombas salvo separadamente',async()=>{
  const date=add(day,40),saved=await ok('/shifts','POST',scale(date,{kind:'bomba',drivers:[],pumps:[{pump_id:pump2,operator_id:op,helper_id:helper,time:'07:00'}],notes:'Bombas preservadas'}));const maintenanceJob=await ok('/equipment-maintenance/requests','POST',{equipment_type:'bomba',pump_id:pump2,starts_at:date+'T06:00',ends_at:date+'T18:00',reason:'Manutenção posterior à escala'},maintenance);await ok('/equipment-maintenance/requests/'+maintenanceJob.id+'/accept','POST',{side:'logistics',expected_revision:maintenanceJob.revision},logistics);assert.equal((await ok('/shifts/availability?date='+date+'&branch=pacaembu&kind=bomba')).pumps.find(p=>p.id===pump2).available,false);await ok('/shifts','POST',scale(date,{kind:'cb',pumps:[],notes:'Motoristas livres para gerar'}));const original=await ok('/shifts/'+saved.id+'?kind=bomba');assert.equal(original.revision,1);assert.equal(original.notes,'Bombas preservadas');
 });
+
+test('sem filtro mostra equipamentos e obras de todas as filiais, preserva cards antigos e bloqueia manutenção',async()=>{
+ const date=add(day,50),remote=(await ok('/pumps','POST',{name:'BL CONSULTA GERAL',branch:'aeroporto'})).id;
+ const sellerId=(await ok('/users')).find(u=>u.username==='seller').id;
+ const appointment=(await ok('/appointments','POST',{customer:'Cliente de outra filial',work_name:'Obra Geral',work:'Rua Integração, 50',date,start:'07:00',duration:60,type:'bomba',pump_id:remote,seller_id:sellerId,planned_volume:30,gravel:'1+0',resistance:'30',piece:'Laje'})).id;
+ const ctx=await ok('/shifts/context?date='+date+'&branch=pacaembu&kind=bomba&all=1');assert(ctx.pumps.some(p=>p.id===remote));assert(ctx.cbs.some(c=>c.id===cbOther));assert(ctx.works.some(w=>w.id===appointment));
+ const saved=await ok('/shifts','POST',scale(date,{kind:'bomba',all_equipment:true,drivers:[],pumps:[{pump_id:remote,operator_id:op,helper_id:helper,time:'07:00',appointment_id:appointment}]}));assert.equal(saved.all_equipment,true);assert.equal(saved.pumps[0].address,'Rua Integração, 50');
+ const historic=await ok('/shifts/cards?all=1');assert(historic.some(c=>c.branch==='aeroporto'));assert(historic.some(c=>c.id===saved.id&&c.all_equipment));
+ assert((await ok('/shifts?from='+day+'&to='+add(day,60)+'&kind=cb&all=1')).some(c=>c.branch==='aeroporto'));
+ const blockedDate=add(date,1),job=await ok('/equipment-maintenance/requests','POST',{equipment_type:'cb',cb_id:cbOther,starts_at:blockedDate+'T06:00',ends_at:blockedDate+'T18:00',reason:'Revisão em consulta geral'},maintenance);await ok('/equipment-maintenance/requests/'+job.id+'/accept','POST',{side:'logistics',expected_revision:job.revision},logistics);
+ assert.equal((await ok('/shifts/availability?date='+blockedDate+'&branch=pacaembu&kind=cb&all=1')).cbs.find(c=>c.id===cbOther).available,false);
+ assert.equal((await req('/shifts',admin,'POST',scale(blockedDate,{kind:'cb',all_equipment:true,pumps:[],drivers:[{driver_id:driver1,cb_id:cbOther,time:'07:00'}]}))).status,409);
+ const free=await ok('/shifts','POST',scale(add(date,2),{kind:'cb',all_equipment:true,pumps:[],drivers:[{driver_id:driver1,cb_id:cbOther,time:'07:00'}]}));assert.equal(free.drivers[0].cb_id,cbOther);
+ assert.equal((await req('/shifts',admin,'POST',scale(add(date,2),{branch:'aeroporto',kind:'cb',all_equipment:true,pumps:[],drivers:[{driver_id:driver2,cb_id:cbOther,time:'07:00'}]}))).status,409);
+});
