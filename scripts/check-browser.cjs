@@ -129,18 +129,18 @@ const ROOT=require('node:path').resolve(__dirname,'..');
  // Explicit rescheduling twice preserves both transitions.
  await page.getByRole('button',{name:/07:00 — 09:30.*CONSTRUTORA HORIZONTE/}).click();
  await page.getByRole('button',{name:'Remarcar agendamento',exact:true}).click();
- await page.getByLabel('Novo horário',{exact:true}).fill('14:00');
- await page.getByLabel('Motivo da remarcação *',{exact:true}).fill('Ajuste de logística');
+ const originalRescheduleDate=await page.getByLabel('Nova data',{exact:true}).inputValue();await page.getByLabel('Nova data',{exact:true}).evaluate(input=>{input.stepUp();input.dispatchEvent(new Event('input',{bubbles:true}));});assert.equal(await page.locator('dialog .change-reason').isVisible(),true);assert.equal(await page.locator('dialog [name=reason]').evaluate(e=>e.required),true);await page.getByLabel('Nova data',{exact:true}).fill(originalRescheduleDate);await page.getByLabel('Novo horário',{exact:true}).fill('14:00');
+ assert.equal(await page.locator('dialog .change-reason').isVisible(),false);
  await page.getByRole('button',{name:'Confirmar remarcação',exact:true}).click();
  await page.waitForFunction(()=>!document.querySelector('dialog').open);
  await page.getByRole('button',{name:/14:00 — 16:30.*CONSTRUTORA HORIZONTE/}).click();
  await page.getByRole('button',{name:'Histórico',exact:true}).click();
- await page.getByText('Ajuste de logística',{exact:false}).waitFor();
+ await page.getByText('Ajuste operacional na mesma data.',{exact:false}).waitFor();
  await page.getByRole('button',{name:'Fechar',exact:true}).click();
  await page.getByRole('button',{name:/14:00 — 16:30.*CONSTRUTORA HORIZONTE/}).click();
  await page.getByRole('button',{name:'Remarcar agendamento',exact:true}).click();
  await page.getByLabel('Novo horário',{exact:true}).fill('07:00');
- await page.getByLabel('Motivo da remarcação *',{exact:true}).fill('Cliente confirmou horário original');
+ assert.equal(await page.locator('dialog .change-reason').isVisible(),false);
  await page.getByRole('button',{name:'Confirmar remarcação',exact:true}).click();
  await page.waitForFunction(()=>!document.querySelector('dialog').open);
  // Cancellation is recorded instead of deleting the job.
@@ -573,6 +573,7 @@ await generatedPdf('equipment-completed-service-report');
  }finally{await techApi.close();}
 
  assert.deepEqual(errors,[]);
+ await page.evaluate(async()=>{modal.close();const made=await api('/appointments',{method:'POST',body:JSON.stringify({customer:'Cliente Volume Editavel',work_name:'Obra Volume',work:'Rua do Volume, 50',date:'2041-02-11',start:'07:00',duration:60,type:'convencional',seller_id:state.meta.sellers[0].id,planned_volume:250,gravel:'1+0',resistance:'30',piece:'Vigas e lajes'})});window.volumeEditTestId=made.id;editBooking(await api('/appointments/'+made.id));});assert.equal(await page.locator('dialog .booking-planned-edit').isVisible(),false);await page.getByRole('button',{name:'Editar volume programado',exact:true}).click();await page.getByLabel('Volume programado (m³)',{exact:true}).fill('90');assert.equal(await page.getByLabel('Viagens previstas (automático)',{exact:true}).inputValue(),'10');assert.equal(await page.locator('dialog .change-reason').isVisible(),false);await page.getByRole('button',{name:'Salvar alterações',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('dialog').open);assert.equal(await page.evaluate(async()=>{const a=await api('/appointments/'+window.volumeEditTestId);return a.planned_volume;}),90);assert.deepEqual(errors,[]);
  console.log('PASS navegador: primeiro acesso, sessão, agenda dia/semana/mês, registro do entregue, filtros de relatório, exportação CSV, celular sem transbordamento, favicon, coroa exclusiva, troca de senha, disponibilidade, solicitação do vendedor, clientes, cancelamento, remarcações, histórico, gráficos e nenhum erro JS/CSP.');
  }finally{await browser?.close();server.kill();rmSync(dir,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1});

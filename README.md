@@ -109,7 +109,7 @@ Os formulários de criação, edição, remarcação, aprovação e disponibilid
 
 ## Frota, produção e metas mensais
 
-A agenda mostra a produção prevista por CB (volume programado ÷ caminhões disponíveis) e o volume entregue informado por CB. A frota anterior ao cadastro dos equipamentos é preservada. Ao cadastrar o primeiro CB, a contagem da data atual em diante passa a usar os CBs ativos registrados, descontando uma única vez cada CB com manutenção confirmada no dia. Quantidades históricas anteriores à transição continuam usando os padrões/ajustes existentes. Em Gerência, a contagem é separada por filial. Controlador consulta os indicadores, sem editar frota ou meta. Vendedor não acessa esses totais da filial.
+A agenda mostra a produção prevista por CB (volume programado ÷ caminhões disponíveis) e o volume entregue informado por CB. A frota anterior ao cadastro dos equipamentos é preservada. Ao cadastrar o primeiro CB, a contagem da data atual em diante passa a usar os CBs ativos registrados, descontando uma única vez cada CB com manutenção confirmada no dia. Quantidades históricas anteriores à transição continuam usando os padrões/ajustes existentes. Em Gerência, a contagem inclui todos os equipamentos, sem filtro de filial. Controlador consulta os indicadores, sem editar frota ou meta. Vendedor não acessa esses totais da filial.
 
 Quando houver uma **escala de motoristas salva** para a data, os indicadores usam somente os CBs distintos escalados, ativos e disponíveis naquele dia. Motoristas Sem CB e veículos não escalados não entram no divisor; manutenção confirmada é descontada uma única vez. Salvar uma revisão recalcula o dia, os relatórios, PDFs e CSVs que usam a frota; rascunhos e documentos somente de bombas não alteram esse cálculo. Sem escala de motoristas salva, permanece a frota disponível do cadastro/padrão. Se todos estiverem Sem CB, a frota de produção será zero, com aviso de obras sem caminhão, sem divisão por zero. A agenda identifica quando a escala é usada.
 
@@ -332,3 +332,9 @@ Validação: `npm test`, `npm run build` e `npm run test:shifts-browser`. O test
 ### Editar nomes dos usuários
 
 Em **Configurações → Equipe e acessos**, o Programador tem o botão **Editar nome** em cada usuário, inclusive na própria conta. A operação altera somente o nome de exibição, com verificação do nome anterior e auditoria. Login, senha, perfil, situação, fotos, sessões e vínculos são preservados. A conta Programador continua protegida contra alterações de perfil/situação e redefinição por essa rota; a edição de nome não remove essa proteção. O nome atualizado aparece nos metadados e na sessão; nomes históricos já preservados em documentos permanecem como eram na emissão.
+
+### Motivo nas alterações de agendamento
+
+Alterações de início, duração, tipo, bomba e volume entregue na mesma data dispensam preenchimento de motivo. A remarcação de data exige motivo tanto na edição geral quanto em Remarcar agendamento; o campo aparece automaticamente ao mudar a data e desaparece ao voltar à original. Ajustes operacionais continuam registrados com autor e antes/depois no histórico. Cancelamentos e reativações preservam seus motivos obrigatórios. Conflitos de agenda, manutenção e proteção contra edição concorrente continuam validados no servidor.
+
+O lápis ao lado de **Peça / programado** revela o campo de volume programado. Salvar atualiza o volume, a previsão de viagens, os totais e a produção por CB; volume entregue permanece separado. O histórico de auditoria guarda os valores anterior e novo e a autoria. Alterações concorrentes do volume são recusadas, e documentos já gerados continuam com seus snapshots originais.

@@ -58,7 +58,7 @@ test('solicitação identifica vendedor autenticado, aprovação verifica confli
  assert.equal((await request('/requests/'+requestId,{method:'PATCH',cookie:manager,data:{status:'aprovada',pump_id:pumpId}})).status,409);
 });
 test('volume entregue não altera programado e relatório respeita filtros e vendedor',async()=>{
- assert.equal((await request('/appointments/'+appointmentId,{method:'PATCH',cookie:controller,data:{delivered_volume:26,status:'concluido',planned_volume:999}})).status,200);
+ assert.equal((await request('/appointments/'+appointmentId,{method:'PATCH',cookie:controller,data:{delivered_volume:26,status:'concluido',planned_volume:999}})).status,409);assert.equal((await request('/appointments/'+appointmentId,{method:'PATCH',cookie:controller,data:{delivered_volume:26,status:'concluido'}})).status,200);
  const report=await request('/report?from=2027-01-04&to=2027-01-04&type=bomba&status=concluido',{cookie:admin});assert.equal(report.body.length,1);assert.equal(report.body[0].planned_volume,24);assert.equal(report.body[0].delivered_volume,26);
  assert.equal((await request('/report?from=2027-01-01&to=2027-01-31&seller='+seller.id,{cookie:other})).body.length,0);
  assert.equal((await request('/report?from=2027-02-01&to=2027-01-01',{cookie:admin})).status,400);
@@ -530,4 +530,28 @@ test('Programador edita nomes sem alterar credenciais, vínculos, acessos ou ses
  assert.equal((await request('/users/'+target.id,{method:'PATCH',cookie:seller.cookie,data:{action:'rename',name:'Sem autorização',expected_name:after.name}})).status,403);
  for(const name of ['', '   ','x'.repeat(201)])assert.equal((await request('/users/'+target.id,{method:'PATCH',cookie:admin,data:{action:'rename',name,expected_name:after.name}})).status,400);
  const self=users.find(u=>u.role==='programador');assert.equal((await request('/users/'+self.id,{method:'PATCH',cookie:admin,data:{action:'rename',name:'Admin nome atualizado',expected_name:self.name}})).status,200);const session=(await request('/session',{cookie:admin})).body.user;assert.equal(session.name,'Admin nome atualizado');assert.equal(session.role,'programador');assert.equal((await request('/users/'+self.id,{method:'PATCH',cookie:admin,data:{status:'bloqueado',role:'vendedor'}})).status,403);
+});
+
+test('ajustes operacionais na mesma data dispensam motivo, mas mudança de data continua exigindo',async()=>{
+ const created=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,date:'2040-03-11',start:'07:00',duration:60,type:'convencional',seller_id:seller.id}});assert.equal(created.status,200);const id=created.body.id;
+ let edited=await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{start:'08:00',duration:90,delivered_volume:25}});assert.equal(edited.status,200);const current=(await request('/appointments/'+id,{cookie:admin})).body;assert.equal(current.start,'08:00');assert.equal(current.duration,90);assert.equal(current.delivered_volume,25);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:controller,data:{type:'bomba',pump_id:pumpId}})).status,200);
+ const spare=await request('/pumps',{method:'POST',cookie:admin,data:{name:'BL AJUSTE SEM MOTIVO'}});assert.equal(spare.status,200);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{pump_id:spare.body.id}})).status,200);
+ let history=(await request('/appointments/'+id+'/history',{cookie:admin})).body;assert.equal(history.length,3);assert(history.every(e=>e.actor_id&&e.reason==='Ajuste operacional na mesma data.'));assert.equal(history[0].before.pump_id,pumpId);assert.equal(history[0].after.pump_id,spare.body.id);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{date:'2040-03-12'}})).status,400);assert.equal((await request('/appointments/'+id,{cookie:admin})).body.date,'2040-03-11');
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{date:'2040-03-12',reason:'Cliente pediu outra data'}})).status,200);
+ history=(await request('/appointments/'+id+'/history',{cookie:admin})).body;assert.equal(history.length,4);assert.equal(history[0].reason,'Cliente pediu outra data');assert.equal(history[0].before.date,'2040-03-11');assert.equal(history[0].after.date,'2040-03-12');
+});
+
+test('volume programado editável recalcula viagens e produção e protege contra sobrescrita',async()=>{
+ const created=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,date:'2041-02-11',type:'convencional',seller_id:seller.id,planned_volume:250}});assert.equal(created.status,200);const id=created.body.id;
+ for(const value of [0,-1,'',null,'abc'])assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{planned_volume:value,expected_planned_volume:250}})).status,400);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:seller.cookie,data:{planned_volume:90,expected_planned_volume:250}})).status,403);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{planned_volume:90,expected_planned_volume:250}})).status,200);
+ let saved=(await request('/appointments/'+id,{cookie:admin})).body;assert.equal(saved.planned_volume,90);assert.equal(saved.trips,10);assert.equal(saved.date,'2041-02-11');assert.equal(saved.delivered_volume,null);
+ const production=(await request('/production?month=2041-02',{cookie:manager})).body;assert.equal(production.programmed,90);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{planned_volume:150,expected_planned_volume:250}})).status,409);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{delivered_volume:85}})).status,200);saved=(await request('/appointments/'+id,{cookie:admin})).body;assert.equal(saved.planned_volume,90);assert.equal(saved.delivered_volume,85);
+ const audit=(await request('/audit',{cookie:admin})).body;const change=audit.find(e=>e.entity==='agendamento'&&e.entity_id===id&&JSON.parse(e.detail).antes?.planned_volume===250);assert(change);assert.equal(JSON.parse(change.detail).depois.planned_volume,90);assert(change.user_name);
 });
