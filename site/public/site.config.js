@@ -4,5 +4,5 @@ window.CONCRETLOG_SITE = Object.freeze({
   domain: 'https://concretlog.com.br',
   whatsapp: '',
   instagram: '',
-  email: ''
+  email: 'comercial@concretlog.com.br'
 });

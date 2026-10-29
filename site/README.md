@@ -21,7 +21,7 @@ Edite somente `public/site.config.js` para ativar os canais quando estiverem def
 - `instagram`: URL HTTPS completa do perfil oficial.
 - `email`: endereço comercial.
 
-Os campos estão vazios por solicitação do proprietário. Os ícones aparecem com “Em breve”, sem contatos fictícios e sem links vazios. Os pedidos de demonstração explicam que os canais estão em preparação. Ao configurar um canal, ele passa a funcionar automaticamente; WhatsApp e e-mail abrem uma mensagem de interesse, e o Instagram abre o perfil. Não há formulário que prometa enviar dados sem um serviço de recebimento.
+O e-mail comercial ativo é **comercial@concretlog.com.br**. O WhatsApp está removido da apresentação por enquanto. O Instagram continua como “Em breve”, sem link fictício. Os pedidos de demonstração oferecem contato por e-mail. Ao configurar um canal, ele passa a funcionar automaticamente; WhatsApp e e-mail abrem uma mensagem de interesse, e o Instagram abre o perfil. Não há formulário que prometa enviar dados sem um serviço de recebimento.
 
 ## Publicar na Vercel
 
@@ -52,7 +52,7 @@ O domínio e o registro da marca são processos separados; a proteção da marca
 - Módulos disponíveis: programação/logística, clientes/contratos, indicadores/relatórios, manutenção/frota, chamados e laboratório.
 - Laboratório divulgado como disponível: CPs e rompimentos, laudos vinculados aos chamados, ocorrências, umidade da areia e ensaios comparativos de traços, cimentos e aditivos, com dosagens, preços de referência e custos.
 - Propostas sob consulta, sem preços, depoimentos ou resultados comerciais inventados.
-- WhatsApp, Instagram e e-mail visíveis como ícones, ainda sem contatos publicados.
+- E-mail comercial publicado e clicável; WhatsApp removido temporariamente e Instagram ainda sem endereço definido.
 - Montserrat servida localmente; licença das fontes em `public/assets/fonts/LICENSE.txt`.
 - Sem cookies de publicidade, análise ou coleta por formulário nesta versão.
 
@@ -69,4 +69,4 @@ O último comando é executado a partir da raiz do repositório, usa o Playwrigh
 
 ## Módulos divulgados
 
-O site apresenta Programação e logística, Clientes e contratos, Indicadores e relatórios, Manutenção e frota e Chamados Técnico/Comercial como recursos disponíveis. A prévia interativa usa somente dados fictícios e a marca ConcretLog, com abas de manutenção e chamados. Laboratório de concreto tem card, modal, aba ilustrativa e seção dedicada aos recursos de CPs, laudos, umidade e ensaios. Os exemplos usam somente dados fictícios, sem informações de clientes ou resultados reais. Os contatos permanecem inativos até a definição dos canais comerciais.
+O site apresenta Programação e logística, Clientes e contratos, Indicadores e relatórios, Manutenção e frota e Chamados Técnico/Comercial como recursos disponíveis. A prévia interativa usa somente dados fictícios e a marca ConcretLog, com abas de manutenção e chamados. Laboratório de concreto tem card, modal, aba ilustrativa e seção dedicada aos recursos de CPs, laudos, umidade e ensaios. Os exemplos usam somente dados fictícios, sem informações de clientes ou resultados reais. O contato comercial por e-mail está ativo; o WhatsApp foi removido temporariamente.
