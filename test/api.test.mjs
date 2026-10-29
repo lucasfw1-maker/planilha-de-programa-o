@@ -520,3 +520,14 @@ test('histórico de metas separa meses anteriores/futuros e calcula volumes e pe
  const future=(await request('/production/goals?period=future',{cookie:controller})).body;assert(future.rows.every(g=>g.month>month));const planned=future.rows.find(g=>g.month==='2099-01');assert.equal(planned.programmed,100);assert.equal(planned.delivered,0);assert.equal(planned.percent,50);assert.equal(planned.delivery_percent,0);assert.equal(planned.missing,1);
  assert.equal((await request('/appointments/'+a.body.id,{method:'PATCH',cookie:manager,data:{date:'1999-02-05',reason:'Mudança de mês'}})).status,200);const updated=(await request('/production/goals?period=past',{cookie:manager})).body.rows.find(g=>g.month==='1999-01');assert.equal(updated.programmed,0);assert.equal(updated.delivered,10);assert.equal(updated.delivery_percent,20);
 });
+
+
+test('Programador edita nomes sem alterar credenciais, vínculos, acessos ou sessões',async()=>{
+ const users=(await request('/users',{cookie:admin})).body,target=users.find(u=>u.role==='gerente');
+ const changed=await request('/users/'+target.id,{method:'PATCH',cookie:admin,data:{action:'rename',name:'Gerente com nome atualizado',expected_name:target.name,username:'login-forjado',role:'programador',status:'bloqueado'}});assert.equal(changed.status,200);
+ const after=(await request('/users',{cookie:admin})).body.find(u=>u.id===target.id);assert.equal(after.name,'Gerente com nome atualizado');for(const key of ['id','username','role','active','status','must_change'])assert.equal(after[key],target[key]);assert.equal((await request('/session',{cookie:manager})).body.user.name,after.name);
+ assert.equal((await request('/users/'+target.id,{method:'PATCH',cookie:admin,data:{action:'rename',name:'Outra alteração',expected_name:target.name}})).status,409);
+ assert.equal((await request('/users/'+target.id,{method:'PATCH',cookie:seller.cookie,data:{action:'rename',name:'Sem autorização',expected_name:after.name}})).status,403);
+ for(const name of ['', '   ','x'.repeat(201)])assert.equal((await request('/users/'+target.id,{method:'PATCH',cookie:admin,data:{action:'rename',name,expected_name:after.name}})).status,400);
+ const self=users.find(u=>u.role==='programador');assert.equal((await request('/users/'+self.id,{method:'PATCH',cookie:admin,data:{action:'rename',name:'Admin nome atualizado',expected_name:self.name}})).status,200);const session=(await request('/session',{cookie:admin})).body.user;assert.equal(session.name,'Admin nome atualizado');assert.equal(session.role,'programador');assert.equal((await request('/users/'+self.id,{method:'PATCH',cookie:admin,data:{status:'bloqueado',role:'vendedor'}})).status,403);
+});

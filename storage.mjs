@@ -1,3 +1,4 @@
+import {migrateShiftRoster} from './shift-roster-migration.mjs';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { createClient } from '@libsql/client';
 import { mkdirSync } from 'node:fs';
@@ -69,6 +70,7 @@ async function open() {
     await migrateLabMolding(candidate);
     await migrateLabStaff(candidate);
     await migrateLabTrials(candidate);
+    await migrateShiftRoster(candidate);
     client=candidate;
   }catch(error){
     candidate.close();

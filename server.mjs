@@ -1,3 +1,4 @@
+import {shiftRosterApi} from './shift-roster.mjs';
 import {laboratoryApi,labStaffRole} from './laboratory.mjs';
 import {technicalTicketsApi} from './technical-tickets.mjs';
 import {equipmentMaintenanceApi,maintenanceAccess} from './equipment-maintenance.mjs';
@@ -294,6 +295,7 @@ async function api(req, res, url) {
   if(labStaffRole(u)&&!path.startsWith('/api/laboratory')&&!['/api/meta','/api/presence','/api/profile/photo'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso restrito ao Laboratório, CPs e Umidade da areia.',403);
   if(u.role==='manutencao'&&!path.startsWith('/api/equipment-maintenance')&&!['/api/meta','/api/presence','/api/profile/photo'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso exclusivo ao módulo Manutenção.',403);
   if(['engenharia','gerente_engenharia'].includes(u.role)&&!path.startsWith('/api/technical-tickets')&&!path.startsWith('/api/laboratory')&&!['/api/meta','/api/presence','/api/profile/photo'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso restrito aos módulos de Engenharia e Laboratório.',403);
+  if(path==='/api/shifts'||path.startsWith('/api/shifts/'))return shiftRosterApi({path,method,url,u,body:()=>body(req,220000)});
   if(path.startsWith('/api/laboratory'))return laboratoryApi({path,method,url,u,res,body:()=>body(req,200000)});
   if(path.startsWith('/api/technical-tickets'))return technicalTicketsApi({path,method,url,u,res,body:()=>body(req,3200000)});
   if(path.startsWith('/api/equipment-maintenance'))return equipmentMaintenanceApi({path,method,url,u,body:()=>body(req)});
@@ -614,6 +616,15 @@ async function api(req, res, url) {
     const id = Number(path.split('/').pop()), b = await body(req);
     const target = await one('SELECT * FROM users WHERE id=?', id);
     if (!target) fail('Usuário não encontrado.', 404);
+    if(b.action==='rename'){
+      const name=text(b.name,'nome',200);
+      return transaction(async()=>{
+        const current=await one('SELECT name FROM users WHERE id=?',id);
+        if(typeof b.expected_name!=='string'||current.name!==b.expected_name)fail('O nome foi alterado por outra sessão. Atualize a lista e tente novamente.',409);
+        if(name!==current.name){await run('UPDATE users SET name=? WHERE id=?',name,id);await audit(u,'editar nome','usuario',id,{before:current.name,after:name});}
+        return {id,name};
+      });
+    }
     if (id === u.id || target.role === 'programador') fail('Sua conta de Programador é protegida.', 403);
     if (b.action === 'reset-password') {
       await throttle(req, 'reset-password');
@@ -692,6 +703,7 @@ const assets = {
   '/vendor/html-to-image.js': ['vendor/html-to-image.js', 'text/javascript; charset=utf-8'],
   '/vendor/jspdf.umd.min.js': ['vendor/jspdf.umd.min.js', 'text/javascript; charset=utf-8'],
   '/laboratory-trials.js':['laboratory-trials.js','text/javascript; charset=utf-8'],
+  '/shift-roster.js':['shift-roster.js','text/javascript; charset=utf-8'],
   '/laboratory.js':['laboratory.js','text/javascript; charset=utf-8'],
   '/technical-tickets.js':['technical-tickets.js','text/javascript; charset=utf-8'],
   '/equipment-maintenance.js': ['equipment-maintenance.js','text/javascript; charset=utf-8'],
