@@ -8,7 +8,7 @@ function reportLibrary(src){
  return reportPdfLibraries.get(src);
 }
 function reportFileName(page){
- if(page==='shiftReport')return 'escala-'+state.shiftReport.date+'-'+state.shiftReport.branch+'-v'+state.shiftReport.revision+'.pdf';
+ if(page==='shiftReport')return 'escala-'+state.shiftReport.kind+'-'+state.shiftReport.date+'-'+state.shiftReport.branch+'-v'+state.shiftReport.revision+'.pdf';
  if(page==='labTrialReport')return 'ensaio-ENS-'+state.selectedTrialId+'.pdf';
  if(page==='labMoldingSheet')return 'ficha-de-moldagem-A4.pdf';
  if(['labDocument','ticketLabDocument'].includes(page))return 'laudo-laboratorial-LAB-'+String(state.labDocument.id).padStart(6,'0')+'.pdf';

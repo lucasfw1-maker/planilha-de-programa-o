@@ -1,3 +1,4 @@
+import {migrateTicketWorkflow} from './ticket-workflow-migration.mjs';
 import {migrateShiftRoster} from './shift-roster-migration.mjs';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { createClient } from '@libsql/client';
@@ -71,6 +72,7 @@ async function open() {
     await migrateLabStaff(candidate);
     await migrateLabTrials(candidate);
     await migrateShiftRoster(candidate);
+    await migrateTicketWorkflow(candidate);
     client=candidate;
   }catch(error){
     candidate.close();

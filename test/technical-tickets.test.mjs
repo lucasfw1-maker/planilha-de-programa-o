@@ -37,7 +37,7 @@ test('Gerente Engenharia responde e gera indicadores sem duplicar conclusão; re
  const created=(await req('/technical-tickets',other,'POST',{...fields,customer:'Cliente Comercial',type:'comercial',attachments:[]})).body;
  assert.equal((await req('/technical-tickets/'+created.id+'/accept',engineeringManager,'POST',{expected_revision:0})).status,200);
  const response=await req('/technical-tickets/'+created.id+'/messages',engineeringManager,'POST',{message:'Solicitação comercial atendida.',resolve:true,expected_revision:1});assert.equal(response.status,200);const stamp=response.body.attended_at;
- assert.equal((await req('/technical-tickets/'+created.id+'/messages',engineeringManager,'POST',{message:'Complemento da resposta.',resolve:true,expected_revision:2})).body.attended_at,stamp);
+ assert.equal((await req('/technical-tickets/'+created.id+'/messages',engineeringManager,'POST',{message:'Complemento da resposta.',resolve:true,expected_revision:2})).status,409);assert.equal((await req('/technical-tickets/'+created.id,engineeringManager)).body.attended_at,stamp);
  const day=response.body.attended_date,path='/technical-tickets/report?from='+day+'&to='+day;
  for(const who of [seller,other,engineer,logistics])assert.equal((await req(path,who)).status,403);
  const report=(await req(path,engineeringManager)).body;assert.equal(report.total_created,2);assert.equal(report.total_attended,2);assert.equal(report.by_seller.length,2);assert.equal(report.by_type.length,2);assert.equal(report.by_seller.reduce((n,s)=>n+s.attended,0),2);
@@ -59,4 +59,39 @@ test('Gerente Concresuper acessa todos os módulos de negócio e não acessa Con
  for(const path of ['/appointments?from=2026-10-01&to=2026-10-31','/requests','/customers','/report?from=2026-10-01&to=2026-10-31','/contracts?status=ativo','/equipment-maintenance/equipment','/equipment-maintenance/requests','/equipment-maintenance/calendar?from=2026-10-01&to=2026-10-31','/equipment-maintenance/report?all=1','/production?month=2026-10','/production/goals?period=past','/fleet?from=2026-10-01&to=2026-10-31','/technical-tickets?status=todos','/technical-tickets/report?from=2026-10-01&to=2026-10-31'])assert.equal((await req(path,director)).status,200,path);
  assert.equal((await req('/users',director)).status,403);assert.equal((await req('/audit',director)).status,403);assert.equal((await req('/settings',director,'PATCH',{buffer:30})).status,403);
  assert.equal((await req('/users',director,'POST',{name:'Não permitido',username:'nao.permitido',role:'vendedor',password})).status,403);
+});
+
+test('edição de concluídos preserva texto, arquivos, conclusão e autoria no histórico',async()=>{
+ const path='/technical-tickets/'+ticketId,before=(await req(path,admin)).body;
+ const data={message:'Orientação corrigida.',reason:'Correção do texto técnico',expected_revision:before.revision};
+ assert.equal((await req(path+'/edit',seller,'POST',data)).status,403);
+ assert.equal((await req(path+'/edit',engineer,'POST',{...data,reason:''})).status,400);
+ assert.equal((await req(path+'/edit',engineer,'POST',{...data,expected_revision:0})).status,409);
+ assert.equal((await req(path+'/edit',engineer,'POST',data)).status,200);
+ const after=(await req(path,seller)).body;
+ assert.equal(after.status,'atendido');assert.equal(after.attended_at,before.attended_at);assert.equal(after.messages.length,before.messages.length);
+ assert.equal(after.messages.at(-1).body,data.message);assert.deepEqual(after.messages.at(-1).attachments,before.messages.at(-1).attachments);
+ assert.equal(after.edits.length,1);assert.equal(after.edits[0].before.body,before.messages.at(-1).body);assert.equal(after.edits[0].after.body,data.message);assert.equal(after.edits[0].reason,data.reason);assert(after.edits[0].actor_name);assert(after.edits[0].created_at);
+ for(const who of [admin,engineer,seller])assert.equal((await req(path+'/messages',who,'POST',{message:'Sem reabrir',expected_revision:after.revision})).status,409);
+});
+test('reabertura exige solicitação própria, decisão autorizada e preserva a conclusão anterior',async()=>{
+ const path='/technical-tickets/'+ticketId;let detail=(await req(path,seller)).body;const completion=detail.attended_at;
+ const request={reason:'Cliente precisa de nova análise',expected_revision:detail.revision};
+ assert.equal((await req(path+'/reopening-requests',other,'POST',request)).status,404);
+ assert.equal((await req(path+'/reopening-requests',engineer,'POST',request)).status,403);
+ const created=await req(path+'/reopening-requests',seller,'POST',request);assert.equal(created.status,200);
+ detail=(await req(path,engineer)).body;assert.equal(detail.status,'atendido');assert.equal(detail.reopening_pending,1);assert.equal((await req('/technical-tickets/summary',engineer)).body.reopening_pending,1);
+ assert.equal((await req(path+'/reopening-requests',seller,'POST',{...request,expected_revision:detail.revision})).status,409);
+ let decision={action:'approve',request_id:created.body.id,expected_revision:detail.revision,expected_request_revision:0,response:'Reavaliar atendimento'};
+ assert.equal((await req(path+'/decide-reopening',seller,'POST',decision)).status,403);
+ assert.equal((await req(path+'/decide-reopening',engineer,'POST',{...decision,expected_revision:detail.revision-1})).status,409);
+ assert.equal((await req(path+'/decide-reopening',engineer,'POST',decision)).status,200);
+ detail=(await req(path,seller)).body;assert.equal(detail.status,'em_atendimento');assert.equal(detail.attended_at,null);assert.equal(detail.reopening_pending,0);assert.equal(detail.reopening_requests[0].previous_completion.attended_at,completion);assert(detail.reopening_requests[0].decided_by_name);assert(detail.reopening_requests[0].decided_at);assert.equal(detail.edits.length,1);
+ assert.equal((await req(path+'/decide-reopening',engineer,'POST',decision)).status,409);
+ assert.equal((await req(path+'/messages',engineer,'POST',{message:'Reanálise concluída.',resolve:true,expected_revision:detail.revision})).status,200);
+ detail=(await req(path,admin)).body;const second=await req(path+'/reopening-requests',admin,'POST',{reason:'Solicitação administrativa',expected_revision:detail.revision});assert.equal(second.status,200);
+ detail=(await req(path,engineeringManager)).body;decision={action:'decline',request_id:second.body.id,expected_revision:detail.revision,expected_request_revision:0};
+ assert.equal((await req(path+'/decide-reopening',engineeringManager,'POST',decision)).status,400);
+ assert.equal((await req(path+'/decide-reopening',engineeringManager,'POST',{...decision,response:'Dados já esclarecidos no atendimento'})).status,200);
+ detail=(await req(path,seller)).body;assert.equal(detail.status,'atendido');assert.equal(detail.reopening_requests.length,2);assert.equal(detail.reopening_requests[1].status,'recusada');assert.equal(detail.reopening_requests[1].response,'Dados já esclarecidos no atendimento');assert.equal(detail.messages.length,3);
 });
