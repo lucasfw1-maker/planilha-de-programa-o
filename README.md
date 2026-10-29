@@ -348,3 +348,5 @@ Os relatórios de motoristas mantêm tabela enxuta, com placa abaixo do CB em ci
 O acesso às escalas permanece reservado a Programador, Controlador de Logística, Gerente e Gerente Concresuper. O atalho **Cadastros em Gerência** aparece apenas ao Programador e aos dois perfis de gerente; o servidor também impede o Controlador de alterar esses cadastros.
 
 Os botões de retorno nos chamados, contratos, laudos/ficha do laboratório, ensaios e agenda de carregamentos usam a casinha, mantendo o destino original e uma descrição acessível/tooltip. A casinha retorna ao início/lista ou contexto do módulo, sem mudar as permissões de acesso.
+
+Bombas com código **BL** usam um ícone vetorial em contorno de caminhão com lança articulada; **BM** usam caminhão com equipamento na carroceria, sem lança. Os ícones aparecem no editor e no relatório da escala e seguem as cores e a espessura dos demais símbolos. O ícone dos CBs é preservado.

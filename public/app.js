@@ -42,6 +42,8 @@ const iconPaths = {
  pin:'<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>',
  plus:'<path d="M12 5v14M5 12h14"/>', bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
  truck:'<path d="M2 16h20v-4l-3-4h-4v8M16 9v4h5M3 14l-1-3M2 4l2 1"/><path d="m4 5 4-2 6 3-1 6-4 2-6-4Z"/><path d="m7 4-2 7m6-6-2 8M1 5l2 1"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>',
+ boomTruck:'<path d="M1.5 17.5v-5l2-3h4v8M2 13h5M7.5 14h14.5v3.5h-1.5m-4 0H7m-4 0H1.5M10.5 13.5 8.5 8.5 14 2.5 20 4.5 22 8v3"/><circle cx="5" cy="18.5" r="1.8"/><circle cx="15" cy="18.5" r="1.5"/><circle cx="20" cy="18.5" r="1.5"/>',
+ linePumpTruck:'<path d="M14 18V7h4l4 5v6h-1.5M15 8v5h6M14 16H2v-6h12M2 13h3M5 18H2m6 0h8M6 10V7h4v3"/><circle cx="8.5" cy="13" r="2"/><path d="M8.5 11v4M6.5 13h4"/><circle cx="6" cy="18.5" r="1.8"/><circle cx="18.5" cy="18.5" r="2"/>',
  pump:'<path d="M3 17h18M5 17V9l7-5 7 5v8M9 17v-5h6v5M12 4V2"/>',
  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
  cube:'<path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5M12 13v9M7 5l9 5"/>',
@@ -53,6 +55,8 @@ const iconPaths = {
  users:'<circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M17 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 4v2"/>'
 };
 const icon = name => `<svg viewBox="0 0 24 24" aria-hidden="true">${iconPaths[name] || iconPaths.grid}</svg>`;
+function equipmentPumpIcon(name,fallback='truck'){const kind=String(name||'').match(/^\s*(BL|BM)(?=\d|\s|[-.•]|$)/i)?.[1]?.toLowerCase();return kind?'<span class="pump-equipment-icon" data-pump-kind="'+kind+'">'+icon(kind==='bl'?'boomTruck':'linePumpTruck')+'</span>':fallback?icon(fallback):'';}
+
 const brand = () => '<div class="brand concretlog-brand"><img class="brand-logo" src="/concretlog-symbol.png" alt="Símbolo ConcretLog"><div><strong>Concret<span>Log</span></strong><small>Tecnologia que move o concreto</small></div></div>';
 const badge = s => `<span class="badge ${esc(s)}">${esc(statusNames[s] || s)}</span>`;
 let state = {user:null,onlineUsers:[],onlineUpdatedAt:0, page:'home',loadingDate:'', mode:'day', date:today(), appointments:[], requests:[],maintenances:[], meta:{pumps:[],sellers:[],buffer:30},fleet:null,production:null,goalMonth:'',productionReport:null,productionFleet:null,management:null,managementDate:today(),managementMonth:today().slice(0,7),productionFilters:{month:today().slice(0,7),reference:today(),basis:'mon_sat'}, from:today().slice(0,8)+'01', to:today(), seller:'', type:'', status:'', report:[], users:[], audit:[], changes:[], customers:[], customerQuery:'', changeFilters:{from:today().slice(0,8)+'01',to:today(),basis:'event',kind:'',customer:'',seller:'',unknown:''}};
