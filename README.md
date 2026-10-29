@@ -350,3 +350,5 @@ O acesso às escalas permanece reservado a Programador, Controlador de Logístic
 Os botões de retorno nos chamados, contratos, laudos/ficha do laboratório, ensaios e agenda de carregamentos usam a casinha, mantendo o destino original e uma descrição acessível/tooltip. A casinha retorna ao início/lista ou contexto do módulo, sem mudar as permissões de acesso.
 
 Bombas com código **BL** usam um ícone vetorial em contorno de caminhão com lança articulada; **BM** usam caminhão com equipamento na carroceria, sem lança. Os ícones aparecem no editor e no relatório da escala e seguem as cores e a espessura dos demais símbolos. O ícone dos CBs é preservado.
+
+Os ícones de BL e BM mantêm o padrão de seleção: verde quando a bomba está incluída na escala e cinza quando não está marcada. A BL é espelhada para que a cabine fique no mesmo sentido da BM. As URLs dos arquivos atualizados são versionadas para carregar a nova versão ao recarregar a página.
