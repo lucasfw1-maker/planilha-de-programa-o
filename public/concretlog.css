@@ -346,3 +346,5 @@ input[name=customer],#customer-edit-form input[name=name]{text-transform:upperca
 .shift-print-sheet .shift-report-section th:first-child{width:14%}.shift-print-sheet .shift-report-section th:nth-child(2){width:29%}.shift-print-sheet .shift-report-drivers th:nth-child(3){width:20%}.shift-print-sheet .shift-report-drivers th:nth-child(4){width:37%}.shift-print-sheet .shift-report-pumps th:nth-child(3){width:36%}.shift-print-sheet .shift-report-pumps th:nth-child(4){width:21%}@media(max-width:600px){.shift-print-sheet .shift-report-section th:first-child{width:18%}.shift-print-sheet .shift-report-section th:nth-child(2){width:28%}.shift-print-sheet .shift-report-drivers th:nth-child(3){width:20%}.shift-print-sheet .shift-report-drivers th:nth-child(4){width:34%}.shift-print-sheet .shift-report-pumps th:first-child{width:20%}.shift-print-sheet .shift-report-pumps th:nth-child(3){width:34%}.shift-print-sheet .shift-report-pumps th:nth-child(4){width:18%}}
 
 .shift-pump-toggle{flex-direction:row}
+
+.ring-roster-note{font-size:11px;line-height:1.6;color:#628071;margin:13px 0 0}
