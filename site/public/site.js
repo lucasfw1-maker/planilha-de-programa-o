@@ -10,7 +10,7 @@ try{const profile=new URL(config.instagram);if(profile.protocol==='https:'&&['in
 for(const [name,url] of Object.entries(channels))if(url){
  const original=$(`[data-channel="${name}"]`);if(!original)continue;
  if(name==='email'){original.disabled=false;original.querySelector('small').textContent=config.email;continue;}
- const link=document.createElement('a');link.className=original.className;link.dataset.channel=name;link.href=url;link.innerHTML=original.innerHTML;link.querySelector('small').textContent=name==='instagram'?'Acompanhe':'Vamos conversar';link.target='_blank';link.rel='noopener noreferrer';original.replaceWith(link);
+ const link=document.createElement('a');link.className=original.className;link.dataset.channel=name;link.href=url;link.innerHTML=original.innerHTML;link.querySelector('small').textContent=name==='instagram'?'@'+new URL(url).pathname.split('/').filter(Boolean)[0]:'Vamos conversar';link.target='_blank';link.rel='noopener noreferrer';original.replaceWith(link);
 }
 function closeMenu(){const menu=$('#site-nav'),toggle=$('.menu-toggle');menu.classList.remove('open');toggle.setAttribute('aria-expanded','false');toggle.setAttribute('aria-label','Abrir menu');$('use',toggle).setAttribute('href','#i-menu');}
 $('.menu-toggle').addEventListener('click',()=>{const open=$('.menu-toggle').getAttribute('aria-expanded')!=='true';$('#site-nav').classList.toggle('open',open);$('.menu-toggle').setAttribute('aria-expanded',String(open));$('.menu-toggle').setAttribute('aria-label',open?'Fechar menu':'Abrir menu');$('use',$('.menu-toggle')).setAttribute('href',open?'#i-close':'#i-menu');});

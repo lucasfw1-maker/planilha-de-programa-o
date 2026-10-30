@@ -22,7 +22,7 @@ Edite somente `public/site.config.js` para ativar os canais quando estiverem def
 - `instagram`: URL HTTPS completa do perfil oficial.
 - `email`: endereço comercial.
 
-O e-mail comercial ativo é **comercial@concretlog.com.br**. O WhatsApp está removido da apresentação por enquanto. O Instagram continua como “Em breve”, sem link fictício. Os pedidos de demonstração e o botão de e-mail abrem um formulário no próprio site, com e-mail do visitante, telefone com DDD, assunto padrão “Solicitar demonstração” (editável) e mensagem. Ao configurar um canal, ele passa a funcionar automaticamente; WhatsApp e e-mail abrem uma mensagem de interesse, e o Instagram abre o perfil. O formulário só confirma sucesso após a aceitação pelo servidor de e-mail; sem configuração SMTP, informa indisponibilidade e mantém um link alternativo para o aplicativo de e-mail.
+O e-mail comercial ativo é **comercial@concretlog.com.br**. O WhatsApp está removido da apresentação por enquanto. O Instagram oficial **@concretlog** está ativo nos contatos, com link para https://www.instagram.com/concretlog/ em outra aba e o nome do perfil visível. Os pedidos de demonstração e o botão de e-mail abrem um formulário no próprio site, com e-mail do visitante, telefone com DDD, assunto padrão “Solicitar demonstração” (editável) e mensagem. Ao configurar um canal, ele passa a funcionar automaticamente; WhatsApp e e-mail abrem uma mensagem de interesse, e o Instagram abre o perfil. O formulário só confirma sucesso após a aceitação pelo servidor de e-mail; sem configuração SMTP, informa indisponibilidade e mantém um link alternativo para o aplicativo de e-mail.
 
 ## Publicar na Vercel
 
