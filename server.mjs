@@ -1,3 +1,6 @@
+import {seedPresentation} from './presentation-seed.mjs';
+import {cbUtilization} from './cb-utilization.mjs';
+import {appointmentChangesApi} from './appointment-changes.mjs';
 import {shiftRosterApi} from './shift-roster.mjs';
 import {laboratoryApi,labStaffRole} from './laboratory.mjs';
 import {technicalTicketsApi} from './technical-tickets.mjs';
@@ -101,6 +104,7 @@ async function checkSeller(id) {
   if (!user || user.role !== 'vendedor' || user.status !== 'aprovado') fail('Selecione um vendedor ativo.');
   return user.id;
 }
+async function conventionalWarnings(b,except=0){if(b.type!=='convencional'||b.status==='cancelado')return [];const rows=await query("SELECT start FROM appointments WHERE date=? AND type='convencional' AND status<>'cancelado' AND id<>? ORDER BY start",b.date,except),close=[...new Set(rows.filter(r=>Math.abs(minutes(r.start)-minutes(b.start))<10).map(r=>r.start))];return close.length?['Atenção: há saída convencional às '+close.join(', ')+'. Mantenha 10 minutos entre saídas.']:[];}
 async function checkPump(b, except = 0) {
   if (b.type === 'convencional') return null;
   if (b.status === 'cancelado') {
@@ -204,6 +208,54 @@ function userFields(b) {
     password: passwordHash(b.password)
   };
 }
+async function updateAppointment(u,id,b){
+      const old = await one('SELECT * FROM appointments WHERE id=?', id);
+      if (!old) fail('Agendamento não encontrado.', 404);
+      const merged = {
+        ...old,
+        ...b
+      };
+      const data = scheduling(merged),contact=contactFields(b,old),concrete={gravel:b.gravel===undefined||b.gravel===old.gravel?old.gravel:gravelValue(b.gravel),slump:slumpValue(b.slump===undefined?old.slump:b.slump)};
+      const customer=b.customer===undefined?old.customer:customerName(text(b.customer,'cliente',200)),notes=b.notes===undefined?old.notes:typeof b.notes==='string'&&b.notes.length<=2000?b.notes.trim():(fail('Confira as observações.'),''),work=b.work===undefined?old.work:text(b.work,'endereço da obra',500),piece=b.piece===undefined?old.piece:text(b.piece,'peça a concretar',200),resistance=b.resistance===undefined?old.resistance:text(b.resistance,'resistência',200);
+      const status = b.status ?? old.status;
+      if (!['confirmado', 'andamento', 'concluido', 'cancelado'].includes(status)) fail('Status inválido.');
+      const changed=['date','start','duration','type'].some(k=>data[k]!==old[k]) || (data.type==='bomba'&&Number(merged.pump_id)!==old.pump_id) || (old.status==='cancelado'&&status!=='cancelado');
+      const pump=changed||status==='cancelado'?await checkPump({...data,status,pump_id:merged.pump_id},id):old.pump_id;
+      const delivered = b.delivered_volume === undefined ? old.delivered_volume : b.delivered_volume === null || b.delivered_volume === '' ? null : number(b.delivered_volume, 'Volume entregue');
+      const cbDemand=b.cb_demand_override===undefined?old.cb_demand_override:b.cb_demand_override===null||b.cb_demand_override===''?null:number(b.cb_demand_override,'CBs necessários',0,1000);if(cbDemand!==null&&!Number.isInteger(cbDemand))fail('Informe uma quantidade inteira de CBs.');if(cbDemand!==old.cb_demand_override&&(!Number.isInteger(b.expected_information_version)||b.expected_information_version!==old.information_version))fail('O pedido mudou. Abra novamente para ajustar os CBs.',409);
+      const plannedVolume=b.planned_volume===undefined?old.planned_volume:number(b.planned_volume,'Volume programado',0.1),volumeChanged=plannedVolume!==old.planned_volume;if(volumeChanged&&(b.expected_planned_volume===undefined||Number(b.expected_planned_volume)!==old.planned_volume))fail('O volume programado mudou. Abra o pedido novamente antes de editar.',409);
+      const selected=b.load_capacity!==undefined?b.load_capacity:old.load_capacity;
+      const automatic=(selected!==null&&selected!==undefined&&selected!==''?selected:null) ?? (volumeChanged||data.date>=localDay(new Date()) && ['confirmado','andamento'].includes(status)?9:null);
+      const estimate=automatic!==null?estimateTrips(plannedVolume,automatic):{trips:old.trips,load_capacity:null};
+      const {trips,load_capacity}=estimate;
+      if(b.action && !['cancelar','remarcar'].includes(b.action))fail('Ação de agendamento inválida.');
+      if(b.action==='cancelar' && status!=='cancelado')fail('Confirme o cancelamento do agendamento.');
+      const workName=b.work_name===undefined?old.work_name:text(b.work_name,'nome da obra',200),workNameChanged=workName!==old.work_name;
+      const after={...old,...data,...contact,...concrete,work_name:workName,customer,notes,work,piece,resistance,pump_id:pump,status,planned_volume:plannedVolume,cb_demand_override:cbDemand,delivered_volume:delivered,trips,load_capacity};
+      if(old.status==='cancelado' && status==='cancelado' && ['date','start','duration','pump_id','type'].some(key=>old[key]!==after[key]))fail('Para mudar a programação de uma obra cancelada, use Remarcar agendamento.');
+      const kind=changeKind(old,after);
+      const needsReason=kind==='cancelado'||old.date!==after.date||(old.status==='cancelado'&&after.status!=='cancelado');
+      const reason=needsReason?text(b.reason,'o motivo do cancelamento ou da mudança de data',1000):kind?(typeof b.reason==='string'&&b.reason.trim()?text(b.reason,'o motivo',1000):'Ajuste operacional na mesma data.'):'';
+      if(b.expected && ['date','start','duration','pump_id','type','status'].some(key=>b.expected[key]!==old[key]))fail('Este agendamento foi alterado por outra pessoa. Atualize a agenda antes de tentar novamente.',409);
+      if(b.action==='cancelar' && old.status==='cancelado')fail('Este agendamento já está cancelado.',409);
+      if(b.action==='remarcar' && kind!=='remarcado')fail('Altere a data, o horário, a duração ou o recurso para remarcar.');
+      await recordChange(u,old,after,reason);
+      const contactChanged=contact.contact_name!==old.contact_name||contact.contact_phone!==old.contact_phone,concreteChanged=concrete.gravel!==old.gravel||concrete.slump!==old.slump,resistanceChanged=resistance!==old.resistance,workChanged=work!==old.work,pieceChanged=piece!==old.piece,informationChanged=contactChanged||concreteChanged||workNameChanged||resistanceChanged||workChanged||pieceChanged||customer!==old.customer||notes!==old.notes||cbDemand!==old.cb_demand_override;
+      if(informationChanged&&b.expected_information_version!==undefined&&b.expected_information_version!==old.information_version)fail('As informações foram atualizadas por outra pessoa. Abra a obra novamente.',409);
+      await run('UPDATE appointments SET date=?,start=?,duration=?,type=?,pump_id=?,status=?,planned_volume=?,delivered_volume=?,trips=?,load_capacity=?,contact_name=?,contact_phone=?,gravel=?,slump=?,work_name=?,work=?,piece=?,resistance=?,customer=?,notes=?,cb_demand_override=?,information_version=information_version+? WHERE id=?', data.date, data.start, data.duration, data.type, pump, status, plannedVolume, delivered, trips, load_capacity, contact.contact_name, contact.contact_phone,concrete.gravel,concrete.slump,workName,work,piece,resistance,customer,notes,cbDemand,informationChanged?1:0,id);
+      if(workNameChanged||workChanged)await run("UPDATE customers SET work_name=?,work=? WHERE seller_id=? AND name_key=? AND work=? AND (work_name=? OR work_name='')",workName,work,old.seller_id,customerKey(old.customer),old.work,old.work_name);
+      if(customer!==old.customer)await saveCustomer(after,old.seller_id);
+      if(contactChanged)await saveContactForAppointment(after,contact);
+      if(concreteChanged)await saveConcreteForAppointment(old,{...(concrete.gravel!==old.gravel?{gravel:concrete.gravel}:{}),...(concrete.slump!==old.slump?{slump:concrete.slump}:{})});
+      await audit(u, 'editar', 'agendamento', id, {
+        antes: old,
+        depois: await one('SELECT * FROM appointments WHERE id=?', id)
+      });
+      return {
+        ok: true,warnings:await conventionalWarnings(after,id)
+      };
+}
+function normalizeRequestedChanges(old,b){const full=fields({...old,...b},{allowLegacyGravel:true});if(b.gravel!==undefined&&b.gravel!==old.gravel)full.gravel=gravelValue(b.gravel);if(full.type==='bomba'&&(!Number.isSafeInteger(Number(b.pump_id??old.pump_id))||Number(b.pump_id??old.pump_id)<1))fail('Selecione uma bomba válida.');const status=b.status??old.status;if(!['confirmado','andamento','concluido','cancelado'].includes(status))fail('Situação inválida.');const override=b.cb_demand_override===undefined?old.cb_demand_override:b.cb_demand_override===null||b.cb_demand_override===''?null:number(b.cb_demand_override,'CBs necessários',0,1000);if(override!==null&&!Number.isInteger(override))fail('Informe CBs inteiros.');return {...full,status,cb_demand_override:override,pump_id:full.type==='convencional'?null:Number(b.pump_id??old.pump_id),delivered_volume:b.delivered_volume===undefined?old.delivered_volume:b.delivered_volume===null||b.delivered_volume===''?null:number(b.delivered_volume,'Volume entregue')};}
 async function api(req, res, url) {
   const path = url.pathname, method = req.method;
   if (!['GET', 'POST', 'PATCH'].includes(method)&&!(method==='DELETE'&&/^\/api\/laboratory\/moisture\/\d+$/.test(path))) fail('Método não permitido.', 405);
@@ -295,6 +347,8 @@ async function api(req, res, url) {
   if(labStaffRole(u)&&!path.startsWith('/api/laboratory')&&!['/api/meta','/api/presence','/api/profile/photo'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso restrito ao Laboratório, CPs e Umidade da areia.',403);
   if(u.role==='manutencao'&&!path.startsWith('/api/equipment-maintenance')&&!['/api/meta','/api/presence','/api/profile/photo'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso exclusivo ao módulo Manutenção.',403);
   if(['engenharia','gerente_engenharia'].includes(u.role)&&!path.startsWith('/api/technical-tickets')&&!path.startsWith('/api/laboratory')&&!['/api/meta','/api/presence','/api/profile/photo'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso restrito aos módulos de Engenharia e Laboratório.',403);
+  if(path==='/api/presentation-seed'&&method==='POST')return seedPresentation(u,await body(req));
+  if(path.startsWith('/api/appointment-change-requests'))return appointmentChangesApi({path,method,url,u,body:()=>body(req),manager,normalize:normalizeRequestedChanges,apply:updateAppointment,audit});
   if(path==='/api/shifts'||path.startsWith('/api/shifts/'))return shiftRosterApi({path,method,url,u,body:()=>body(req,220000)});
   if(path.startsWith('/api/laboratory'))return laboratoryApi({path,method,url,u,res,body:()=>body(req,200000)});
   if(path.startsWith('/api/technical-tickets'))return technicalTicketsApi({path,method,url,u,res,body:()=>body(req,3200000)});
@@ -327,6 +381,8 @@ async function api(req, res, url) {
     const photo=await one('SELECT image FROM user_photos WHERE user_id=?',id);if(!photo)fail('Foto não encontrada.',404);
     res.setHeader('Content-Type','image/jpeg');res.end(Buffer.from(photo.image.split(',')[1],'base64'));return;
   }
+  if(path==='/api/cb-utilization'&&method==='GET'){if(!manager(u))fail('Sem permissão.',403);return cbUtilization(date(url.searchParams.get('date')));}
+  if(path==='/api/conventional-availability'&&method==='GET'){if(!manager(u)&&u.role!=='vendedor')fail('Sem permissão.',403);const day=date(url.searchParams.get('date')),start=url.searchParams.get('start');if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(start||''))fail('Horário inválido.');const rows=await query("SELECT start FROM appointments WHERE date=? AND type='convencional' AND status<>'cancelado' AND id<>? ORDER BY start",day,Number(url.searchParams.get('except')||0)),times=rows.map(r=>r.start),conflicts=times.filter(value=>Math.abs(minutes(value)-minutes(start))<10);let candidate=Math.ceil(minutes(start)/10)*10;while(candidate<1440&&times.some(t=>Math.abs(minutes(t)-candidate)<10))candidate+=10;return {conflicts,next_start:candidate<1440?String(Math.floor(candidate/60)).padStart(2,'0')+':'+String(candidate%60).padStart(2,'0'):null};}
   if(path==='/api/agenda-version'&&method==='GET'){
     const latest=await one('SELECT COALESCE(MAX(id),0) revision FROM audit');
     return {version:digest('agenda:'+latest.revision)};
@@ -433,63 +489,15 @@ async function api(req, res, url) {
   if (path === '/api/appointments' && method === 'POST') {
     if (!manager(u)) fail('Sem permissão.', 403);
     const b = await body(req);
-    return await transaction(async () => ({
-      id: await createAppointment(b, u)
-    }));
+    return await transaction(async()=>{const id=await createAppointment(b,u);return {id,warnings:await conventionalWarnings(b,id)};});
   }
   if((/^\/api\/appointments\/\d+$/).test(path) && method==='GET') {
     const a=await one('SELECT a.*,u.name seller_name,p.name pump_name FROM appointments a JOIN users u ON u.id=a.seller_id LEFT JOIN pumps p ON p.id=a.pump_id WHERE a.id=?',Number(path.split('/').pop()));
     if(!a || (!manager(u)&&a.seller_id!==u.id))fail('Agendamento não encontrado.',404);
     return (await withCustomerCodes([a]))[0];
   }
-  if ((/^\/api\/appointments\/\d+$/).test(path) && method === 'PATCH') {
-    if (!manager(u)) fail('Sem permissão.', 403);
-    const b = await body(req), id = Number(path.split('/').pop());
-    return await transaction(async () => {
-      const old = await one('SELECT * FROM appointments WHERE id=?', id);
-      if (!old) fail('Agendamento não encontrado.', 404);
-      const merged = {
-        ...old,
-        ...b
-      };
-      const data = scheduling(merged),contact=contactFields(b,old),concrete={gravel:b.gravel===undefined||b.gravel===old.gravel?old.gravel:gravelValue(b.gravel),slump:slumpValue(b.slump===undefined?old.slump:b.slump)};
-      const status = b.status ?? old.status;
-      if (!['confirmado', 'andamento', 'concluido', 'cancelado'].includes(status)) fail('Status inválido.');
-      const changed=['date','start','duration','type'].some(k=>data[k]!==old[k]) || (data.type==='bomba'&&Number(merged.pump_id)!==old.pump_id) || (old.status==='cancelado'&&status!=='cancelado');
-      const pump=changed||status==='cancelado'?await checkPump({...data,status,pump_id:merged.pump_id},id):old.pump_id;
-      const delivered = b.delivered_volume === undefined ? old.delivered_volume : b.delivered_volume === null || b.delivered_volume === '' ? null : number(b.delivered_volume, 'Volume entregue');
-      const plannedVolume=b.planned_volume===undefined?old.planned_volume:number(b.planned_volume,'Volume programado',0.1),volumeChanged=plannedVolume!==old.planned_volume;if(volumeChanged&&(b.expected_planned_volume===undefined||Number(b.expected_planned_volume)!==old.planned_volume))fail('O volume programado mudou. Abra o pedido novamente antes de editar.',409);
-      const selected=b.load_capacity!==undefined?b.load_capacity:old.load_capacity;
-      const automatic=(selected!==null&&selected!==undefined&&selected!==''?selected:null) ?? (volumeChanged||data.date>=localDay(new Date()) && ['confirmado','andamento'].includes(status)?9:null);
-      const estimate=automatic!==null?estimateTrips(plannedVolume,automatic):{trips:old.trips,load_capacity:null};
-      const {trips,load_capacity}=estimate;
-      if(b.action && !['cancelar','remarcar'].includes(b.action))fail('Ação de agendamento inválida.');
-      if(b.action==='cancelar' && status!=='cancelado')fail('Confirme o cancelamento do agendamento.');
-      const workName=b.work_name===undefined?old.work_name:text(b.work_name,'nome da obra',200),workNameChanged=workName!==old.work_name;
-      const after={...old,...data,...contact,...concrete,work_name:workName,pump_id:pump,status,planned_volume:plannedVolume,delivered_volume:delivered,trips,load_capacity};
-      if(old.status==='cancelado' && status==='cancelado' && ['date','start','duration','pump_id','type'].some(key=>old[key]!==after[key]))fail('Para mudar a programação de uma obra cancelada, use Remarcar agendamento.');
-      const kind=changeKind(old,after);
-      const needsReason=kind==='cancelado'||old.date!==after.date||(old.status==='cancelado'&&after.status!=='cancelado');
-      const reason=needsReason?text(b.reason,'o motivo do cancelamento ou da mudança de data',1000):kind?(typeof b.reason==='string'&&b.reason.trim()?text(b.reason,'o motivo',1000):'Ajuste operacional na mesma data.'):'';
-      if(b.expected && ['date','start','duration','pump_id','type','status'].some(key=>b.expected[key]!==old[key]))fail('Este agendamento foi alterado por outra pessoa. Atualize a agenda antes de tentar novamente.',409);
-      if(b.action==='cancelar' && old.status==='cancelado')fail('Este agendamento já está cancelado.',409);
-      if(b.action==='remarcar' && kind!=='remarcado')fail('Altere a data, o horário, a duração ou o recurso para remarcar.');
-      await recordChange(u,old,after,reason);
-      const contactChanged=contact.contact_name!==old.contact_name||contact.contact_phone!==old.contact_phone,concreteChanged=concrete.gravel!==old.gravel||concrete.slump!==old.slump;
-      if((contactChanged||concreteChanged||workNameChanged)&&b.expected_information_version!==undefined&&b.expected_information_version!==old.information_version)fail('As informações foram atualizadas por outra pessoa. Abra a obra novamente.',409);
-      await run('UPDATE appointments SET date=?,start=?,duration=?,type=?,pump_id=?,status=?,planned_volume=?,delivered_volume=?,trips=?,load_capacity=?,contact_name=?,contact_phone=?,gravel=?,slump=?,work_name=?,information_version=information_version+? WHERE id=?', data.date, data.start, data.duration, data.type, pump, status, plannedVolume, delivered, trips, load_capacity, contact.contact_name, contact.contact_phone,concrete.gravel,concrete.slump,workName,contactChanged||concreteChanged||workNameChanged?1:0,id);
-      if(workNameChanged)await run("UPDATE customers SET work_name=? WHERE seller_id=? AND name_key=? AND work=? AND (work_name=? OR work_name='')",workName,old.seller_id,customerKey(old.customer),old.work,old.work_name);
-      if(contactChanged)await saveContactForAppointment(old,contact);
-      if(concreteChanged)await saveConcreteForAppointment(old,{...(concrete.gravel!==old.gravel?{gravel:concrete.gravel}:{}),...(concrete.slump!==old.slump?{slump:concrete.slump}:{})});
-      await audit(u, 'editar', 'agendamento', id, {
-        antes: old,
-        depois: await one('SELECT * FROM appointments WHERE id=?', id)
-      });
-      return {
-        ok: true
-      };
-    });
-  }
+  if ((/^\/api\/appointments\/\d+$/).test(path) && method === 'PATCH') {if(!manager(u))fail('Sem permissão.',403);const b=await body(req),id=Number(path.split('/').pop());return transaction(()=>updateAppointment(u,id,b));}
+
   if((/^\/api\/appointments\/\d+\/information$/).test(path)&&method==='PATCH') {
     const b=await body(req),id=Number(path.split('/')[3]);
     return await transaction(async()=>{
@@ -719,6 +727,10 @@ const assets = {
   '/logo-concresuper.png': ['logo-concresuper.png', 'image/png'],
   '/favicon.svg': ['favicon.svg', 'image/svg+xml'],
   '/': ['index.html', 'text/html; charset=utf-8'],
+  '/cb-estimate.js':['cb-estimate.js','text/javascript; charset=utf-8'],
+  '/cb-utilization.js':['cb-utilization.js','text/javascript; charset=utf-8'],
+  '/conventional-scheduling.js':['conventional-scheduling.js','text/javascript; charset=utf-8'],
+  '/appointment-changes.js':['appointment-changes.js','text/javascript; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
   '/style.css': ['style.css', 'text/css; charset=utf-8']
 };

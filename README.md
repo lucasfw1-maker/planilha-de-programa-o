@@ -337,7 +337,7 @@ Em **Configurações → Equipe e acessos**, o Programador tem o botão **Editar
 
 Alterações de início, duração, tipo, bomba e volume entregue na mesma data dispensam preenchimento de motivo. A remarcação de data exige motivo tanto na edição geral quanto em Remarcar agendamento; o campo aparece automaticamente ao mudar a data e desaparece ao voltar à original. Ajustes operacionais continuam registrados com autor e antes/depois no histórico. Cancelamentos e reativações preservam seus motivos obrigatórios. Conflitos de agenda, manutenção e proteção contra edição concorrente continuam validados no servidor.
 
-O lápis ao lado de **Peça / programado** revela o campo de volume programado. Salvar atualiza o volume, a previsão de viagens, os totais e a produção por CB; volume entregue permanece separado. O histórico de auditoria guarda os valores anterior e novo e a autoria. Alterações concorrentes do volume são recusadas, e documentos já gerados continuam com seus snapshots originais.
+O lápis ao lado de **Peça / programado** revela os campos de peça e volume programado. Salvar atualiza o volume, a previsão de viagens, os totais e a produção por CB; volume entregue permanece separado. O histórico de auditoria guarda os valores anterior e novo e a autoria. Alterações concorrentes do volume são recusadas, e documentos já gerados continuam com seus snapshots originais.
 
 Em **Colaboradores**, motoristas e equipe das bombas têm listas com duas linhas visíveis e rolagem discreta para os demais cadastros. A pesquisa por nome ignora diferenças de maiúsculas e acentos e pode ser combinada com Todos/Ativos/Inativos, separadamente em cada lista. Os filtros permanecem ao editar ou atualizar os cadastros na mesma sessão da aba.
 
@@ -352,3 +352,18 @@ Os botões de retorno nos chamados, contratos, laudos/ficha do laboratório, ens
 Bombas com código **BL** usam um ícone vetorial em contorno de caminhão com lança articulada; **BM** usam caminhão com equipamento na carroceria, sem lança. Os ícones aparecem no editor e no relatório da escala e seguem as cores e a espessura dos demais símbolos. O ícone dos CBs é preservado.
 
 Os ícones de BL e BM mantêm o padrão de seleção: verde quando a bomba está incluída na escala e tem obra de início definida; cinza quando não está marcada ou está sem obra de início. A mesma regra de obra se aplica ao ícone no relatório salvo. A BL é espelhada para que a cabine fique no mesmo sentido da BM. As URLs dos arquivos atualizados são versionadas para carregar a nova versão ao recarregar a página.
+
+
+### Alterações de pedidos, entregas convencionais e utilização de CBs
+
+Os lápis discretos de obra/endereço, concreto (brita/Fck) e peça/volume permitem edição por Programador, Controlador e gerentes. O vendedor proprietário pode solicitar alterações pelo pedido; propostas não alteram a agenda até aprovação. A central de solicitações e as notificações mostram pendências. O histórico preserva motivo, antes/depois, solicitante, decisão, responsável e horários. O servidor valida propriedade, permissões, conflitos e concorrência; uma proposta desatualizada permanece pendente para revisão.
+
+Entregas convencionais compartilham uma única linha com cards empilhados e um espaço para novo agendamento. A sugestão procura horários de 10 em 10 minutos. Inícios separados por menos de 10 minutos geram aviso, sem bloquear; a duração das entregas pode se sobrepor.
+
+A agenda mostra utilização de CBs por manhã e tarde: até 20 m³ = 1, até 30 = 2, até 50 = 3, até 80 = 4 e acima de 80 = 5. Obras que atravessam o meio-dia contam nos dois períodos; canceladas não contam. O total é comparado à frota disponível na data, considerando escala de motoristas e manutenção. Ao atingir a capacidade há alerta amarelo; ao ultrapassar, vermelho. Cada card mostra a necessidade abaixo das viagens. O lápis permite ajuste manual auditado ou retorno ao cálculo automático, com proteção contra alteração concorrente. Vendedores podem propor esse ajuste, sujeito à aprovação.
+
+### Cadastros fictícios para apresentação
+
+A campanha `presentation-20261030-15`, autorizada pelo responsável, cria 15 CBs sequenciais a partir de CB03 (pulando códigos existentes), com capacidade de 9 m³ e placas Mercosul fictícias únicas, e 15 motoristas fictícios. A preparação roda uma vez ao recarregar o sistema com a conta Programador de Lucas Wiebbelling; o servidor restringe a campanha a esse responsável. O marcador persistente impede duplicação em novas sessões e os IDs ficam auditados. Os testes usam banco temporário; a criação no banco utilizado pelo sistema acontece nessa próxima abertura após a atualização.
+
+Validação adicional: `npm test`, `npm run build`, `npm run test:browser` e `npm run test:appointment-changes-browser`.

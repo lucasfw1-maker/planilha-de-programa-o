@@ -1,3 +1,4 @@
+import {migrateAppointmentChanges,migrateCBDemandOverride} from './appointment-changes-migration.mjs';
 import {migrateTicketWorkflow} from './ticket-workflow-migration.mjs';
 import {migrateShiftRoster} from './shift-roster-migration.mjs';
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -73,6 +74,8 @@ async function open() {
     await migrateLabTrials(candidate);
     await migrateShiftRoster(candidate);
     await migrateTicketWorkflow(candidate);
+    await migrateAppointmentChanges(candidate);
+    await migrateCBDemandOverride(candidate);
     client=candidate;
   }catch(error){
     candidate.close();
