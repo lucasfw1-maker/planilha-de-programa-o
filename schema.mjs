@@ -56,4 +56,7 @@ CREATE TABLE IF NOT EXISTS lab_documents(id INTEGER PRIMARY KEY,client_key TEXT 
 CREATE TABLE IF NOT EXISTS lab_ticket_documents(id INTEGER PRIMARY KEY,ticket_id INTEGER NOT NULL REFERENCES technical_tickets(id),message_id INTEGER NOT NULL REFERENCES technical_ticket_messages(id),document_id INTEGER NOT NULL REFERENCES lab_documents(id),created_by INTEGER NOT NULL REFERENCES users(id),created_at TEXT NOT NULL,UNIQUE(ticket_id,document_id));
 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS rate_limits(key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS appointments_date_start ON appointments(date,start);
+CREATE INDEX IF NOT EXISTS appointments_seller_date ON appointments(seller_id,date);
+CREATE INDEX IF NOT EXISTS appointments_pump_date ON appointments(pump_id,date);
 INSERT OR IGNORE INTO settings VALUES('buffer_minutes','30');`;

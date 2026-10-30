@@ -1,0 +1,12 @@
+{
+  "simulated_round_trip_ms": 10,
+  "scope": "Existing database startup only; not production timings",
+  "before": {
+    "database_operations": 61,
+    "ms": 627
+  },
+  "after": {
+    "database_operations": 1,
+    "ms": 10
+  }
+}

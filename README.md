@@ -367,3 +367,9 @@ A agenda mostra utilização de CBs por manhã e tarde: até 20 m³ = 1, até 30
 A campanha `presentation-20261030-15`, autorizada pelo responsável, cria 15 CBs sequenciais a partir de CB03 (pulando códigos existentes), com capacidade de 9 m³ e placas Mercosul fictícias únicas, e 15 motoristas fictícios. A preparação roda uma vez ao recarregar o sistema com a conta Programador de Lucas Wiebbelling; o servidor restringe a campanha a esse responsável. O marcador persistente impede duplicação em novas sessões e os IDs ficam auditados. Os testes usam banco temporário; a criação no banco utilizado pelo sistema acontece nessa próxima abertura após a atualização.
 
 Validação adicional: `npm test`, `npm run build`, `npm run test:browser` e `npm run test:appointment-changes-browser`.
+
+### Desempenho e dimensionamento comercial
+
+A inicialização utiliza assinatura de schema/migrações para evitar repetir verificações já concluídas; novas versões e falhas mantêm o fluxo de migração. Resumos de notificações foram agrupados por perfil, GETs simultâneos idênticos são compartilhados sem cache de respostas e consultas independentes da frota rodam em paralelo. `Server-Timing` informa inicialização/processamento nas respostas JSON. Layout, intervalos de atualização e regras de negócio foram mantidos.
+
+Veja [o estudo de desempenho, hospedagem e custos](docs/DESEMPENHO-E-CUSTOS.md), com limitações dos testes locais, cenário de 10 sessões, alternativas de infraestrutura e análise da proposta R$ 5.000 + R$ 650/mês. Os benchmarks isolados são `node scripts/benchmark-performance.mjs` e `node scripts/benchmark-startup.mjs`.

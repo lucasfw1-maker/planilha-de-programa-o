@@ -1,0 +1,13 @@
+{
+  "environment": "local SQLite, loopback network; not a production capacity guarantee",
+  "users": 10,
+  "fixture_appointments": 560,
+  "waves": 5,
+  "requests": 500,
+  "errors": [],
+  "existing_database_startup_ms": 112,
+  "api_p50_ms": 140,
+  "api_p95_ms": 289,
+  "page_batch_p50_ms": 148,
+  "page_batch_p95_ms": 294
+}

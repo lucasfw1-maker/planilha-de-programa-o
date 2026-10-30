@@ -7,10 +7,15 @@ export function estimateTrips(volume,capacity=9){
 export async function fleetRange(from,to,branch=''){
   const start=new Date(from+'T12:00:00Z'),end=new Date(to+'T12:00:00Z');
   if(end<start || (end-start)/86400000>365)throw Object.assign(new Error('Informe um período de até 366 dias, em ordem crescente.'),{status:400});
-  const defaults=await query('SELECT effective_date,trucks FROM fleet_defaults WHERE effective_date<=? ORDER BY effective_date',to);
-  const overrides=await query('SELECT date,trucks FROM fleet_days WHERE date BETWEEN ? AND ?',from,to);
-  const registered=await one("SELECT value FROM settings WHERE key='fleet_registry_since'"),history=await query('SELECT * FROM cb_fleet_history WHERE effective_date<=? ORDER BY effective_date',to),jobs=await query("SELECT j.cb_id,j.starts_at,j.ends_at FROM maintenance_jobs j WHERE j.status='confirmado' AND j.equipment_type='cb' AND j.starts_at<? AND j.ends_at>?",new Date(Date.parse(to+'T00:00:00Z')+86400000).toISOString().slice(0,10)+'T00:00',from+'T00:00');
-  const schedules=await query('SELECT id,date,branch,snapshot_json FROM shift_schedules WHERE date BETWEEN ? AND ?',from,to),byDate=new Map(overrides.map(r=>[r.date,r.trucks])),days=[];const shiftDays=new Map();for(const schedule of schedules){const snapshot=JSON.parse(schedule.snapshot_json);if(!snapshot.drivers?.length&&!snapshot.sections?.cb)continue;const globalScope=snapshot.sections?.cb?snapshot.sections.cb.all_equipment:snapshot.all_equipment;if(branch&&schedule.branch!==branch&&!globalScope)continue;const rows=shiftDays.get(schedule.date)||[];rows.push({...schedule,snapshot});shiftDays.set(schedule.date,rows);}
+  const [defaults,overrides,registered,history,jobs,schedules]=await Promise.all([
+    query('SELECT effective_date,trucks FROM fleet_defaults WHERE effective_date<=? ORDER BY effective_date',to),
+    query('SELECT date,trucks FROM fleet_days WHERE date BETWEEN ? AND ?',from,to),
+    one("SELECT value FROM settings WHERE key='fleet_registry_since'"),
+    query('SELECT * FROM cb_fleet_history WHERE effective_date<=? ORDER BY effective_date',to),
+    query("SELECT j.cb_id,j.starts_at,j.ends_at FROM maintenance_jobs j WHERE j.status='confirmado' AND j.equipment_type='cb' AND j.starts_at<? AND j.ends_at>?",new Date(Date.parse(to+'T00:00:00Z')+86400000).toISOString().slice(0,10)+'T00:00',from+'T00:00'),
+    query('SELECT id,date,branch,snapshot_json FROM shift_schedules WHERE date BETWEEN ? AND ?',from,to)
+  ]);
+  const byDate=new Map(overrides.map(r=>[r.date,r.trucks])),days=[];const shiftDays=new Map();for(const schedule of schedules){const snapshot=JSON.parse(schedule.snapshot_json);if(!snapshot.drivers?.length&&!snapshot.sections?.cb)continue;const globalScope=snapshot.sections?.cb?snapshot.sections.cb.all_equipment:snapshot.all_equipment;if(branch&&schedule.branch!==branch&&!globalScope)continue;const rows=shiftDays.get(schedule.date)||[];rows.push({...schedule,snapshot});shiftDays.set(schedule.date,rows);}
   for(const cursor=new Date(start);cursor<=end;cursor.setUTCDate(cursor.getUTCDate()+1)){
     const date=cursor.toISOString().slice(0,10);
     const base=defaults.filter(r=>r.effective_date<=date).at(-1)?.trucks??17;

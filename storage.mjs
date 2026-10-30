@@ -23,6 +23,7 @@ import {migrateLabExpiry} from './laboratory-expiry-migration.mjs';
 import {migrateLabSets} from './laboratory-sets-migration.mjs';
 import {migrateLabMoisture} from './laboratory-migration.mjs';
 import { SCHEMA } from './schema.mjs';
+import {prepareDatabase} from './database-startup.mjs';
 
 const context = new AsyncLocalStorage();
 let initialization, client, localMode, queue = Promise.resolve();
@@ -54,28 +55,7 @@ async function open() {
   const candidate=createClient({url,authToken:process.env.TURSO_AUTH_TOKEN,intMode:'number'});
   try {
     if(localMode)await candidate.executeMultiple('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;');
-    await candidate.executeMultiple(SCHEMA);
-    await migrateMaintenanceRole(candidate);
-    await migrateEquipment(candidate);
-    await migrateContacts(candidate);
-    await migrateConcrete(candidate);
-    await migrateTripEstimates(candidate);
-    await migrateHistory(candidate);
-    await migrateCustomers(candidate);
-    await migrateCommercial(candidate);
-    await migrateWorkNames(candidate);
-    await migrateLabMoisture(candidate);
-    await migrateLabSets(candidate);
-    await migrateLabExpiry(candidate);
-    await migrateLabSlump(candidate);
-    await migrateLabExpiryHours(candidate);
-    await migrateLabMolding(candidate);
-    await migrateLabStaff(candidate);
-    await migrateLabTrials(candidate);
-    await migrateShiftRoster(candidate);
-    await migrateTicketWorkflow(candidate);
-    await migrateAppointmentChanges(candidate);
-    await migrateCBDemandOverride(candidate);
+    await prepareDatabase(candidate,SCHEMA,[migrateMaintenanceRole,migrateEquipment,migrateContacts,migrateConcrete,migrateTripEstimates,migrateHistory,migrateCustomers,migrateCommercial,migrateWorkNames,migrateLabMoisture,migrateLabSets,migrateLabExpiry,migrateLabSlump,migrateLabExpiryHours,migrateLabMolding,migrateLabStaff,migrateLabTrials,migrateShiftRoster,migrateTicketWorkflow,migrateAppointmentChanges,migrateCBDemandOverride]);
     client=candidate;
   }catch(error){
     candidate.close();

@@ -65,13 +65,21 @@ const presenceClientId=crypto.randomUUID?.()||Array.from(crypto.getRandomValues(
 let presenceTimer,presenceRequest,presenceController,presenceGeneration=0;
 let poll, seen = new Map(), currentDialog = '', polling = false;
 const app = $('#app'), modal = $('#modal');
-async function api(path, options = {}) {
+const apiRequests=createRequestCoalescer();
+function api(path, options = {}) {
+  const method=(options.method||'GET').toUpperCase();
+  if(method!=='GET'){apiRequests.clear();return requestApi(path,options);}
+  if(options.signal||Object.keys(options).length)return requestApi(path,options);
+  return apiRequests.run(JSON.stringify([state.user?.id??null,path]),()=>requestApi(path,options));
+}
+async function requestApi(path, options = {}) {
   const response = await fetch('/api' + path, {credentials:'same-origin', ...options, headers:{'Content-Type':'application/json',...options.headers}});
   const data = await response.json();
   if (!response.ok) {
     if (response.status === 401 && state.user) { state.user = null; clearInterval(poll); modal.close(); await boot(); }
     throw new Error(data.error || 'Não foi possível concluir.');
   }
+  if(options.method&&options.method.toUpperCase()!=='GET')apiRequests.clear();
   if(options.method&&Array.isArray(data?.warnings))data.warnings.forEach(warning=>toast(warning));
   return data;
 }
@@ -155,12 +163,11 @@ async function load(options={}) {
  const generation=++pageLoadGeneration,page=state.page,patch={},tasks=[];
  const fetchState=(key,path)=>tasks.push(api(path).then(value=>{patch[key]=value;}));
  fetchState('meta','/meta');
- if(canAppointmentChanges()){fetchState('appointmentChangeSummary','/appointment-change-requests/summary');if(page==='requests')fetchState('appointmentChanges','/appointment-change-requests');}else{patch.appointmentChangeSummary=null;patch.appointmentChanges=[];}
+ if(canAppointmentChanges()){if(page==='requests')fetchState('appointmentChanges','/appointment-change-requests');}else{patch.appointmentChangeSummary=null;patch.appointmentChanges=[];}
  if(engineeringRole()||labOperator()||state.user.role==='manutencao'){patch.requests=[];patch.appointments=[];}
  if(!canTickets()){patch.ticketSummary=null;patch.technicalTickets=[];}
  if(!['manutencao','gerente','programador','controlador','gerente_concresuper'].includes(state.user.role)){patch.maintenanceSummary=null;patch.maintenanceJobs=[];}
- if(canTickets())fetchState('ticketSummary','/technical-tickets/summary');
- if(['manutencao','gerente','programador','controlador','gerente_concresuper'].includes(state.user.role))fetchState('maintenanceSummary','/equipment-maintenance/summary');
+ if(canTickets()||canAppointmentChanges()||['manutencao','gerente','programador','controlador','gerente_concresuper'].includes(state.user.role))tasks.push(api('/notification-summary').then(summary=>Object.assign(patch,summary)));
  if(['shiftRoster','shiftEditor','shiftHistory','shiftReport'].includes(page)&&isManager()){
   state.shiftDate??=shift(today(),1);state.shiftBranch??='pacaembu';
   if(page==='shiftRoster')fetchState('shiftSavedCards','/shifts/cards?'+new URLSearchParams({branch:state.shiftBranch,all:'1'}));
@@ -446,17 +453,18 @@ function startPolling() {
   poll=setInterval(async()=>{
     if(!state.user||labOperator()||polling)return;polling=true;
     try {
+      const summaries=await api('/notification-summary');
       if(canTickets()){
-       const summary=await api('/technical-tickets/summary'),received=!!state.ticketSummary&&summary.version!==state.ticketSummary.version,changed=!!state.ticketNeedsRefresh||received;if(changed)state.ticketNeedsRefresh=true;state.ticketSummary=summary;updateMaintenanceNotifications();
+       const summary=summaries.ticketSummary,received=!!state.ticketSummary&&summary.version!==state.ticketSummary.version,changed=!!state.ticketNeedsRefresh||received;if(changed)state.ticketNeedsRefresh=true;state.ticketSummary=summary;updateMaintenanceNotifications();
        const navButton=$('.sidebar [data-page=tickets]');if(navButton){let badge=$('.count',navButton);if(summary.pending){if(!badge){badge=document.createElement('span');badge.className='count';navButton.append(badge);}badge.textContent=summary.pending;}else badge?.remove();}
        if(changed&&!modal.open){if(['tickets','ticketView','ticketReport'].includes(state.page)&&!$('#ticket-answer-form textarea')?.value&&!$('#ticket-answer-form [type=file]')?.files.length){if(await load({canCommit:backgroundRefreshAllowed}))render();}if(received)toast('Há atualizações nos chamados Técnico/Comercial.');}
        if(engineeringRole())return;
       }
       if(['manutencao','gerente','programador','controlador','gerente_concresuper'].includes(state.user.role)){
-       const summary=await api('/equipment-maintenance/summary'),changed=!!state.maintenanceNeedsRefresh||(!!state.maintenanceSummary&&summary.version!==state.maintenanceSummary.version);if(changed)state.maintenanceNeedsRefresh=true;state.maintenanceSummary=summary;updateMaintenanceNotifications();
+       const summary=summaries.maintenanceSummary,changed=!!state.maintenanceNeedsRefresh||(!!state.maintenanceSummary&&summary.version!==state.maintenanceSummary.version);if(changed)state.maintenanceNeedsRefresh=true;state.maintenanceSummary=summary;updateMaintenanceNotifications();
        if(changed&&!modal.open&&['equipmentMaintenance','maintenanceInbox','requests','agenda','management'].includes(state.page)){if(await load({canCommit:backgroundRefreshAllowed}))render();}if(state.user.role==='manutencao')return;
       }
-      if(canAppointmentChanges()){const summary=await api('/appointment-change-requests/summary'),changed=state.appointmentChangeSummary&&summary.version!==state.appointmentChangeSummary.version;state.appointmentChangeSummary=summary;updateMaintenanceNotifications();if(changed){toast('Há atualizações nas alterações solicitadas de pedidos.');if(state.page==='requests'&&!modal.open){if(await load({canCommit:backgroundRefreshAllowed}))render();}}}
+      if(canAppointmentChanges()){const summary=summaries.appointmentChangeSummary,changed=state.appointmentChangeSummary&&summary.version!==state.appointmentChangeSummary.version;state.appointmentChangeSummary=summary;updateMaintenanceNotifications();if(changed){toast('Há atualizações nas alterações solicitadas de pedidos.');if(state.page==='requests'&&!modal.open){if(await load({canCommit:backgroundRefreshAllowed}))render();}}}
       if(['home','agenda'].includes(state.page)){
        const page=state.page,version=await api('/agenda-version');
        if(page===state.page&&version.version!==state.agendaVersion?.version&&!modal.open&&!document.activeElement?.matches('input,select,textarea')&&!$('#page-content')?.hasAttribute('aria-busy')){if(await load({canCommit:backgroundRefreshAllowed}))render();}

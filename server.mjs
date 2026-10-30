@@ -3,7 +3,7 @@ import {cbUtilization} from './cb-utilization.mjs';
 import {appointmentChangesApi} from './appointment-changes.mjs';
 import {shiftRosterApi} from './shift-roster.mjs';
 import {laboratoryApi,labStaffRole} from './laboratory.mjs';
-import {technicalTicketsApi} from './technical-tickets.mjs';
+import {technicalTicketsApi,ticketsAccess} from './technical-tickets.mjs';
 import {equipmentMaintenanceApi,maintenanceAccess} from './equipment-maintenance.mjs';
 import {plateValue,checkBranch,equipmentState} from './equipment.mjs';
 import {contractsApi,withContractWorkNames} from './contracts.mjs';
@@ -344,9 +344,18 @@ async function api(req, res, url) {
   }
   if (u.status !== 'aprovado') fail('Acesso não aprovado.', 403);
   if (u.must_change) fail('Troque a senha temporária antes de acessar os módulos.', 403);
-  if(labStaffRole(u)&&!path.startsWith('/api/laboratory')&&!['/api/meta','/api/presence','/api/profile/photo'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso restrito ao Laboratório, CPs e Umidade da areia.',403);
-  if(u.role==='manutencao'&&!path.startsWith('/api/equipment-maintenance')&&!['/api/meta','/api/presence','/api/profile/photo'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso exclusivo ao módulo Manutenção.',403);
-  if(['engenharia','gerente_engenharia'].includes(u.role)&&!path.startsWith('/api/technical-tickets')&&!path.startsWith('/api/laboratory')&&!['/api/meta','/api/presence','/api/profile/photo'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso restrito aos módulos de Engenharia e Laboratório.',403);
+  if(labStaffRole(u)&&!path.startsWith('/api/laboratory')&&!['/api/meta','/api/presence','/api/profile/photo','/api/notification-summary'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso restrito ao Laboratório, CPs e Umidade da areia.',403);
+  if(u.role==='manutencao'&&!path.startsWith('/api/equipment-maintenance')&&!['/api/meta','/api/presence','/api/profile/photo','/api/notification-summary'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso exclusivo ao módulo Manutenção.',403);
+  if(['engenharia','gerente_engenharia'].includes(u.role)&&!path.startsWith('/api/technical-tickets')&&!path.startsWith('/api/laboratory')&&!['/api/meta','/api/presence','/api/profile/photo','/api/notification-summary'].includes(path)&&!/^\/api\/profile-photo\/\d+$/.test(path))fail('Acesso restrito aos módulos de Engenharia e Laboratório.',403);
+  if(path==='/api/notification-summary'&&method==='GET'){
+    const summary=(path,handler)=>handler({path,method,url,u,res,manager,body:()=>body(req)});
+    const [ticketSummary,maintenanceSummary,appointmentChangeSummary]=await Promise.all([
+      ticketsAccess(u)?summary('/api/technical-tickets/summary',technicalTicketsApi):null,
+      ['manutencao','gerente','programador','controlador','gerente_concresuper'].includes(u.role)?summary('/api/equipment-maintenance/summary',equipmentMaintenanceApi):null,
+      manager(u)||u.role==='vendedor'?summary('/api/appointment-change-requests/summary',appointmentChangesApi):null
+    ]);
+    return {ticketSummary,maintenanceSummary,appointmentChangeSummary};
+  }
   if(path==='/api/presentation-seed'&&method==='POST')return seedPresentation(u,await body(req));
   if(path.startsWith('/api/appointment-change-requests'))return appointmentChangesApi({path,method,url,u,body:()=>body(req),manager,normalize:normalizeRequestedChanges,apply:updateAppointment,audit});
   if(path==='/api/shifts'||path.startsWith('/api/shifts/'))return shiftRosterApi({path,method,url,u,body:()=>body(req,220000)});
@@ -730,6 +739,7 @@ const assets = {
   '/cb-estimate.js':['cb-estimate.js','text/javascript; charset=utf-8'],
   '/cb-utilization.js':['cb-utilization.js','text/javascript; charset=utf-8'],
   '/conventional-scheduling.js':['conventional-scheduling.js','text/javascript; charset=utf-8'],
+  '/request-coalescer.js':['request-coalescer.js','text/javascript; charset=utf-8'],
   '/appointment-changes.js':['appointment-changes.js','text/javascript; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
   '/style.css': ['style.css', 'text/css; charset=utf-8']
@@ -740,13 +750,15 @@ export async function handler(req, res) {
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' blob:; frame-src 'self' blob:; object-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
   try {
-    await initialize();
     const url = new URL(req.url, 'http://localhost');
     if (url.pathname.startsWith('/api/')) {
+      const started=performance.now();
+      await initialize();
+      const initialized=performance.now();
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store');
       const data = await api(req, res, url);
-      if(!res.writableEnded)res.end(JSON.stringify(data));
+      if(!res.writableEnded){res.setHeader('Server-Timing',`init;dur=${(initialized-started).toFixed(1)},app;dur=${(performance.now()-initialized).toFixed(1)}`);res.end(JSON.stringify(data));}
     } else {
       const asset = assets[url.pathname];
       if (!asset || req.method !== 'GET') {
