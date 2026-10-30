@@ -280,6 +280,7 @@ const ROOT=require('node:path').resolve(__dirname,'..');
  const foreignCard=page.locator('.booking').filter({has:page.getByText('EDIFÍCIO AURORA',{exact:true})});
  assert.equal(await foreignCard.locator('[data-information],[data-booking]').count(),0);
  assert.equal(await foreignCard.getAttribute('data-booking'),null);
+ assert.equal(await foreignCard.getByText('Agendamento de outro vendedor',{exact:true}).count(),0);assert.equal(await foreignCard.locator('.seller-identity').count(),1);assert.match(await foreignCard.locator('.booking-trip-estimate').innerText(),/viagens[\s\S]*CBs? necessári/);
 
  await page.getByRole('button',{name:'Consultar disponibilidade',exact:true}).click();
  await page.getByLabel('Duração (horas)',{exact:true}).fill('0,25');

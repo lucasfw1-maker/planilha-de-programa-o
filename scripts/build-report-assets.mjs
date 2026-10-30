@@ -7,5 +7,8 @@ for(const [source,target] of [
  ['html-to-image/dist/html-to-image.js','html-to-image.js'],
  ['html-to-image/LICENSE','html-to-image.LICENSE'],
  ['jspdf/dist/jspdf.umd.min.js','jspdf.umd.min.js'],
- ['jspdf/LICENSE','jspdf.LICENSE']
+ ['jspdf/LICENSE','jspdf.LICENSE'],
+ ['pdfjs-dist/build/pdf.min.mjs','pdf.mjs'],
+ ['pdfjs-dist/build/pdf.worker.min.mjs','pdf.worker.mjs'],
+ ['pdfjs-dist/LICENSE','pdfjs.LICENSE']
 ])copyFileSync(resolve(root,'node_modules',source),resolve(root,'public/vendor',target));

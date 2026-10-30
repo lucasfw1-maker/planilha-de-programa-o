@@ -1,5 +1,6 @@
 import {seedPresentation} from './presentation-seed.mjs';
 import {cbUtilization} from './cb-utilization.mjs';
+import cbEstimate from './public/cb-estimate.js';
 import {appointmentChangesApi} from './appointment-changes.mjs';
 import {shiftRosterApi} from './shift-roster.mjs';
 import {laboratoryApi,labStaffRole} from './laboratory.mjs';
@@ -489,11 +490,17 @@ async function api(req, res, url) {
   }
   if (path === '/api/appointments' && method === 'GET') {
     const from = date(url.searchParams.get('from')), to = date(url.searchParams.get('to'));
-    const rows = await query(`SELECT a.*,u.name seller_name,p.name pump_name FROM appointments a JOIN users u ON u.id=a.seller_id LEFT JOIN pumps p ON p.id=a.pump_id WHERE date BETWEEN ? AND ? ORDER BY date,start`, from, to);
+    const rows = await query(`SELECT a.*,u.name seller_name,p.name pump_name,photo.version seller_photo_version FROM appointments a JOIN users u ON u.id=a.seller_id LEFT JOIN pumps p ON p.id=a.pump_id LEFT JOIN user_photos photo ON photo.user_id=a.seller_id WHERE date BETWEEN ? AND ? ORDER BY date,start`, from, to);
     const full=await withCustomerCodes(manager(u)?rows:rows.filter(a=>a.seller_id===u.id));
     if(manager(u))return full;
     const own=new Map(full.map(a=>[a.id,a]));
-    return rows.filter(a=>a.status!=='cancelado').map(a=>a.seller_id===u.id?{...own.get(a.id),own_booking:true}:{id:a.id,date:a.date,start:a.start,duration:a.duration,type:a.type,pump_id:a.pump_id,customer:a.customer,status:'ocupado'});
+    return rows.filter(a=>a.status!=='cancelado').map(a=>a.seller_id===u.id?{...own.get(a.id),own_booking:true}:{id:a.id,date:a.date,start:a.start,duration:a.duration,type:a.type,pump_id:a.pump_id,customer:a.customer,status:'ocupado',seller_id:a.seller_id,seller_name:a.seller_name,seller_photo_version:a.seller_photo_version,trips:a.trips,required_cbs:cbEstimate.requiredCBs(a)});
+  }
+  if(/^\/api\/appointments\/\d+\/seller-photo$/.test(path)&&method==='GET'){
+    if(!manager(u)&&u.role!=='vendedor')fail('Sem permissão.',403);
+    const row=await one("SELECT photo.image,a.status FROM appointments a JOIN user_photos photo ON photo.user_id=a.seller_id WHERE a.id=?",Number(path.split('/')[3]));
+    if(!row||!manager(u)&&row.status==='cancelado')fail('Foto não encontrada.',404);
+    res.setHeader('Content-Type','image/jpeg');res.setHeader('Cache-Control','private, no-store');res.end(Buffer.from(row.image.split(',')[1],'base64'));return;
   }
   if (path === '/api/appointments' && method === 'POST') {
     if (!manager(u)) fail('Sem permissão.', 403);
@@ -719,6 +726,8 @@ async function api(req, res, url) {
 }
 const assets = {
   '/contracts.js': ['contracts.js', 'text/javascript; charset=utf-8'],
+  '/vendor/pdf.mjs':['vendor/pdf.mjs','text/javascript; charset=utf-8'],
+  '/vendor/pdf.worker.mjs':['vendor/pdf.worker.mjs','text/javascript; charset=utf-8'],
   '/vendor/html-to-image.js': ['vendor/html-to-image.js', 'text/javascript; charset=utf-8'],
   '/vendor/jspdf.umd.min.js': ['vendor/jspdf.umd.min.js', 'text/javascript; charset=utf-8'],
   '/laboratory-trials.js':['laboratory-trials.js','text/javascript; charset=utf-8'],
