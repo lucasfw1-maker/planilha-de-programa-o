@@ -376,3 +376,17 @@ Veja [o estudo de desempenho, hospedagem e custos](docs/DESEMPENHO-E-CUSTOS.md),
 
 
 Nos cards de obras de outro vendedor, a agenda identifica o responsável com nome e foto (ou iniciais), viagens e quantidade de CBs necessários. O cálculo considera o ajuste manual quando houver. Esses cards continuam somente para consulta; os dados comerciais completos e as ações de edição/solicitação permanecem restritos ao dono ou à gestão. A foto é autorizada pelo vínculo com o agendamento, inclusive com o vendedor offline, sem ampliar o acesso geral aos perfis.
+
+### Calendário mensal de disponibilidade
+
+**Consultar disponibilidade** abre o calendário de um mês selecionável, com avanço/retorno, indicação de obras por dia, detalhes no mouse/foco e seleção por toque no celular. Antes de uma nova solicitação do vendedor e de **Agendar** em Contratos Ativos, o mesmo calendário é apresentado; continuar preserva data, início, duração, cliente/obra do contrato e eventual bomba escolhida. Não cria reserva nem modifica o contrato antes de confirmar o formulário.
+
+Ao lado do mês, **Equipamentos** permite Todos os equipamentos, Bomba lança (BL) ou Bomba estacionária (BM). O filtro recalcula cores, capacidade, obras e faixas livres só para as bombas ativas daquele grupo. Bombas com códigos antigos fora de BL/BM aparecem em Todos. Nos filtros específicos, as entregas convencionais ficam fora da lista; em Todos elas aparecem como obras sem ocupar as bombas.
+
+O cálculo considera uma jornada editável, inicialmente 07:00–18:00. Para cada bomba ativa, une os intervalos das obras não canceladas, a margem configurada antes/depois e os períodos de manutenção confirmados/legados, cortados à jornada. Sobreposições contam uma única vez. A proporção dos minutos bloqueados sobre a soma das jornadas de todas as bombas do filtro define verde até 65%, amarelo acima de 65% e vermelho em 100% de bloqueio. Sem equipamentos ativos, mostra indisponibilidade em cinza. Isso é ocupação das bombas, não utilização dos CBs; os dois indicadores continuam separados.
+
+O calendário mostra faixas sem bloqueio por bomba e mantém a consulta exata de início/duração, usando as validações existentes da API. Uma faixa livre pode não comportar a duração desejada. A jornada é um filtro visual, sem alterar as regras de horários do sistema. Trocar mês/tipo/jornada ou clicar Atualizar consulta novamente; salvar/aprovar continua revalidando disponibilidade em transação. Solicitações pendentes não bloqueiam o calendário. Datas antigas também podem ser consultadas.
+
+A API mensal lê o mês em quatro consultas independentes, sem buscar o banco a cada dia do calendário. Resultados atrasados não substituem uma consulta mais recente nem um modal já fechado. Perfis de Engenharia, Manutenção e Laboratório continuam sem acesso à agenda; o vendedor não recebe endereço, volumes, códigos ou observações das obras de outro vendedor. O nome da obra é mostrado somente à gestão e ao dono, mantendo o cliente e o responsável na consulta compartilhada.
+
+Validação: `npm test`, `npm run build`, `npm run test:browser` e `npm run test:availability-browser`. Os testes cobrem limiar exato de 65%, capacidade agregada e por BL/BM, manutenção entre dias, margens/união sem duplicidade, cancelados/convencionais/inativos, virada de ano e fevereiro bissexto, permissões e continuidade dos formulários no computador/celular.

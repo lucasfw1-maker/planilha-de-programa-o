@@ -1,3 +1,4 @@
+import {availabilityCalendarData} from './availability-calendar.mjs';
 import {seedPresentation} from './presentation-seed.mjs';
 import {cbUtilization} from './cb-utilization.mjs';
 import cbEstimate from './public/cb-estimate.js';
@@ -447,6 +448,7 @@ async function api(req, res, url) {
       return await monthlyProduction(month);
     });
   }
+  if(path==='/api/availability-calendar'&&method==='GET'){if(!manager(u)&&u.role!=='vendedor')fail('Sem permissão.',403);return availabilityCalendarData({month:url.searchParams.get('month'),start:url.searchParams.get('day_start')||'07:00',end:url.searchParams.get('day_end')||'18:00',user:u,manager:manager(u),equipment:url.searchParams.get('equipment')||'all'});}
   if (path === '/api/availability' && method === 'GET') {
     const slot = scheduling({
       date: url.searchParams.get('date'),
@@ -747,6 +749,7 @@ const assets = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/cb-estimate.js':['cb-estimate.js','text/javascript; charset=utf-8'],
   '/cb-utilization.js':['cb-utilization.js','text/javascript; charset=utf-8'],
+  '/availability-calendar.js':['availability-calendar.js','text/javascript; charset=utf-8'],
   '/conventional-scheduling.js':['conventional-scheduling.js','text/javascript; charset=utf-8'],
   '/request-coalescer.js':['request-coalescer.js','text/javascript; charset=utf-8'],
   '/appointment-changes.js':['appointment-changes.js','text/javascript; charset=utf-8'],
