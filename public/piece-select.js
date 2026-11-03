@@ -24,3 +24,5 @@ function bindPieceSelectors(root){
   }
  }
 }
+
+function displayPiece(value){const original=String(value??'').trim();const name=original.replace(/^\d+\s*[•·-]\s*/, '');const item=concretePieces.find(([,label])=>pieceSearchText(label)===pieceSearchText(name));return item?item[0]+' • '+item[1]:original;}
