@@ -9,7 +9,8 @@
     "start": "node server.mjs",
     "build": "node scripts/build.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check api/contact.mjs && node --check lib/contact.mjs && node --check server.mjs && node --check scripts/build.mjs && node --check public/site.js && node --check public/site.config.js"
+    "check": "node --check api/contact.mjs && node --check lib/contact.mjs && node --check server.mjs && node --check scripts/build.mjs && node --check public/site.js && node --check public/site.config.js",
+    "test:video-browser": "node scripts/check-video-browser.cjs"
   },
   "engines": {
     "node": ">=22"
