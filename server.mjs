@@ -90,7 +90,7 @@ function fields(b,{allowLegacyGravel=false}={}) {
     ...scheduling(b),
     ...contactFields(b),
     customer: customerName(text(b.customer, 'cliente')),
-    work: text(b.work, 'endereço da obra', 500),
+    work: text(b.work, 'endereço da obra', 500).toLocaleUpperCase('pt-BR'),
     work_name: text(allowLegacyGravel?(b.work_name||b.customer):b.work_name,'nome da obra',200),
     planned_volume: number(b.planned_volume, 'Volume', 0.1),
     gravel: gravelValue(b.gravel,{legacy:allowLegacyGravel}),
@@ -98,7 +98,7 @@ function fields(b,{allowLegacyGravel=false}={}) {
     resistance: text(b.resistance, 'resistência'),
     piece: text(b.piece, 'peça a concretar'),
     notes: String(b.notes || '').trim().slice(0, 2000),
-    ...estimateTrips(number(b.planned_volume,'Volume',0.1),b.load_capacity===undefined||b.load_capacity===null||b.load_capacity===''?9:b.load_capacity)
+    ...estimateTrips(number(b.planned_volume,'Volume',0.1),b.load_capacity===undefined||b.load_capacity===null||b.load_capacity===''?(Number(b.planned_volume)>9&&Number(b.planned_volume)<=10?10:9):b.load_capacity)
   };
 }
 async function checkSeller(id) {
@@ -218,7 +218,7 @@ async function updateAppointment(u,id,b){
         ...b
       };
       const data = scheduling(merged),contact=contactFields(b,old),concrete={gravel:b.gravel===undefined||b.gravel===old.gravel?old.gravel:gravelValue(b.gravel),slump:slumpValue(b.slump===undefined?old.slump:b.slump)};
-      const customer=b.customer===undefined?old.customer:customerName(text(b.customer,'cliente',200)),notes=b.notes===undefined?old.notes:typeof b.notes==='string'&&b.notes.length<=2000?b.notes.trim():(fail('Confira as observações.'),''),work=b.work===undefined?old.work:text(b.work,'endereço da obra',500),piece=b.piece===undefined?old.piece:text(b.piece,'peça a concretar',200),resistance=b.resistance===undefined?old.resistance:text(b.resistance,'resistência',200);
+      const customer=b.customer===undefined?old.customer:customerName(text(b.customer,'cliente',200)),notes=b.notes===undefined?old.notes:typeof b.notes==='string'&&b.notes.length<=2000?b.notes.trim():(fail('Confira as observações.'),''),work=b.work===undefined?old.work:text(b.work,'endereço da obra',500).toLocaleUpperCase('pt-BR'),piece=b.piece===undefined?old.piece:text(b.piece,'peça a concretar',200),resistance=b.resistance===undefined?old.resistance:text(b.resistance,'resistência',200);
       const status = b.status ?? old.status;
       if (!['confirmado', 'andamento', 'concluido', 'cancelado'].includes(status)) fail('Status inválido.');
       const changed=['date','start','duration','type'].some(k=>data[k]!==old[k]) || (data.type==='bomba'&&Number(merged.pump_id)!==old.pump_id) || (old.status==='cancelado'&&status!=='cancelado');
