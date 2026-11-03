@@ -3,7 +3,7 @@ Da agenda à operação, tudo começa com informação clara. 🚛
 Com a ConcretLog, sua concreteira organiza as obras, conecta as equipes e prepara os próximos carregamentos em um só lugar.
 
 📅 Agenda de obras por bomba e período
-👷 Escala das equipes de bombas
+👷 Escala das bombas integrada à agenda: primeira obra e horário preenchidos automaticamente
 🚛 Motoristas e CBs organizados
 📋 Programação do dia seguinte com volumes, viagens e CBs reservados
 

@@ -1,0 +1,60 @@
+CONCRETLOG — ROTEIRO DE NARRAÇÃO
+Versão revisada · vídeo vertical de 36 segundos
+
+O vídeo continua SEM áudio para você gravar a voz e escolher a trilha.
+As janelas abaixo acompanham a entrada das cenas. Comece a falar no horário indicado e termine antes do fim da janela; use o pequeno intervalo seguinte como respiro. Os tempos são guias de edição, e a duração da gravação depende do ritmo da sua leitura.
+
+TOM DE VOZ
+Profissional, próximo e confiante. Leia com energia leve, sem correr. Sorria na voz no encerramento. Não leia os números das cenas nem os horários. Na marca, pronuncie “Concret Log”; em “CBs”, diga “cê-bês”. A trilha, quando escolhida, deve ficar mais baixa que a narração.
+
+00:00,400 → 00:03,000 | ABERTURA
+“Sua concreteira, mais conectada com a ConcretLog.”
+Pausa curta após “concreteira”.
+
+00:03,750 → 00:07,350 | AGENDA DE OBRAS
+“Organize obras, horários e bombas em uma só agenda.”
+Dê ênfase suave a “uma só agenda”.
+
+00:08,100 → 00:11,550 | DETALHES DA OBRA
+“Consulte os detalhes, as viagens e os CBs necessários.”
+Separe os itens com pequenas pausas.
+
+00:12,200 → 00:17,400 | ESCALA INTEGRADA À AGENDA
+“Conectada à agenda, a escala já preenche a primeira obra e o horário.”
+Destaque “já preenche”. As informações automáticas ficam visíveis na tela.
+
+00:18,000 → 00:21,600 | EQUIPE DE BOMBAS
+“Operador, ajudante e orientações definidos para uma equipe alinhada.”
+Faça uma pausa curta depois de “orientações”.
+
+00:22,350 → 00:26,000 | MOTORISTAS E CBS
+“Motoristas, caminhões e horários organizados na mesma escala.”
+Leia os três primeiros itens com ritmo constante.
+
+00:26,800 → 00:30,950 | PROGRAMAÇÃO DO DIA SEGUINTE
+“Prepare a programação de amanhã e compartilhe com sua equipe.”
+Destaque “amanhã” e feche com naturalidade.
+
+00:31,800 → 00:35,600 | LOGO E ENCERRAMENTO
+“Menos improviso. Mais controle. Conheça a ConcretLog.”
+Faça uma pausa breve entre as três frases e termine com a marca em destaque. Deixe o último instante para a logo permanecer na tela.
+
+TEXTO CORRIDO PARA COPIAR
+
+Sua concreteira, mais conectada com a ConcretLog.
+Organize obras, horários e bombas em uma só agenda.
+Consulte os detalhes, as viagens e os CBs necessários.
+Conectada à agenda, a escala já preenche a primeira obra e o horário.
+Operador, ajudante e orientações definidos para uma equipe alinhada.
+Motoristas, caminhões e horários organizados na mesma escala.
+Prepare a programação de amanhã e compartilhe com sua equipe.
+Menos improviso. Mais controle. Conheça a ConcretLog.
+
+COMO GRAVAR E SINCRONIZAR
+1. Importe o MP4 no editor e mantenha o começo do vídeo em 00:00.
+2. Grave cada bloco separadamente; isso facilita pequenos ajustes sem acelerar a voz inteira.
+3. Posicione cada bloco no começo da janela indicada. Se terminar antes, mantenha a pausa.
+4. O arquivo Narracao.srt contém as mesmas falas e janelas para servir de guia ou legenda editável. Não é necessário adicioná-lo se preferir usar apenas os textos que já aparecem no vídeo.
+5. Não grave música junto com a voz: mantenha a trilha em uma faixa separada para ajustar o volume depois.
+
+Imagens demonstrativas: clientes, vendedores, equipes, placas e identificadores de bombas fictícios. Códigos de peças ilustrativos. O vídeo não apresenta prazo garantido, ganho numérico de produtividade ou promessa de disponibilidade.
