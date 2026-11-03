@@ -1,0 +1,31 @@
+1
+00:00,400 --> 00:03,000
+Manutenção conectada. Mais controle para sua concreteira.
+
+2
+00:03,750 --> 00:07,350
+Planeje a manutenção de bombas e caminhões.
+
+3
+00:08,100 --> 00:11,550
+Manutenção e logística confirmam juntas a programação.
+
+4
+00:12,200 --> 00:17,400
+Com a confirmação, a agenda atualiza a disponibilidade e avisa sobre conflitos.
+
+5
+00:18,000 --> 00:21,600
+Registre a execução, os serviços e as quantidades utilizadas.
+
+6
+00:22,350 --> 00:26,000
+O histórico reúne datas, responsáveis e o que foi realizado.
+
+7
+00:26,800 --> 00:30,950
+A manutenção também aparece nos relatórios da programação.
+
+8
+00:31,800 --> 00:35,600
+Menos surpresas. Mais controle. Conheça a ConcretLog.

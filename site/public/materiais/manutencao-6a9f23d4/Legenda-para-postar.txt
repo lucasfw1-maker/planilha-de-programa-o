@@ -1,0 +1,17 @@
+Manutenção e operação precisam falar a mesma língua. 🔧🚛
+
+Com a ConcretLog, sua concreteira planeja as paradas e conecta manutenção, logística e programação.
+
+🔧 Planejamento da manutenção de bombas e caminhões
+🤝 Confirmação entre manutenção e logística
+📅 Disponibilidade atualizada automaticamente na agenda após a confirmação
+⚠️ Avisos quando existem obras no período da manutenção
+📋 Histórico com datas, responsáveis, serviços e quantidades utilizadas
+📊 Manutenções confirmadas também nos relatórios da programação do próximo dia
+
+Menos surpresas. Mais controle.
+Conheça a ConcretLog: concretlog.com.br
+
+Demonstração com dados, clientes e equipamentos fictícios.
+
+#ConcretLog #Concreteira #ManutencaoDeFrota #LogisticaDoConcreto #GestaoDeFrota
