@@ -101,7 +101,7 @@ function dialog(title, subtitle, html, onSubmit) {
     finally { if (submit) submit.disabled = false; }
   };
   $$('[data-cancel]', modal).forEach(b => b.onclick = () => modal.close());
-  bindTripCalculator();bindContactFields();bindSlumpFields();bindCustomerNameFields();bindPlateFields();
+  bindTripCalculator();bindContactFields();bindSlumpFields();bindCustomerNameFields();bindPlateFields();bindPieceSelectors(modal);
 }
 modal.addEventListener('close', () => { currentDialog = ''; if(!modal.open)modal.replaceChildren(); });
 document.addEventListener('keydown',event=>{if(event.key==='Escape')$$('.month-day[data-day]').forEach(b=>b.classList.add('preview-dismissed'));});

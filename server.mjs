@@ -738,6 +738,7 @@ const assets = {
   '/technical-tickets.js':['technical-tickets.js','text/javascript; charset=utf-8'],
   '/equipment-maintenance.js': ['equipment-maintenance.js','text/javascript; charset=utf-8'],
   '/report-pdf.js': ['report-pdf.js', 'text/javascript; charset=utf-8'],
+  '/piece-select.js': ['piece-select.js', 'text/javascript; charset=utf-8'],
   '/slump-format.js': ['slump-format.js', 'text/javascript; charset=utf-8'],
   '/concretlog.css': ['concretlog.css', 'text/css; charset=utf-8'],
   '/concretlog-logo.png': ['concretlog-logo.png', 'image/png'],
