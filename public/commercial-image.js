@@ -41,8 +41,8 @@ function loadLibrary(){if(root.Tesseract)return Promise.resolve();if(!libraryPro
 function mount(form){
  const picker=form.querySelector('[data-commercial-image-file]'),button=form.querySelector('[data-commercial-image]'),status=form.querySelector('[data-commercial-image-status]'),choices=form.querySelector('[data-commercial-image-choices]');
  if(!picker||!button)return;
- let busy=false,worker=null,closed=false;const dialog=form.closest('dialog');
- const cleanup=()=>{if(dialog.open&&form.isConnected)return;closed=true;dialog.removeEventListener('close',cleanup);if(worker){worker.terminate();worker=null;}};dialog?.addEventListener('close',cleanup);
+ let busy=false,worker=null,closed=false,pasteDialog=null;const dialog=form.closest('dialog');
+ const cleanup=()=>{if(dialog.open&&form.isConnected)return;closed=true;dialog.removeEventListener('close',cleanup);if(pasteDialog){pasteDialog.close();pasteDialog.remove();pasteDialog=null;}if(worker){worker.terminate();worker=null;}};dialog?.addEventListener('close',cleanup);
  const set=(name,value)=>{if(value){const input=form.elements.namedItem(name);input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));}};
  async function read(file){
   if(busy)return;
@@ -73,8 +73,35 @@ function mount(form){
   }catch(error){if(!closed)status.textContent=error.message?.startsWith('O print')?error.message:'Não consegui ler este print. Tente uma imagem mais nítida ou preencha os campos manualmente.';}
   finally{bitmap?.close();if(worker){await worker.terminate();worker=null;}busy=false;if(!closed){button.disabled=false;picker.value='';submitButtons.forEach(b=>b.button.disabled=b.disabled);}}
  }
- button.onclick=()=>picker.click();picker.onchange=()=>{if(picker.files[0])read(picker.files[0]);};
- form.addEventListener('paste',event=>{const file=[...(event.clipboardData?.items||[])].find(i=>i.kind==='file'&&i.type.startsWith('image/'))?.getAsFile();if(file){event.preventDefault();read(file);}});
+ function openPasteDialog(file){
+  if(closed||busy)return;
+  if(pasteDialog?.open){if(file)pasteDialog.stageImage(file);return;}
+  const popup=document.createElement('dialog');pasteDialog=popup;popup.className='commercial-paste-dialog';popup.setAttribute('aria-labelledby','commercial-paste-title');
+  popup.innerHTML='<div class="modal-header"><h2 id="commercial-paste-title">Colar print</h2><button type="button" data-paste-close aria-label="Fechar prévia do print">×</button></div><div class="modal-body"><div class="commercial-paste-zone" tabindex="0" role="region" aria-label="Área para colar imagem"><p data-paste-instruction>Pressione Ctrl+V para colar a imagem aqui.</p><img data-paste-preview alt="Prévia do print colado" hidden></div><p data-paste-status role="status" aria-live="polite"></p><div class="commercial-paste-actions"><button type="button" data-paste-file>Escolher arquivo</button><button type="button" data-paste-use class="primary" disabled>Usar imagem</button></div></div>';
+  document.body.append(popup);
+  let pending=null,generation=0;
+  const zone=popup.querySelector('.commercial-paste-zone'),preview=popup.querySelector('[data-paste-preview]'),hint=popup.querySelector('[data-paste-instruction]'),message=popup.querySelector('[data-paste-status]'),use=popup.querySelector('[data-paste-use]');
+  popup.stageImage=async image=>{
+   const current=++generation;pending=null;use.disabled=true;
+   if(!['image/png','image/jpeg','image/webp'].includes(image.type)){message.textContent='Use uma imagem em PNG, JPG ou WebP.';return;}
+   if(image.size>12*1024*1024){message.textContent='A imagem deve ter até 12 MB.';return;}
+   message.textContent='Carregando a prévia…';
+   try{
+    const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(Error('Falha ao abrir imagem'));reader.readAsDataURL(image);});
+    if(!popup.open||current!==generation)return;
+    preview.src=data;await preview.decode();if(!popup.open||current!==generation)return;
+    preview.hidden=false;hint.hidden=true;pending=image;use.disabled=false;message.textContent='Confira o print. Para trocar, cole outra imagem.';
+   }catch{if(popup.open&&current===generation)message.textContent='Não consegui abrir a imagem. Cole outro print ou escolha um arquivo.';}
+  };
+  popup.querySelector('[data-paste-close]').onclick=()=>popup.close();
+  popup.querySelector('[data-paste-file]').onclick=()=>picker.click();
+  use.onclick=()=>{if(!pending)return;const image=pending;popup.close();read(image);};
+  popup.addEventListener('paste',event=>{const image=[...(event.clipboardData?.items||[])].find(i=>i.kind==='file'&&i.type.startsWith('image/'))?.getAsFile();if(image){event.preventDefault();event.stopPropagation();popup.stageImage(image);}else message.textContent='Copie um print e pressione Ctrl+V, ou escolha um arquivo.';});
+  popup.addEventListener('close',()=>{++generation;pending=null;popup.remove();if(pasteDialog===popup)pasteDialog=null;picker.value='';if(form.isConnected&&dialog.open)button.focus();},{once:true});
+  popup.showModal();zone.focus();if(file)popup.stageImage(file);
+ }
+ button.onclick=()=>openPasteDialog();picker.onchange=()=>{if(picker.files[0])openPasteDialog(picker.files[0]);};
+ form.addEventListener('paste',event=>{const file=[...(event.clipboardData?.items||[])].find(i=>i.kind==='file'&&i.type.startsWith('image/'))?.getAsFile();if(file){event.preventDefault();openPasteDialog(file);}});
 }
 const api={parse,hasArrow,mount};if(typeof module==='object'&&module.exports)module.exports=api;else root.CommercialImage=api;
 })(typeof globalThis==='object'?globalThis:this);
