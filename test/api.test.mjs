@@ -162,7 +162,7 @@ test('reativação exige motivo e mantém cancelamento anterior no histórico',a
 });
 
 test('viagens são calculadas por capacidade, com arredondamento e sem aceitar total adulterado',async()=>{
- for(const [volume,capacity,trips]of [[80,8,10],[80.1,8,11],[90,9,10],[90.1,9,11],[100,10,10],[100.1,10,11]]){
+ for(const [volume,capacity,trips]of [[80,8,10],[80.5,8,11],[90,9,10],[90.5,9,11],[100,10,10],[100.5,10,11]]){
   const r=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,date:'2030-06-01',customer:`Cálculo ${capacity} ${volume}`,type:'convencional',seller_id:seller.id,planned_volume:volume,load_capacity:capacity,trips:999}});assert.equal(r.status,200);
   const saved=(await request('/appointments/'+r.body.id,{cookie:admin})).body;assert.equal(saved.trips,trips);assert.equal(saved.load_capacity,capacity);
  }
@@ -190,17 +190,17 @@ test('frota usa 17 como padrão e somente gerente ou programador podem ajustar d
 test('meta mensal usa volumes confirmados, exclui cancelados e acompanha remarcação sem divisão por zero',async()=>{
  const url='/production?month=2030-06';
  assert.equal((await request(url,{cookie:seller.cookie})).status,403);
- const empty=(await request(url,{cookie:controller})).body;assert.equal(empty.target,null);assert.equal(empty.percent,null);assert(Math.abs(empty.programmed-540.3)<1e-8);
+ const empty=(await request(url,{cookie:controller})).body;assert.equal(empty.target,null);assert.equal(empty.percent,null);assert(Math.abs(empty.programmed-541.5)<1e-8);
  assert.equal((await request('/production',{method:'PATCH',cookie:controller,data:{month:'2030-06',volume:1000}})).status,403);
- let response=await request('/production',{method:'PATCH',cookie:manager,data:{month:'2030-06',volume:1000}});assert.equal(response.status,200);assert(Math.abs(response.body.percent-54.03)<1e-8);assert(Math.abs(response.body.remaining-459.7)<1e-8);assert(Math.abs(response.body.remaining_percent-45.97)<1e-8);
+ let response=await request('/production',{method:'PATCH',cookie:manager,data:{month:'2030-06',volume:1000}});assert.equal(response.status,200);assert(Math.abs(response.body.percent-54.15)<1e-8);assert(Math.abs(response.body.remaining-458.5)<1e-8);assert(Math.abs(response.body.remaining_percent-45.85)<1e-8);
  const rows=(await request('/appointments?from=2030-06-01&to=2030-06-01',{cookie:admin})).body;
- const canceled=rows.find(a=>a.planned_volume===100.1),moved=rows.find(a=>a.planned_volume===90);
+ const canceled=rows.find(a=>a.planned_volume===100.5),moved=rows.find(a=>a.planned_volume===90);
  await request('/appointments/'+canceled.id,{method:'PATCH',cookie:manager,data:{action:'cancelar',status:'cancelado',reason:'Obra cancelada'}});
  await request('/appointments/'+moved.id,{method:'PATCH',cookie:manager,data:{action:'remarcar',date:'2030-07-01',reason:'Cliente mudou o mês'}});
  await request('/requests',{method:'POST',cookie:seller.cookie,data:{...booking,date:'2030-06-01',type:'convencional',planned_volume:999}});
- response=await request(url,{cookie:admin});assert(Math.abs(response.body.programmed-350.2)<1e-8);
+ response=await request(url,{cookie:admin});assert(Math.abs(response.body.programmed-351)<1e-8);
  assert.equal((await request('/production?month=2030-07',{cookie:admin})).body.programmed,90);
- response=await request('/production',{method:'PATCH',cookie:admin,data:{month:'2030-06',volume:300}});assert.equal(response.body.remaining,0);assert.equal(response.body.remaining_percent,0);assert(response.body.percent>100);assert(Math.abs(response.body.surplus-50.2)<1e-8);
+ response=await request('/production',{method:'PATCH',cookie:admin,data:{month:'2030-06',volume:300}});assert.equal(response.body.remaining,0);assert.equal(response.body.remaining_percent,0);assert(response.body.percent>100);assert(Math.abs(response.body.surplus-51)<1e-8);
  assert.equal((await request('/production',{method:'PATCH',cookie:manager,data:{month:'2030-06',volume:0}})).status,400);
  assert.equal((await request('/production?month=2030-13',{cookie:manager})).status,400);
 });
@@ -211,13 +211,13 @@ test('relatório de produção compara programado e entregue e calcula necessida
  await request('/appointments/'+first.id,{method:'PATCH',cookie:manager,data:{delivered_volume:50}});
  await request('/production',{method:'PATCH',cookie:manager,data:{month:'2030-06',volume:1000}});
  const result=await request('/production?month=2030-06&reference=2030-06-30&basis=all',{cookie:controller});assert.equal(result.status,200);
- assert.equal(result.body.delivered,50);assert.equal(result.body.delivery_percent,5);assert.equal(result.body.delivery_remaining,950);assert.equal(result.body.delivery_remaining_percent,95);assert.equal(result.body.days_remaining,1);assert.equal(result.body.required_delivery_daily,950);assert(Math.abs(result.body.required_programming_daily-649.8)<1e-8);assert.equal(result.body.daily.length,30);assert(result.body.missing>0);
+ assert.equal(result.body.delivered,50);assert.equal(result.body.delivery_percent,5);assert.equal(result.body.delivery_remaining,950);assert.equal(result.body.delivery_remaining_percent,95);assert.equal(result.body.days_remaining,1);assert.equal(result.body.required_delivery_daily,950);assert(Math.abs(result.body.required_programming_daily-649)<1e-8);assert.equal(result.body.daily.length,30);assert(result.body.missing>0);
  const ended=(await request('/production?month=2030-06&reference=2030-07-01&basis=all',{cookie:admin})).body;assert.equal(ended.days_remaining,0);assert.equal(ended.required_delivery_daily,null);
  assert.equal((await request('/production?month=2030-06&basis=inválido',{cookie:admin})).status,400);
  assert.equal((await request('/production?month=2030-06&reference=2030-02-30',{cookie:admin})).status,400);
  const empty=(await request('/production?month=2040-01&reference=2040-01-01&basis=mon_sat',{cookie:admin})).body;assert.equal(empty.target,null);assert.equal(empty.required_delivery_daily,null);assert.equal(empty.programmed,0);
  await request('/appointments/'+first.id,{method:'PATCH',cookie:manager,data:{action:'cancelar',status:'cancelado',reason:'Cancelado o saldo após entrega parcial'}});
- const partial=(await request('/production?month=2030-06',{cookie:admin})).body;assert.equal(partial.delivered,50);assert(Math.abs(partial.programmed-270.2)<1e-8);
+ const partial=(await request('/production?month=2030-06',{cookie:admin})).body;assert.equal(partial.delivered,50);assert(Math.abs(partial.programmed-271)<1e-8);
  assert(Array.isArray(partial.sellers));assert(Math.abs(partial.sellers.reduce((n,s)=>n+s.programmed,0)-partial.programmed)<1e-8);assert.equal(partial.sellers.reduce((n,s)=>n+s.delivered,0),partial.delivered);assert.equal(partial.sellers.find(s=>s.id===seller.id).delivered,50);assert(partial.sellers.some(s=>s.programmed===0&&s.delivered===0));
 });
 
@@ -554,4 +554,23 @@ test('volume programado editável recalcula viagens e produção e protege contr
  assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{planned_volume:150,expected_planned_volume:250}})).status,409);
  assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{delivered_volume:85}})).status,200);saved=(await request('/appointments/'+id,{cookie:admin})).body;assert.equal(saved.planned_volume,90);assert.equal(saved.delivered_volume,85);
  const audit=(await request('/audit',{cookie:admin})).body;const change=audit.find(e=>e.entity==='agendamento'&&e.entity_id===id&&JSON.parse(e.detail).antes?.planned_volume===250);assert(change);assert.equal(JSON.parse(change.detail).depois.planned_volume,90);assert(change.user_name);
+});
+
+test('volumes devem avançar de 0,5 m³ no cadastro, edição, entrega, solicitações e metas',async()=>{
+ const data={...booking,date:'2045-04-11',type:'convencional',seller_id:seller.id,planned_volume:3.5};
+ for(const planned_volume of [3.2,3.4,.1]){
+  const r=await request('/appointments',{method:'POST',cookie:admin,data:{...data,planned_volume}});assert.equal(r.status,400);assert.match(r.body.error,/0,5/);
+  assert.equal((await request('/requests',{method:'POST',cookie:seller.cookie,data:{...data,planned_volume}})).status,400);
+ }
+ const created=await request('/appointments',{method:'POST',cookie:admin,data});assert.equal(created.status,200);const id=created.body.id;
+ for(const delivered_volume of [3.2,3.4,32.4])assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{delivered_volume}})).status,400);
+ for(const delivered_volume of [0,3,3.5,4.5])assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{delivered_volume}})).status,200);
+ let saved=(await request('/appointments/'+id,{cookie:admin})).body;assert.equal(saved.delivered_volume,4.5);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{planned_volume:3.4,expected_planned_volume:3.5}})).status,400);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{planned_volume:4.5,expected_planned_volume:3.5}})).status,200);
+ saved=(await request('/appointments/'+id,{cookie:admin})).body;assert.equal(saved.planned_volume,4.5);
+ assert.equal((await request('/appointments/'+id,{method:'PATCH',cookie:manager,data:{delivered_volume:null}})).status,200);assert.equal((await request('/appointments/'+id,{cookie:admin})).body.delivered_volume,null);
+ assert.equal((await request('/requests',{method:'POST',cookie:seller.cookie,data})).status,200);
+ for(const volume of [3.2,3.4])assert.equal((await request('/production',{method:'PATCH',cookie:manager,data:{month:'2045-04',volume}})).status,400);assert.equal((await request('/production',{method:'PATCH',cookie:manager,data:{month:'2045-04',volume:1000.5}})).status,200);
+ const contract={customer:'Contrato meio metro',seller_id:seller.id,work_name:'Obra meio metro',address:'Rua meio metro',next_contact:'2045-04-11',last_piece:'',last_date:'',last_volume:3.4};assert.equal((await request('/contracts',{method:'POST',cookie:manager,data:contract})).status,400);assert.equal((await request('/contracts',{method:'POST',cookie:manager,data:{...contract,last_volume:3.5}})).status,200);
 });

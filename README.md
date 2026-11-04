@@ -395,3 +395,6 @@ Validação: `npm test`, `npm run build`, `npm run test:browser` e `npm run test
 ### Vídeo no site comercial
 
 O detalhe de Programação e logística apresenta o vídeo demonstrativo de 36 segundos ao lado do conteúdo no computador e entre a introdução e a lista no celular. Usa a versão vertical enviada pelo proprietário (MP4 H.264/AAC, cerca de 5,5 MB), com capa leve, controles, faixa de legendas e créditos da trilha. O vídeo não é baixado na abertura da página ou da janela (`preload="none"`), só na reprodução; fechar a janela ou mudar o conteúdo interrompe o áudio. Verificação: `npm --prefix site run test:video-browser`.
+
+
+Volumes de concreto são informados em múltiplos de **0,5 m³** (por exemplo, 3; 3,5; 4; 4,5), com validação no formulário e na API. A regra vale para programado, entregue, solicitações, último volume do contrato e metas mensais. Não há arredondamento automático nem alteração dos volumes históricos; o volume entregue pode ficar vazio enquanto não for informado e aceita zero.

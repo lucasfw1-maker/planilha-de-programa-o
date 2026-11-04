@@ -1,3 +1,4 @@
+import {volumeValue} from './volume.mjs';
 import {availabilityCalendarData} from './availability-calendar.mjs';
 import {seedPresentation} from './presentation-seed.mjs';
 import {cbUtilization} from './cb-utilization.mjs';
@@ -92,13 +93,13 @@ function fields(b,{allowLegacyGravel=false}={}) {
     customer: customerName(text(b.customer, 'cliente')),
     work: text(b.work, 'endereço da obra', 500).toLocaleUpperCase('pt-BR'),
     work_name: text(allowLegacyGravel?(b.work_name||b.customer):b.work_name,'nome da obra',200),
-    planned_volume: number(b.planned_volume, 'Volume', 0.1),
+    planned_volume: volumeValue(b.planned_volume, 'Volume', 0.5),
     gravel: gravelValue(b.gravel,{legacy:allowLegacyGravel}),
     slump: slumpValue(b.slump),
     resistance: text(b.resistance, 'resistência'),
     piece: text(b.piece, 'peça a concretar'),
     notes: String(b.notes || '').trim().slice(0, 2000),
-    ...estimateTrips(number(b.planned_volume,'Volume',0.1),b.load_capacity===undefined||b.load_capacity===null||b.load_capacity===''?(Number(b.planned_volume)>9&&Number(b.planned_volume)<=10?10:9):b.load_capacity)
+    ...estimateTrips(volumeValue(b.planned_volume,'Volume',0.5),b.load_capacity===undefined||b.load_capacity===null||b.load_capacity===''?(Number(b.planned_volume)>9&&Number(b.planned_volume)<=10?10:9):b.load_capacity)
   };
 }
 async function checkSeller(id) {
@@ -223,9 +224,9 @@ async function updateAppointment(u,id,b){
       if (!['confirmado', 'andamento', 'concluido', 'cancelado'].includes(status)) fail('Status inválido.');
       const changed=['date','start','duration','type'].some(k=>data[k]!==old[k]) || (data.type==='bomba'&&Number(merged.pump_id)!==old.pump_id) || (old.status==='cancelado'&&status!=='cancelado');
       const pump=changed||status==='cancelado'?await checkPump({...data,status,pump_id:merged.pump_id},id):old.pump_id;
-      const delivered = b.delivered_volume === undefined ? old.delivered_volume : b.delivered_volume === null || b.delivered_volume === '' ? null : number(b.delivered_volume, 'Volume entregue');
+      const delivered = b.delivered_volume === undefined ? old.delivered_volume : b.delivered_volume === null || b.delivered_volume === '' ? null : volumeValue(b.delivered_volume, 'Volume entregue');
       const cbDemand=b.cb_demand_override===undefined?old.cb_demand_override:b.cb_demand_override===null||b.cb_demand_override===''?null:number(b.cb_demand_override,'CBs necessários',0,1000);if(cbDemand!==null&&!Number.isInteger(cbDemand))fail('Informe uma quantidade inteira de CBs.');if(cbDemand!==old.cb_demand_override&&(!Number.isInteger(b.expected_information_version)||b.expected_information_version!==old.information_version))fail('O pedido mudou. Abra novamente para ajustar os CBs.',409);
-      const plannedVolume=b.planned_volume===undefined?old.planned_volume:number(b.planned_volume,'Volume programado',0.1),volumeChanged=plannedVolume!==old.planned_volume;if(volumeChanged&&(b.expected_planned_volume===undefined||Number(b.expected_planned_volume)!==old.planned_volume))fail('O volume programado mudou. Abra o pedido novamente antes de editar.',409);
+      const plannedVolume=b.planned_volume===undefined?old.planned_volume:volumeValue(b.planned_volume,'Volume programado',0.5),volumeChanged=plannedVolume!==old.planned_volume;if(volumeChanged&&(b.expected_planned_volume===undefined||Number(b.expected_planned_volume)!==old.planned_volume))fail('O volume programado mudou. Abra o pedido novamente antes de editar.',409);
       const selected=b.load_capacity!==undefined?b.load_capacity:old.load_capacity;
       const automatic=(selected!==null&&selected!==undefined&&selected!==''?selected:null) ?? (volumeChanged||data.date>=localDay(new Date()) && ['confirmado','andamento'].includes(status)?9:null);
       const estimate=automatic!==null?estimateTrips(plannedVolume,automatic):{trips:old.trips,load_capacity:null};
@@ -257,7 +258,7 @@ async function updateAppointment(u,id,b){
         ok: true,warnings:await conventionalWarnings(after,id)
       };
 }
-function normalizeRequestedChanges(old,b){const full=fields({...old,...b},{allowLegacyGravel:true});if(b.gravel!==undefined&&b.gravel!==old.gravel)full.gravel=gravelValue(b.gravel);if(full.type==='bomba'&&(!Number.isSafeInteger(Number(b.pump_id??old.pump_id))||Number(b.pump_id??old.pump_id)<1))fail('Selecione uma bomba válida.');const status=b.status??old.status;if(!['confirmado','andamento','concluido','cancelado'].includes(status))fail('Situação inválida.');const override=b.cb_demand_override===undefined?old.cb_demand_override:b.cb_demand_override===null||b.cb_demand_override===''?null:number(b.cb_demand_override,'CBs necessários',0,1000);if(override!==null&&!Number.isInteger(override))fail('Informe CBs inteiros.');return {...full,status,cb_demand_override:override,pump_id:full.type==='convencional'?null:Number(b.pump_id??old.pump_id),delivered_volume:b.delivered_volume===undefined?old.delivered_volume:b.delivered_volume===null||b.delivered_volume===''?null:number(b.delivered_volume,'Volume entregue')};}
+function normalizeRequestedChanges(old,b){const full=fields({...old,...b},{allowLegacyGravel:true});if(b.gravel!==undefined&&b.gravel!==old.gravel)full.gravel=gravelValue(b.gravel);if(full.type==='bomba'&&(!Number.isSafeInteger(Number(b.pump_id??old.pump_id))||Number(b.pump_id??old.pump_id)<1))fail('Selecione uma bomba válida.');const status=b.status??old.status;if(!['confirmado','andamento','concluido','cancelado'].includes(status))fail('Situação inválida.');const override=b.cb_demand_override===undefined?old.cb_demand_override:b.cb_demand_override===null||b.cb_demand_override===''?null:number(b.cb_demand_override,'CBs necessários',0,1000);if(override!==null&&!Number.isInteger(override))fail('Informe CBs inteiros.');return {...full,status,cb_demand_override:override,pump_id:full.type==='convencional'?null:Number(b.pump_id??old.pump_id),delivered_volume:b.delivered_volume===undefined?old.delivered_volume:b.delivered_volume===null||b.delivered_volume===''?null:volumeValue(b.delivered_volume,'Volume entregue')};}
 async function api(req, res, url) {
   const path = url.pathname, method = req.method;
   if (!['GET', 'POST', 'PATCH'].includes(method)&&!(method==='DELETE'&&/^\/api\/laboratory\/moisture\/\d+$/.test(path))) fail('Método não permitido.', 405);
@@ -440,7 +441,7 @@ async function api(req, res, url) {
   }
   if(path==='/api/production' && method==='PATCH') {
     if(!productionManager(u))fail('Somente Gerente e Programador podem alterar a meta mensal.',403);
-    const b=await body(req),month=checkMonth(b.month),volume=number(b.volume,'Meta de volume',0.1,100000000);
+    const b=await body(req),month=checkMonth(b.month),volume=volumeValue(b.volume,'Meta de volume',0.5,100000000);
     return await transaction(async()=>{
       const before=await monthlyProduction(month);
       await run(`INSERT INTO monthly_goals(month,volume,updated_by,updated_at) VALUES(?,?,?,?) ON CONFLICT(month) DO UPDATE SET volume=excluded.volume,updated_by=excluded.updated_by,updated_at=excluded.updated_at`,month,volume,u.id,new Date().toISOString());

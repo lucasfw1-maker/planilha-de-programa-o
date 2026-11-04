@@ -1,3 +1,4 @@
+import {volumeValue} from './volume.mjs';
 import {one,query,run,transaction} from './storage.mjs';
 import {customerName,customerKey,customerAddresses,saveCustomer} from './customers.mjs';
 import {contactFields} from './contacts.mjs';
@@ -30,7 +31,7 @@ async function fields(b){
  const seller=Number(existing?.seller_id||b.seller_id);
  if(!await one("SELECT id FROM users WHERE id=? AND role='vendedor' AND active=1 AND status='aprovado'",seller))fail('Selecione um vendedor ativo.');
  if(!existing){existing=await one('SELECT * FROM customers WHERE seller_id=? AND name_key=?',seller,customerKey(b.customer));if(existing)customerId=existing.id;}
- const piece=text(b.last_piece||'','a última peça',200,true),lastDate=day(b.last_date,true),volume=b.last_volume===''||b.last_volume===undefined?null:Number(b.last_volume);
+ const piece=text(b.last_piece||'','a última peça',200,true),lastDate=day(b.last_date,true),volume=b.last_volume===''||b.last_volume===undefined||b.last_volume===null?null:volumeValue(b.last_volume,'Último volume entregue',0,Infinity);
  if(volume!==null&&(!Number.isFinite(volume)||volume<0))fail('Volume inválido.');if(lastDate>contractToday())fail('A última concretagem não pode estar no futuro.');if(Boolean(piece)!==Boolean(lastDate))fail('Preencha a última peça e sua data juntas, ou deixe ambas vazias.');
  return {customer_id:customerId,customer:customerName(existing?.name||text(b.customer,'o nome do cliente',200)),seller_id:seller,work_name:text(b.work_name,'o nome da obra',200),address:text(b.address,'o endereço da obra').toLocaleUpperCase('pt-BR'),...contactFields(b,existing||{}),next_contact:day(b.next_contact),last_piece:piece,last_date:lastDate,last_volume:volume};
 }
