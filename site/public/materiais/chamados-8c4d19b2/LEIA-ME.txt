@@ -1,0 +1,14 @@
+CONCRETLOG — CHAMADOS TÉCNICOS E COMERCIAIS
+Vídeo-base vertical de 36 segundos, 30 quadros por segundo, sem voz e sem música.
+
+Use a versão Instagram (1080 × 1920) para publicar após a montagem do áudio. A versão 4K (2160 × 3840) serve como master de edição.
+
+NARRAÇÃO NO ELEVENLABS
+Se estiver usando um modo de criação por instruções, copie Prompt-ElevenLabs.txt e peça um único arquivo de áudio.
+No modo Texto para Fala, cole somente Texto-para-voz.txt. Não cole o prompt nesse campo, pois ele poderá ler as instruções em voz alta. Ajuste a voz para português brasileiro, natural e confiante.
+Os tempos do roteiro são referências: a duração gerada depende da voz e do ritmo. Envie o áudio completo para ajustar a sincronização na montagem. Não é necessário gerar arquivos separados por cena.
+
+Narracao.srt é um guia baseado no roteiro; os tempos poderão mudar após receber a voz. Os textos de apoio já aparecem no vídeo.
+
+Use Legenda-para-postar.txt como descrição da publicação. Não foi incorporada nenhuma trilha musical nem reutilizada licença de outros vídeos.
+Todas as telas foram capturadas em ambiente isolado com dados fictícios. Nenhum dado de cliente real foi usado.
