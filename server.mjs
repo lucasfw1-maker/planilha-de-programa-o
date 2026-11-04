@@ -1,3 +1,4 @@
+import {pumpProgramsApi} from './pump-programs.mjs';
 import {recurringBookingsApi} from './recurring-bookings.mjs';
 import {volumeValue} from './volume.mjs';
 import {availabilityCalendarData} from './availability-calendar.mjs';
@@ -367,6 +368,7 @@ async function api(req, res, url) {
   if(path.startsWith('/api/laboratory'))return laboratoryApi({path,method,url,u,res,body:()=>body(req,200000)});
   if(path.startsWith('/api/technical-tickets'))return technicalTicketsApi({path,method,url,u,res,body:()=>body(req,3200000)});
   if(path.startsWith('/api/equipment-maintenance'))return equipmentMaintenanceApi({path,method,url,u,body:()=>body(req)});
+  if(path==='/api/pump-programs'||path.startsWith('/api/pump-programs/'))return pumpProgramsApi({path,method,url,u,body:()=>body(req)});
   if(path.startsWith('/api/contracts'))return contractsApi({path,method,url,u,body:()=>body(req),createAppointment});
   if(path==='/api/presence'&&method==='GET')return {users:await onlineUsers(),ttl_seconds:90};
   if(path==='/api/presence'&&method==='POST'){
@@ -734,6 +736,7 @@ async function api(req, res, url) {
   fail('Recurso não encontrado.', 404);
 }
 const assets = {
+  '/pump-programs.js':['pump-programs.js','text/javascript; charset=utf-8'],
   '/recurring-bookings.js':['recurring-bookings.js','text/javascript; charset=utf-8'],
   '/contracts.js': ['contracts.js', 'text/javascript; charset=utf-8'],
   '/vendor/pdf.mjs':['vendor/pdf.mjs','text/javascript; charset=utf-8'],

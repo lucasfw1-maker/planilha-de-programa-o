@@ -59,4 +59,7 @@ CREATE TABLE IF NOT EXISTS rate_limits(key TEXT PRIMARY KEY, count INTEGER NOT N
 CREATE INDEX IF NOT EXISTS appointments_date_start ON appointments(date,start);
 CREATE INDEX IF NOT EXISTS appointments_seller_date ON appointments(seller_id,date);
 CREATE INDEX IF NOT EXISTS appointments_pump_date ON appointments(pump_id,date);
-INSERT OR IGNORE INTO settings VALUES('buffer_minutes','30');`;
+INSERT OR IGNORE INTO settings VALUES('buffer_minutes','30');
+CREATE TABLE IF NOT EXISTS pump_program_reports(id INTEGER PRIMARY KEY,pump_id INTEGER NOT NULL REFERENCES pumps(id),date TEXT NOT NULL,version INTEGER NOT NULL,pump_name TEXT NOT NULL,works_count INTEGER NOT NULL,snapshot_json TEXT NOT NULL,created_by INTEGER NOT NULL REFERENCES users(id),created_at TEXT NOT NULL,UNIQUE(pump_id,date,version));
+CREATE INDEX IF NOT EXISTS pump_program_reports_date ON pump_program_reports(date,pump_id,version);
+`;
