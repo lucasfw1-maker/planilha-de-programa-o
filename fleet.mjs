@@ -22,7 +22,13 @@ export async function fleetRange(from,to,branch=''){
     const roster=new Map();for(const event of history)if(event.effective_date<=date)roster.set(event.cb_id,event);const activeIds=new Set([...roster.values()].filter(cb=>cb.active&&(!branch||cb.branch===branch)).map(cb=>cb.cb_id));
     const registry=Boolean(branch||registered&&date>=registered.value),configured=registry?activeIds.size:(byDate.has(date)?byDate.get(date):base),next=new Date(cursor);next.setUTCDate(next.getUTCDate()+1);const out=new Set(jobs.filter(j=>activeIds.has(j.cb_id)&&j.starts_at<next.toISOString().slice(0,10)+'T00:00'&&j.ends_at>date+'T00:00').map(j=>j.cb_id)).size;
     const shifts=shiftDays.get(date)||[],rosterApplied=shifts.length>0,assigned=new Set(shifts.flatMap(s=>s.snapshot.drivers||[]).map(r=>r.cb_id).filter(Boolean)),scheduled=new Set([...assigned].filter(cb=>!registry||activeIds.has(cb))),blocked=new Set(jobs.filter(j=>scheduled.has(j.cb_id)&&j.starts_at<next.toISOString().slice(0,10)+'T00:00'&&j.ends_at>date+'T00:00').map(j=>j.cb_id));
-    days.push({date,trucks:rosterApplied?Math.max(0,scheduled.size-blocked.size):Math.max(0,configured-out),roster_applied:rosterApplied,scheduled_trucks:rosterApplied?scheduled.size:null,scheduled_maintenance_trucks:rosterApplied?blocked.size:null,unscheduled_trucks:rosterApplied?Math.max(0,configured-scheduled.size):null,shift_ids:shifts.map(s=>s.id),configured_trucks:configured,maintenance_trucks:out,registry,default_trucks:registry?configured:base,override:!registry&&byDate.has(date)});
+    const periodTrucks=(fromMinute,toMinute)=>{
+      const periodIds=rosterApplied?new Set(shifts.flatMap(s=>s.snapshot.drivers||[]).filter(r=>r.cb_id&&(!registry||activeIds.has(r.cb_id))&&(!r.time||Number(r.time.slice(0,2))*60+Number(r.time.slice(3))<toMinute)).map(r=>r.cb_id)):activeIds;
+      const periodStart=date+(fromMinute===0?'T00:00':'T12:00'),periodEnd=toMinute===1440?next.toISOString().slice(0,10)+'T00:00':date+'T12:00';
+      const unavailable=new Set(jobs.filter(j=>periodIds.has(j.cb_id)&&j.starts_at<periodEnd&&j.ends_at>periodStart).map(j=>j.cb_id));
+      return Math.max(0,(rosterApplied?periodIds.size:configured)-unavailable.size);
+    };
+    days.push({date,morning_trucks:periodTrucks(0,720),afternoon_trucks:periodTrucks(720,1440),trucks:rosterApplied?Math.max(0,scheduled.size-blocked.size):Math.max(0,configured-out),roster_applied:rosterApplied,scheduled_trucks:rosterApplied?scheduled.size:null,scheduled_maintenance_trucks:rosterApplied?blocked.size:null,unscheduled_trucks:rosterApplied?Math.max(0,configured-scheduled.size):null,shift_ids:shifts.map(s=>s.id),configured_trucks:configured,maintenance_trucks:out,registry,default_trucks:registry?configured:base,override:!registry&&byDate.has(date)});
   }
   return {days,truck_days:days.reduce((sum,d)=>sum+d.trucks,0)};
 }

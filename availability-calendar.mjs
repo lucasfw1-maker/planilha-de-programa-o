@@ -1,3 +1,5 @@
+import {fleetRange} from './fleet.mjs';
+import {cbPeriodSummary} from './cb-utilization.mjs';
 import {query,one} from './storage.mjs';
 const fail=message=>{throw Object.assign(new Error(message),{status:400});};
 const minute=value=>Number(value.slice(0,2))*60+Number(value.slice(3));
@@ -35,12 +37,15 @@ export function buildAvailabilityCalendar({month,pumps,appointments,maintenance,
 }
 export async function availabilityCalendarData({month,start='07:00',end='18:00',user,manager,equipment='all'}){
  const {from,to,next}=availabilityMonthBounds(month);availabilityWorkingWindow(start,end);if(!['all','bl','bm'].includes(equipment))fail('Selecione um tipo de equipamento válido.');
- const [pumps,appointments,maintenance,setting]=await Promise.all([
+ const [pumps,appointments,maintenance,setting,fleet]=await Promise.all([
   query('SELECT id,name,active,maintenance FROM pumps WHERE active=1 ORDER BY name'),
-  query("SELECT a.id,a.date,a.start,a.duration,a.type,a.pump_id,a.customer,a.work_name,a.seller_id,a.status,u.name seller_name,p.name pump_name FROM appointments a JOIN users u ON u.id=a.seller_id LEFT JOIN pumps p ON p.id=a.pump_id WHERE a.date BETWEEN ? AND ? AND a.status<>'cancelado' ORDER BY a.date,a.start,a.id",from,to),
+  query("SELECT a.id,a.date,a.start,a.duration,a.type,a.pump_id,a.customer,a.work_name,a.seller_id,a.status,a.planned_volume,a.cb_demand_override,u.name seller_name,p.name pump_name FROM appointments a JOIN users u ON u.id=a.seller_id LEFT JOIN pumps p ON p.id=a.pump_id WHERE a.date BETWEEN ? AND ? AND a.status<>'cancelado' ORDER BY a.date,a.start,a.id",from,to),
   query('SELECT pump_id,starts_at,ends_at FROM maintenance_periods WHERE cancelled_at IS NULL AND starts_at<? AND ends_at>?',next+'T00:00',from+'T00:00'),
-  one("SELECT value FROM settings WHERE key='buffer_minutes'")
+  one("SELECT value FROM settings WHERE key='buffer_minutes'"),
+  fleetRange(from,to)
  ]);
- const visible=appointments.map(a=>({...a,work_name:manager||a.seller_id===user.id?a.work_name:undefined}));
- return buildAvailabilityCalendar({month,pumps,appointments:visible,maintenance,buffer:Number(setting?.value??30),start,end,equipment});
+ const visible=appointments.map(({planned_volume,cb_demand_override,...a})=>({...a,work_name:manager||a.seller_id===user.id?a.work_name:undefined}));
+ const result=buildAvailabilityCalendar({month,pumps,appointments:visible,maintenance,buffer:Number(setting?.value??30),start,end,equipment}),byDate=new Map(fleet.days.map(d=>[d.date,d]));
+ for(const day of result.days){const f=byDate.get(day.date),works=appointments.filter(a=>a.date===day.date);day.cbs={roster_applied:f.roster_applied,morning:cbPeriodSummary(works,f.morning_trucks,0,720),afternoon:cbPeriodSummary(works,f.afternoon_trucks,720,1440)};}
+ return result;
 }
