@@ -14,3 +14,6 @@ Use Legenda-para-postar.txt como descrição da publicação. Não foi incorpora
 Todas as telas foram capturadas em ambiente isolado com dados fictícios. Nenhum dado de cliente real foi usado.
 
 Os laudos e resultados mostrados são ilustrativos e não têm validade técnica. O sistema organiza os registros; a análise e a emissão técnica cabem aos profissionais responsáveis.
+
+ATUALIZAÇÃO DO RELATÓRIO DEMONSTRATIVO
+A cena de indicadores reúne 204 resultados fictícios de CPs aos 28 dias, cinco motoristas e 10 resultados abaixo do FCK (4,90% no total). Os percentuais por motorista variam de 0% a 10% para demonstrar as faixas de acompanhamento. Estes registros existem somente no banco temporário da produção do vídeo.
