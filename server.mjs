@@ -727,9 +727,6 @@ async function api(req, res, url) {
   fail('Recurso não encontrado.', 404);
 }
 const assets = {
-  '/commercial-image.js':['commercial-image.js','text/javascript; charset=utf-8'],
-  ...Object.fromEntries(['tesseract.min.js','worker.min.js','tesseract-core-lstm.wasm.js','tesseract-core-simd-lstm.wasm.js','tesseract-core-relaxedsimd-lstm.wasm.js'].map(name=>['/vendor/ocr/'+name,['vendor/ocr/'+name,'text/javascript; charset=utf-8']])),
-  '/vendor/ocr/eng.traineddata.gz':['vendor/ocr/eng.traineddata.gz','application/gzip'],
   '/contracts.js': ['contracts.js', 'text/javascript; charset=utf-8'],
   '/vendor/pdf.mjs':['vendor/pdf.mjs','text/javascript; charset=utf-8'],
   '/vendor/pdf.worker.mjs':['vendor/pdf.worker.mjs','text/javascript; charset=utf-8'],
@@ -764,7 +761,7 @@ export async function handler(req, res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'same-origin');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' blob:; frame-src 'self' blob:; object-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' blob:; frame-src 'self' blob:; object-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
   try {
     const url = new URL(req.url, 'http://localhost');
     if (url.pathname.startsWith('/api/')) {
