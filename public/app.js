@@ -101,7 +101,7 @@ function dialog(title, subtitle, html, onSubmit) {
     finally { if (submit) submit.disabled = false; }
   };
   $$('[data-cancel]', modal).forEach(b => b.onclick = () => modal.close());
-  bindTripCalculator();bindContactFields();bindSlumpFields();bindCustomerNameFields();bindPlateFields();bindAddressFields();bindPieceSelectors(modal);
+  bindVolumeFields(modal);bindTripCalculator();bindContactFields();bindSlumpFields();bindCustomerNameFields();bindPlateFields();bindAddressFields();bindPieceSelectors(modal);
 }
 modal.addEventListener('close', () => { currentDialog = ''; if(!modal.open)modal.replaceChildren(); });
 document.addEventListener('keydown',event=>{if(event.key==='Escape')$$('.month-day[data-day]').forEach(b=>b.classList.add('preview-dismissed'));});
@@ -658,6 +658,17 @@ function sellerImpactChart(items){
 function tripFields(volume=0,capacity=9,legacyTrips=null){
   const legacy=capacity===null;
   return `<div class="trip-fields span-2" data-volume="${Number(volume)||0}" data-legacy="${legacyTrips??0}"><label>Capacidade para estimativa<select name="load_capacity">${legacy?'<option value="" selected>Manter previsão do registro antigo</option>':''}${[8,9,10].map(n=>`<option value="${n}" ${!legacy&&Number(capacity)===n?'selected':''}>${n===9?'9 m³ — média da frota':n+' m³ por viagem'}</option>`).join('')}</select></label><label>Viagens previstas (automático)<input name="trips" type="text" readonly value="${legacy?legacyTrips??0:Math.ceil((Number(volume)||0)/Number(capacity||9))}" aria-describedby="trip-estimate-hint"></label><small id="trip-estimate-hint">Até 10 m³, a estimativa automática usa uma viagem e ajusta a capacidade quando necessário. Acima de 10 m³, volta para a média de 9 m³ por viagem, arredondando para cima. Você pode ajustar a capacidade; ao alterar o volume, a estimativa volta ao automático.</small></div>`;
+}
+let volumeMessageId=0;
+function bindVolumeFields(root){
+ for(const input of $$('input[type="number"][step="0.5"]',root)){
+  if(!['planned_volume','delivered_volume','last_volume','volume'].includes(input.name)||input.dataset.volumeValidation)continue;
+  input.dataset.volumeValidation='true';
+  const message=document.createElement('small');message.className='volume-validation-message';message.id='volume-validation-'+(++volumeMessageId);message.textContent='Use volumes de 0,5 em 0,5 m³. Ex.: 3; 3,5; 4; 4,5.';message.hidden=true;input.insertAdjacentElement('afterend',message);
+  input.setAttribute('aria-describedby',[input.getAttribute('aria-describedby'),message.id].filter(Boolean).join(' '));
+  const validate=()=>{const invalid=!input.disabled&&(input.validity.badInput||input.value!==''&&!input.validity.valid);input.classList.toggle('volume-invalid',invalid);input.setAttribute('aria-invalid',String(invalid));message.hidden=!invalid;};
+  input.addEventListener('input',validate);input.addEventListener('change',validate);validate();
+ }
 }
 function bindTripCalculator(){
   const root=$('.trip-fields',modal);if(!root)return;
