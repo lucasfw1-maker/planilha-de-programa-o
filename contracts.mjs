@@ -40,6 +40,15 @@ async function contact(id,b,u){
  const result=await run('INSERT INTO contract_contacts(contract_id,actor_id,contact_date,notes,next_contact,created_at) VALUES(?,?,?,?,?,?)',id,u.id,today,notes,next,new Date().toISOString());
  await run('UPDATE active_contracts SET next_contact=?,version=version+1 WHERE id=?',next,id);await log(u,'registrar contato',id,{contact_id:Number(result.lastInsertRowid),notes,next_contact:next});return Number(result.lastInsertRowid);
 }
+export async function createContractAppointments(id,b,u,createAppointment,occurrences){
+ const old=await editable(id,b),contactId=await contact(id,b,u),ids=[];
+ for(const occurrence of occurrences){
+  const appointmentId=await createAppointment({...b,...occurrence,customer:old.customer,work:old.address,work_name:old.work_name,seller_id:old.seller_id,contact_name:old.contact_name,contact_phone:old.contact_phone},u),appointment=await one('SELECT * FROM appointments WHERE id=?',appointmentId);
+  await run('INSERT INTO contract_bookings(contract_id,contact_id,appointment_id,actor_id,booked_at,snapshot_json) VALUES(?,?,?,?,?,?)',id,contactId,appointmentId,u.id,new Date().toISOString(),JSON.stringify({...appointment,work_name:old.work_name,seller_name:old.seller_name}));await log(u,'agendar contrato',id,{appointment_id:appointmentId,contact_id:contactId});ids.push(appointmentId);
+ }
+ const customer=await one('SELECT id FROM customers WHERE seller_id=? AND name_key=?',old.seller_id,customerKey(old.customer));if(customer)await run('UPDATE active_contracts SET customer_id=? WHERE id=?',customer.id,id);
+ return ids;
+}
 async function customerReport(id){
  const contract=await readContract(id);
  const appointments=(await query('SELECT a.*,p.name pump_name FROM appointments a LEFT JOIN pumps p ON p.id=a.pump_id WHERE a.seller_id=? ORDER BY a.date,a.start,a.id',contract.seller_id)).filter(a=>customerKey(a.customer)===customerKey(contract.customer));

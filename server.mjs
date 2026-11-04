@@ -1,3 +1,4 @@
+import {recurringBookingsApi} from './recurring-bookings.mjs';
 import {volumeValue} from './volume.mjs';
 import {availabilityCalendarData} from './availability-calendar.mjs';
 import {seedPresentation} from './presentation-seed.mjs';
@@ -224,6 +225,7 @@ async function updateAppointment(u,id,b){
       if (!['confirmado', 'andamento', 'concluido', 'cancelado'].includes(status)) fail('Status inválido.');
       const changed=['date','start','duration','type'].some(k=>data[k]!==old[k]) || (data.type==='bomba'&&Number(merged.pump_id)!==old.pump_id) || (old.status==='cancelado'&&status!=='cancelado');
       const pump=changed||status==='cancelado'?await checkPump({...data,status,pump_id:merged.pump_id},id):old.pump_id;
+      if(Object.hasOwn(b,'expected_delivered_volume')&&b.expected_delivered_volume!==old.delivered_volume)fail('O volume entregue mudou. Abra novamente antes de confirmar.',409);
       const delivered = b.delivered_volume === undefined ? old.delivered_volume : b.delivered_volume === null || b.delivered_volume === '' ? null : volumeValue(b.delivered_volume, 'Volume entregue');
       const cbDemand=b.cb_demand_override===undefined?old.cb_demand_override:b.cb_demand_override===null||b.cb_demand_override===''?null:number(b.cb_demand_override,'CBs necessários',0,1000);if(cbDemand!==null&&!Number.isInteger(cbDemand))fail('Informe uma quantidade inteira de CBs.');if(cbDemand!==old.cb_demand_override&&(!Number.isInteger(b.expected_information_version)||b.expected_information_version!==old.information_version))fail('O pedido mudou. Abra novamente para ajustar os CBs.',409);
       const plannedVolume=b.planned_volume===undefined?old.planned_volume:volumeValue(b.planned_volume,'Volume programado',0.5),volumeChanged=plannedVolume!==old.planned_volume;if(volumeChanged&&(b.expected_planned_volume===undefined||Number(b.expected_planned_volume)!==old.planned_volume))fail('O volume programado mudou. Abra o pedido novamente antes de editar.',409);
@@ -505,6 +507,10 @@ async function api(req, res, url) {
     if(!row||!manager(u)&&row.status==='cancelado')fail('Foto não encontrada.',404);
     res.setHeader('Content-Type','image/jpeg');res.setHeader('Cache-Control','private, no-store');res.end(Buffer.from(row.image.split(',')[1],'base64'));return;
   }
+  if(['/api/appointments/repeat/preview','/api/appointments/repeat'].includes(path)&&method==='POST'){
+    if(!manager(u))fail('Somente a logística pode criar agendamentos repetidos.',403);
+    return recurringBookingsApi({u,b:await body(req),preview:path.endsWith('/preview'),fields,checkSeller,checkPump,createAppointment,conventionalWarnings,audit});
+  }
   if (path === '/api/appointments' && method === 'POST') {
     if (!manager(u)) fail('Sem permissão.', 403);
     const b = await body(req);
@@ -728,6 +734,7 @@ async function api(req, res, url) {
   fail('Recurso não encontrado.', 404);
 }
 const assets = {
+  '/recurring-bookings.js':['recurring-bookings.js','text/javascript; charset=utf-8'],
   '/contracts.js': ['contracts.js', 'text/javascript; charset=utf-8'],
   '/vendor/pdf.mjs':['vendor/pdf.mjs','text/javascript; charset=utf-8'],
   '/vendor/pdf.worker.mjs':['vendor/pdf.worker.mjs','text/javascript; charset=utf-8'],

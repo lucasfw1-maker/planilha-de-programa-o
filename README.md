@@ -398,3 +398,14 @@ O detalhe de Programação e logística apresenta o vídeo demonstrativo de 36 s
 
 
 Volumes de concreto são informados em múltiplos de **0,5 m³** (por exemplo, 3; 3,5; 4; 4,5), com validação no formulário e na API. A regra vale para programado, entregue, solicitações, último volume do contrato e metas mensais. Não há arredondamento automático nem alteração dos volumes históricos; o volume entregue pode ficar vazio enquanto não for informado e aceita zero.
+
+
+### Repetir agendamento e confirmar entrega
+
+Programador, gerente e controlador encontram duas ações discretas nos cards da agenda. **Confirmar volume entregue** abre somente o campo de entrega, com validação imediata em vermelho para valores fora dos passos de 0,5 m³; não muda o volume programado nem conclui a obra automaticamente. Se outra pessoa já alterou a entrega, é preciso reabrir antes de salvar.
+
+**Repetir agendamento** usa o cliente, obra, concreto, vendedor e volume programado do card como modelo. Escolha uma data inicial, sete dias corridos ou até o fim do mês; domingos ficam fora e sábados são opcionais, com término obrigatório até 12h. A alternância começa com dois seletores de bombas e permite adicionar outras pelo **+**, remover as adicionais ou usar uma bomba fixa. A prévia permite alterar bomba, início e término de cada dia e desmarcar datas. No mês, os dias são agrupados por semana. Após conferir a disponibilidade, as opções se recolhem para priorizar a prévia.
+
+A API valida reservas e manutenções, confere novamente ao confirmar e cria o lote em uma única transação; conflitos não geram lotes parciais. Um identificador de confirmação evita duplicar a mesma operação em tentativas repetidas. Cada novo dia é um agendamento independente, e o original é mantido. A ação fica disponível em `/api/appointments/repeat/preview` e `/api/appointments/repeat`; ambas exigem acesso de logística.
+
+Verificação: `npm run test:recurring-browser`; testes de calendário e API fazem parte de `npm test`.
