@@ -1,0 +1,33 @@
+Crie uma narração publicitária em português brasileiro para um vídeo vertical de 36 segundos sobre o módulo de laboratório da ConcretLog, um sistema de gestão para concreteiras.
+
+ENTREGA: um único arquivo de áudio contínuo, em WAV ou MP3 de alta qualidade. Não dividir por cenas nem entregar vários arquivos.
+
+Voz adulta, natural, próxima e confiante, com energia moderada e boa articulação. Estilo de apresentação de um software profissional, sem exagero de locutor de rádio. Pronuncie a marca como “Concret Log”, mantendo o nome ConcretLog. Sem música, efeitos sonoros ou outras vozes.
+
+O áudio deve caber em 36 segundos. Use os intervalos abaixo como referência para as pausas e tente concluir a última fala até 35,6 segundos. Evite acelerar artificialmente ou cortar palavras. Não leia os horários, os nomes das cenas, as instruções ou qualquer observação. Leia somente as falas, na ordem indicada, sem adicionar conteúdo.
+
+00:00,400 — 00:03,000
+“Laboratório conectado. Da moldagem aos resultados.”
+
+00:03,750 — 00:07,350
+“Identifique cliente, obra, nota fiscal e responsável pela moldagem.”
+
+00:08,100 — 00:11,550
+“Acompanhe os prazos e os resultados de cada corpo de prova.”
+
+00:12,200 — 00:17,400
+“Reúna os resultados em laudos por cliente e compartilhe pelo chamado.”
+
+00:18,000 — 00:21,600
+“Informe os pesos da areia. A umidade é calculada automaticamente.”
+
+00:22,350 — 00:26,000
+“Compare traços, custos e resistências na mesma idade de ensaio.”
+
+00:26,800 — 00:30,950
+“Consulte indicadores, médias e ocorrências para acompanhar o laboratório.”
+
+00:31,800 — 00:35,600
+“Mais rastreabilidade. Mais confiança. Conheça a ConcretLog.”
+
+Faça pequenas pausas entre as cenas e dê ênfase suave a “Laboratório conectado”, “calculada automaticamente” e “Mais rastreabilidade. Mais confiança.”. Preserve uma finalização limpa, sem reverberação prolongada.

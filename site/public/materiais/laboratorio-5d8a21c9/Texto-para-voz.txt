@@ -1,0 +1,15 @@
+Laboratório conectado. Da moldagem aos resultados.
+
+Identifique cliente, obra, nota fiscal e responsável pela moldagem.
+
+Acompanhe os prazos e os resultados de cada corpo de prova.
+
+Reúna os resultados em laudos por cliente e compartilhe pelo chamado.
+
+Informe os pesos da areia. A umidade é calculada automaticamente.
+
+Compare traços, custos e resistências na mesma idade de ensaio.
+
+Consulte indicadores, médias e ocorrências para acompanhar o laboratório.
+
+Mais rastreabilidade. Mais confiança. Conheça a ConcretLog.

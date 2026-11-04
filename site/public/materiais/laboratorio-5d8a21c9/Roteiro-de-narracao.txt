@@ -1,0 +1,28 @@
+CONCRETLOG — LABORATÓRIO
+Vídeo vertical de 36 segundos. Tempos de referência para a montagem.
+
+00:00,400 — 00:03,000 | Abertura
+Laboratório conectado. Da moldagem aos resultados.
+
+00:03,750 — 00:07,350 | Rastreabilidade
+Identifique cliente, obra, nota fiscal e responsável pela moldagem.
+
+00:08,100 — 00:11,550 | Corpos de prova
+Acompanhe os prazos e os resultados de cada corpo de prova.
+
+00:12,200 — 00:17,400 | Laudos
+Reúna os resultados em laudos por cliente e compartilhe pelo chamado.
+
+00:18,000 — 00:21,600 | Umidade
+Informe os pesos da areia. A umidade é calculada automaticamente.
+
+00:22,350 — 00:26,000 | Ensaios
+Compare traços, custos e resistências na mesma idade de ensaio.
+
+00:26,800 — 00:30,950 | Indicadores
+Consulte indicadores, médias e ocorrências para acompanhar o laboratório.
+
+00:31,800 — 00:35,600 | Encerramento
+Mais rastreabilidade. Mais confiança. Conheça a ConcretLog.
+
+Gerar em um único áudio. Não ler horários nem nomes das cenas. A sincronização será ajustada na edição.
