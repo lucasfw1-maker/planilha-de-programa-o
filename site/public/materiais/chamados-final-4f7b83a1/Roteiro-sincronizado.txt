@@ -1,0 +1,26 @@
+CONCRETLOG — CHAMADOS COM NARRAÇÃO
+Duração: 42.9 segundos.
+
+00:00:00,400 — 00:00:04,920
+Comercial e Engenharia conectados. Mais controle no atendimento.
+
+00:00:05,433 — 00:00:09,533
+Abra chamados técnicos ou comerciais com os dados da obra.
+
+00:00:10,033 — 00:00:15,693
+Acompanhe cada chamado: em aberto, em atendimento ou concluído.
+
+00:00:16,200 — 00:00:21,430
+A Engenharia assume o atendimento, e o responsável fica identificado.
+
+00:00:21,933 — 00:00:26,833
+Mensagens, imagens e PDFs reunidos no histórico do chamado.
+
+00:00:27,333 — 00:00:31,523
+Consulte as orientações e acompanhe a conclusão do atendimento.
+
+00:00:32,033 — 00:00:36,533
+Veja os indicadores por vendedor, período e tipo de chamado.
+
+00:00:37,183 — 00:00:42,283
+Mais organização. Mais confiança. Conheça a ConcretLog.
