@@ -1,0 +1,6 @@
+ConcretLog — Agendamento recorrente
+Versão final com a narração enviada.
+36 segundos, vertical, 30 fps.
+Voz em velocidade original; pausas e cenas ajustadas por bloco.
+Áudio nivelado, sem música de fundo.
+Dados fictícios. SRT separado, sem legendas sobrepostas ao vídeo.
