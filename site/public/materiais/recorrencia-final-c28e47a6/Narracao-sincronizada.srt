@@ -1,31 +1,31 @@
 1
-00:00:00,350 --> 00:00:04,100
+00:00:00,350 --> 00:00:04,077
 Obra recorrente? Planeje os próximos atendimentos.
 
 2
-00:00:04,660 --> 00:00:07,450
+00:00:04,635 --> 00:00:07,482
 Comece por um agendamento e escolha repetir.
 
 3
-00:00:08,310 --> 00:00:10,730
+00:00:08,278 --> 00:00:10,672
 Programe a semana ou até o fim do mês.
 
 4
-00:00:11,720 --> 00:00:15,200
-Escolha duas ou mais bombas para alternar entre os dias.
+00:00:11,705 --> 00:00:15,519
+Escolha dois ou mais equipamentos para alternar entre os dias.
 
 5
-00:00:16,190 --> 00:00:19,630
-Na prévia, ajuste a bomba e o horário de cada dia.
+00:00:16,420 --> 00:00:20,291
+Na prévia, ajuste o equipamento e o horário de cada dia.
 
 6
-00:00:20,590 --> 00:00:23,970
+00:00:21,018 --> 00:00:24,503
 Confira a disponibilidade e revise os dias com conflito.
 
 7
-00:00:24,980 --> 00:00:28,680
+00:00:25,361 --> 00:00:29,112
 Crie os agendamentos em conjunto e acompanhe tudo na agenda.
 
 8
-00:00:29,890 --> 00:00:34,720
+00:00:30,316 --> 00:00:35,103
 Menos repetição. Mais planejamento. Conheça a ConcretLog.

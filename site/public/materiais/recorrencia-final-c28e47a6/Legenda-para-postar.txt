@@ -4,8 +4,8 @@ Use um agendamento como base e prepare novas datas com mais praticidade:
 
 • Escolha uma semana ou até o fim do mês.
 • Inclua sábados quando necessário, com atendimento até 12h.
-• Selecione duas ou mais bombas para alternar entre os dias.
-• Confira a prévia e ajuste a bomba e o horário de cada atendimento.
+• Selecione dois ou mais equipamentos para alternar entre os dias.
+• Confira a prévia e ajuste o equipamento e o horário de cada atendimento.
 • Desmarque os dias que não deseja criar.
 • Verifique a disponibilidade e revise conflitos antes de confirmar.
 
