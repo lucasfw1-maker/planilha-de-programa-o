@@ -1,0 +1,28 @@
+CONCRETLOG — AGENDAMENTO RECORRENTE
+Vídeo vertical de 36 segundos. Tempos de referência para a montagem.
+
+00:00,400 — 00:03,000 | Abertura
+Obra recorrente? Planeje os próximos atendimentos.
+
+00:03,750 — 00:07,350 | Agendamento de referência
+Comece por um agendamento e escolha repetir.
+
+00:08,100 — 00:11,550 | Período
+Programe a semana ou até o fim do mês.
+
+00:12,200 — 00:17,400 | Alternância de bombas
+Escolha duas ou mais bombas para alternar entre os dias.
+
+00:18,000 — 00:21,600 | Prévia por dia
+Na prévia, ajuste a bomba e o horário de cada dia.
+
+00:22,350 — 00:26,000 | Disponibilidade
+Confira a disponibilidade e revise os dias com conflito.
+
+00:26,800 — 00:30,950 | Criação na agenda
+Crie os agendamentos em conjunto e acompanhe tudo na agenda.
+
+00:31,800 — 00:35,600 | Encerramento
+Menos repetição. Mais planejamento. Conheça a ConcretLog.
+
+Gerar em um único áudio. Não ler horários nem nomes das cenas. Podemos ajustar a sincronização depois de receber a gravação.

@@ -1,0 +1,31 @@
+1
+00:00,400 --> 00:03,000
+Obra recorrente? Planeje os próximos atendimentos.
+
+2
+00:03,750 --> 00:07,350
+Comece por um agendamento e escolha repetir.
+
+3
+00:08,100 --> 00:11,550
+Programe a semana ou até o fim do mês.
+
+4
+00:12,200 --> 00:17,400
+Escolha duas ou mais bombas para alternar entre os dias.
+
+5
+00:18,000 --> 00:21,600
+Na prévia, ajuste a bomba e o horário de cada dia.
+
+6
+00:22,350 --> 00:26,000
+Confira a disponibilidade e revise os dias com conflito.
+
+7
+00:26,800 --> 00:30,950
+Crie os agendamentos em conjunto e acompanhe tudo na agenda.
+
+8
+00:31,800 --> 00:35,600
+Menos repetição. Mais planejamento. Conheça a ConcretLog.

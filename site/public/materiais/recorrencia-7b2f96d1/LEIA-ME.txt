@@ -1,0 +1,14 @@
+CONCRETLOG — AGENDAMENTO RECORRENTE
+Vídeo-base vertical de 36 segundos, 30 quadros por segundo, sem voz e sem música.
+
+ConcretLog-Agendamento-Recorrente-Instagram.mp4: 1080 × 1920.
+ConcretLog-Agendamento-Recorrente-4K.mp4: 2160 × 3840, para edição em alta resolução.
+
+Para o ElevenLabs por instruções, use Prompt-ElevenLabs.txt e peça um único arquivo de áudio.
+No modo Texto para Fala, cole somente Texto-para-voz.txt. Não cole o prompt nesse campo, pois as instruções poderão ser lidas em voz alta.
+Os tempos são referências: a duração gerada depende da voz e do ritmo. Envie o áudio completo para ajustar a sincronização na montagem.
+Narracao.srt é um guia inicial; os textos de apoio já aparecem no vídeo.
+
+Use Legenda-para-postar.txt como descrição da publicação.
+Todas as telas foram capturadas em ambiente isolado, com dados fictícios e sem alterar a produção.
+A repetição cria um conjunto de datas escolhido pelo usuário. O período mensal vai da data inicial até o fim do mês. O agendamento original é mantido.
