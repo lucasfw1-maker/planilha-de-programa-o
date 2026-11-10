@@ -2,7 +2,7 @@ import {pumpProgramsApi} from './pump-programs.mjs';
 import {recurringBookingsApi} from './recurring-bookings.mjs';
 import {volumeValue} from './volume.mjs';
 import {availabilityCalendarData} from './availability-calendar.mjs';
-import {seedPresentation} from './presentation-seed.mjs';
+import {seedPresentation,isPresentationTarget} from './presentation-seed.mjs';
 import {cbUtilization} from './cb-utilization.mjs';
 import cbEstimate from './public/cb-estimate.js';
 import {appointmentChangesApi} from './appointment-changes.mjs';
@@ -17,7 +17,7 @@ import {onlineUsers,userIsOnline,updatePresence} from './presence.mjs';
 import {customerEditPreview,editCustomer} from './customer-edit.mjs';
 import {gravelValue,slumpValue} from './concrete.mjs';
 import {contactFields} from './contacts.mjs';
-import {commercialCode,savedCustomerCode,withCustomerCodes} from './commercial.mjs';
+import {bookingInformationSummary,commercialCode,savedCustomerCode,withCustomerCodes} from './commercial.mjs';
 import {slotWindow,overlaps} from './maintenance.mjs';
 import {checkMonth,monthlyProduction,monthlyGoalHistory} from './production.mjs';
 import {estimateTrips,fleetRange} from './fleet.mjs';
@@ -39,6 +39,7 @@ const safeUser = u => ({
   username: u.username,
   role: u.role,
   status: u.status,
+  canTestInformationNotifications:isPresentationTarget(u),
   mustChangePassword: Boolean(u.must_change)
 });
 const digest = t => createHash('sha256').update(t).digest('hex');
@@ -133,8 +134,8 @@ async function audit(u, action, entity, id, detail) {
   await run('INSERT INTO audit(user_id,action,entity,entity_id,detail) VALUES(?,?,?,?,?)', u.id, action, entity, Number(id), JSON.stringify(detail));
 }
 async function detailsForCustomer(input,seller){
- const saved=await one('SELECT contact_name,contact_phone,slump FROM customers WHERE seller_id=? AND name_key=?',seller,customerKey(input.customer));
- return {...contactFields(input,saved||{}),slump:slumpValue(input.slump===undefined?saved?.slump:input.slump)};
+ const saved=await one('SELECT contact_name,contact_phone FROM customers WHERE seller_id=? AND name_key=?',seller,customerKey(input.customer));
+ return {...contactFields(input,saved||{}),slump:slumpValue(input.slump)};
 }
 async function saveContactForAppointment(appointment,contact){
  if(!await one('SELECT id FROM customers WHERE seller_id=? AND name_key=?',appointment.seller_id,customerKey(appointment.customer)))await saveCustomer(appointment,appointment.seller_id);
@@ -146,6 +147,7 @@ async function saveConcreteForAppointment(appointment,concrete){
 }
 async function createAppointment(b, u, requestId = null) {
   const data = fields(b,{allowLegacyGravel:requestId!==null});
+  data.order_code=commercialCode(b.order_code,'Código do pedido');data.order_item=commercialCode(b.order_item,'Item do pedido');
   if (!Number.isInteger(data.trips)) fail('Viagens devem ser um número inteiro.');
   const seller = await checkSeller(b.seller_id);
   const customerCode=await savedCustomerCode(data.customer,seller);
@@ -154,7 +156,7 @@ async function createAppointment(b, u, requestId = null) {
     ...data,
     pump_id: b.pump_id
   });
-  const result = await run(`INSERT INTO appointments(customer,work,date,start,duration,type,pump_id,seller_id,planned_volume,gravel,resistance,piece,notes,trips,load_capacity,request_id,customer_code,contact_name,contact_phone,slump,work_name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, data.customer, data.work, data.date, data.start, data.duration, data.type, pump, seller, data.planned_volume, data.gravel, data.resistance, data.piece, data.notes, data.trips, data.load_capacity, requestId, customerCode, data.contact_name, data.contact_phone, data.slump,data.work_name);
+  const result = await run(`INSERT INTO appointments(customer,work,date,start,duration,type,pump_id,seller_id,planned_volume,gravel,resistance,piece,notes,trips,load_capacity,request_id,customer_code,contact_name,contact_phone,slump,work_name,order_code,order_item) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, data.customer, data.work, data.date, data.start, data.duration, data.type, pump, seller, data.planned_volume, data.gravel, data.resistance, data.piece, data.notes, data.trips, data.load_capacity, requestId, customerCode, data.contact_name, data.contact_phone, data.slump,data.work_name,data.order_code,data.order_item);
   const id = Number(result.lastInsertRowid);
   await saveCustomer(data,seller);
   await audit(u, 'criar', 'agendamento', id, data);
@@ -360,7 +362,12 @@ async function api(req, res, url) {
       ['manutencao','gerente','programador','controlador','gerente_concresuper'].includes(u.role)?summary('/api/equipment-maintenance/summary',equipmentMaintenanceApi):null,
       manager(u)||u.role==='vendedor'?summary('/api/appointment-change-requests/summary',appointmentChangesApi):null
     ]);
-    return {ticketSummary,maintenanceSummary,appointmentChangeSummary};
+    return {ticketSummary,maintenanceSummary,appointmentChangeSummary,bookingInformationSummary:await bookingInformationSummary(u)};
+  }
+  if(path==='/api/appointments/information-notification-test'&&method==='GET'){
+    if(!isPresentationTarget(u))fail('Teste disponível somente para o Programador responsável.',403);
+    const summary=await bookingInformationSummary({...u,role:'controlador'});
+    return {rows:summary.rows.length?summary.rows:[{customer:'OBRA DE EXEMPLO',work_name:'Demonstração da notificação',date:summary.date,start:'13:30',seller_name:'Vendedor responsável',missing:['Código do cliente','Código do pedido','Item do pedido','Nome do contato','Telefone do contato','Slump'],demo:true}]};
   }
   if(path==='/api/presentation-seed'&&method==='POST')return seedPresentation(u,await body(req));
   if(path.startsWith('/api/appointment-change-requests'))return appointmentChangesApi({path,method,url,u,body:()=>body(req),manager,normalize:normalizeRequestedChanges,apply:updateAppointment,audit});
@@ -759,6 +766,7 @@ const assets = {
   '/logo-concresuper.png': ['logo-concresuper.png', 'image/png'],
   '/favicon.svg': ['favicon.svg', 'image/svg+xml'],
   '/': ['index.html', 'text/html; charset=utf-8'],
+  '/booking-information.js':['booking-information.js','text/javascript; charset=utf-8'],
   '/cb-estimate.js':['cb-estimate.js','text/javascript; charset=utf-8'],
   '/cb-utilization.js':['cb-utilization.js','text/javascript; charset=utf-8'],
   '/availability-calendar.js':['availability-calendar.js','text/javascript; charset=utf-8'],

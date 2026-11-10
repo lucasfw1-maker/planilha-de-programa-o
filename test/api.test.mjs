@@ -301,7 +301,7 @@ test('aprovação de reserva transporta contato e telefone para o agendamento',a
  const row=(await request('/report?from=2032-03-10&to=2032-03-10',{cookie:admin})).body.find(r=>r.request_id===result.body.id);assert.equal(row.contact_name,'Engenheiro João');assert.equal(row.contact_phone,'(45) 9 8765-4321');
 });
 
-test('slump acompanha agenda, cliente e reserva; brita aceita somente as quatro opções atuais',async()=>{
+test('slump pertence à agenda e não é herdado em nova obra; brita aceita somente as quatro opções atuais',async()=>{
  const ids=[];
  for(const gravel of ['1+0','0','2','Massa Preta']){
   const result=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,date:'2033-01-10',type:'convencional',customer:'Concreto '+gravel,seller_id:seller.id,gravel,slump:'12 ± 2 cm'}});assert.equal(result.status,200);ids.push(result.body.id);
@@ -315,10 +315,10 @@ test('slump acompanha agenda, cliente e reserva; brita aceita somente as quatro 
  assert.equal((await request('/appointments/'+id,{cookie:seller.cookie})).body.slump,'16');
  assert.equal((await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:1,slump:'x'.repeat(61)}})).status,400);
  const next=await request('/appointments',{method:'POST',cookie:admin,data:{...booking,type:'convencional',date:'2033-01-11',customer:'Concreto 1+0',seller_id:seller.id,planned_volume:88,gravel:'2'}});assert.equal(next.status,200);
- assert.equal((await request('/appointments/'+next.body.id,{cookie:seller.cookie})).body.slump,'16');
+ assert.equal((await request('/appointments/'+next.body.id,{cookie:seller.cookie})).body.slump,'');
  assert.equal((await request(path,{method:'PATCH',cookie:seller.cookie,data:{expected_version:1,slump:'10 ± 2 cm'}})).status,200);
  const customer=(await request('/customers?q='+encodeURIComponent('concreto 1+0'),{cookie:seller.cookie})).body[0];assert.equal(customer.slump,'10 ± 2');assert.equal(customer.gravel,'2');assert.equal(customer.planned_volume,88);
- assert.equal((await request('/appointments/'+next.body.id,{cookie:seller.cookie})).body.slump,'16');
+ assert.equal((await request('/appointments/'+next.body.id,{cookie:seller.cookie})).body.slump,'');
  const approved=await request('/requests',{method:'POST',cookie:seller.cookie,data:{...booking,type:'convencional',date:'2033-01-12',customer:'Reserva slump',gravel:'Massa Preta',slump:'Máximo 16'}});assert.equal(approved.status,200);
  assert.equal((await request('/requests/'+approved.body.id,{method:'PATCH',cookie:controller,data:{status:'aprovada'}})).status,200);
  const row=(await request('/report?from=2033-01-12&to=2033-01-12',{cookie:admin})).body.find(a=>a.request_id===approved.body.id);assert.equal(row.slump,'Máximo 16');assert.equal(row.gravel,'Massa Preta');

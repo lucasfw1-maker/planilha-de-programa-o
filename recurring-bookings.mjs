@@ -9,7 +9,15 @@ export async function recurringBookingsApi({u,b,preview,fields,checkSeller,check
  if(!preview&&(typeof b.token!=='string'||!/^[a-zA-Z0-9-]{16,80}$/.test(b.token)))fail('Abra novamente a repetição para confirmar os agendamentos.');
  async function prepare(){
   if(!b.common||Array.isArray(b.common)||!Array.isArray(b.occurrences)||!b.occurrences.length||b.occurrences.length>31)fail('Selecione de 1 a 31 dias para repetir.');
-  let common={...b.common};
+  let common={...b.common,order_code:'',order_item:''};
+  if(b.keep_order!==undefined&&typeof b.keep_order!=='boolean')fail('Escolha se deseja manter pedido e item.');
+  if(b.keep_order){
+   if(!Number.isSafeInteger(b.source_id))fail('Informe o agendamento original.');
+   const source=await one('SELECT * FROM appointments WHERE id=?',b.source_id);
+   if(!source||source.seller_id!==Number(common.seller_id)||source.customer!==common.customer||(!['programador','gerente','controlador','gerente_concresuper'].includes(u.role)&&source.seller_id!==u.id))fail('Agendamento original não encontrado.',404);
+   if(b.source_information_version!==source.information_version)fail('As informações do agendamento original mudaram. Abra novamente a repetição.',409);
+   common.order_code=source.order_code;common.order_item=source.order_item;
+  }
   if(b.contract_id){const c=await readContract(Number(b.contract_id));if(c.status!=='ativo'||Number(b.contract_version)!==c.version)fail('O contrato mudou. Abra novamente antes de repetir.',409);Object.assign(common,{customer:c.customer,work:c.address,work_name:c.work_name,seller_id:c.seller_id,contact_name:c.contact_name,contact_phone:c.contact_phone,expected_version:c.version});}
   fields(common);await checkSeller(common.seller_id);
   const allowed=new Set(recurring.dates(common.date,b.period,b.includeSaturday)),seen=new Set();

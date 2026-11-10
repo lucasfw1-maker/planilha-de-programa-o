@@ -398,3 +398,7 @@ input.volume-invalid{border-color:#c43d3d;background:#fff7f6}input.volume-invali
 .nav-submenu>.nav-item[data-page="pumpPrograms"]{white-space:nowrap;gap:6px;padding-inline:7px}@media(min-width:761px){.nav-submenu>.nav-item[data-page="pumpPrograms"]{font-size:10px;letter-spacing:-.15px}}
 
 .booking-repeat-action .booking-volume-warning{display:inline-flex;align-items:center;flex:none;margin-left:2px}.booking-volume-warning svg{width:15px;height:15px;fill:#facc15;stroke:#a16207;stroke-width:1.4}.booking-volume-warning .warning-mark{fill:none;stroke:#713f12;stroke-width:2}
+
+.booking-information.information-complete{color:var(--green);justify-content:flex-start}.booking-information.information-complete svg{fill:none;stroke:currentColor;stroke-width:2;width:20px;height:20px}.information-reminder{padding:14px;border:1px solid #e4eae7;border-radius:10px;margin-bottom:10px}.information-reminder small{display:block;margin:6px 0;line-height:1.6}.information-reminder button{margin-top:8px}.information-reminder-heading{margin:16px 0 10px;font-size:14px}
+
+.repeat-order-confirmation{margin:18px 0;padding:16px;border:1px solid #cfe3d6;border-radius:10px}.repeat-order-confirmation p{font-size:12px;color:var(--muted);margin:6px 0 14px}.repeat-order-confirmation label{display:flex;flex-direction:row;align-items:center;font-weight:400;margin-top:12px}.repeat-order-confirmation input{width:16px;height:16px;flex:none}
