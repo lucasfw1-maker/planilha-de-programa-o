@@ -831,12 +831,12 @@ async function confirmDeliveredVolume(id){
  }catch(error){toast(error.message,true);}
 }
 
-function bookingInformationPendingCount(){return state.bookingInformationSummary?.date===today()?state.bookingInformationSummary.pending||0:0;}
+function bookingInformationPendingCount(){return state.bookingInformationSummary?.date===shift(today(),1)?state.bookingInformationSummary.pending||0:0;}
 function informationReminderCards(rows){
  return rows.map(a=>`<div class="information-reminder"><strong>${esc(customerName(a.customer))}</strong><small>${esc(a.work_name||a.work)} · ${esc(a.start)} · ${esc(a.seller_name)}</small><small>Falta preencher: ${a.missing.map(esc).join(', ')}.</small>${a.demo?'<small>Exemplo de teste. Nenhum dado será criado ou enviado.</small>':`<button type="button" data-complete-information="${a.id}">${icon('pencil')} Preencher informações</button>`}</div>`).join('');
 }
 async function testInformationNotification(){
- try{const result=await api('/appointments/information-notification-test');dialog('Informações das obras de hoje','Teste de notificação — visível somente para você',informationReminderCards(result.rows),null);bindInformationReminders();}catch(error){toast(error.message,true);}
+ try{const result=await api('/appointments/information-notification-test');dialog('Informações das obras de amanhã','Teste de notificação — visível somente para você',informationReminderCards(result.rows),null);bindInformationReminders();}catch(error){toast(error.message,true);}
 }
 function bindInformationReminders(){
  $$('[data-complete-information]',modal).forEach(button=>button.onclick=()=>openCommercialInformation(Number(button.dataset.completeInformation)));
@@ -844,18 +844,18 @@ function bindInformationReminders(){
 function addInformationNotifications(){
  const summary=state.bookingInformationSummary;
  if(!bookingInformationPendingCount())return;
- $('.modal-body',modal).insertAdjacentHTML('afterbegin',`<h3 class="information-reminder-heading">Informações pendentes nas obras de hoje</h3>${informationReminderCards(summary.rows)}`);bindInformationReminders();
+ $('.modal-body',modal).insertAdjacentHTML('afterbegin',`<h3 class="information-reminder-heading">Informações pendentes nas obras de amanhã</h3>${informationReminderCards(summary.rows)}`);bindInformationReminders();
 }
 const informationReminderMemory=new Map();
 function maybeShowInformationReminders(){
  const summary=state.bookingInformationSummary;
- if(!state.user||!['vendedor','controlador'].includes(state.user.role)||document.hidden||!backgroundRefreshAllowed()||!summary?.pending||summary.slot===null||summary.date!==today())return;
+ if(!state.user||!['vendedor','controlador'].includes(state.user.role)||document.hidden||!backgroundRefreshAllowed()||!summary?.pending||summary.slot===null||summary.date!==shift(today(),1)||BookingInformation.clock().slot===null)return;
  const key='concretlog-information-reminders-'+state.user.id,bucket=summary.date+'|'+summary.slot;
  let saved=informationReminderMemory.get(key);
  try{const raw=localStorage.getItem(key);if(raw)saved=JSON.parse(raw);}catch{}
  const already=new Set(saved?.bucket===bucket&&Array.isArray(saved.ids)?saved.ids:[]),rows=summary.rows.filter(a=>!already.has(a.id));
  if(!rows.length)return;
- dialog('Informações das obras de hoje','Lembrete após as 16h · repetido a cada 15 minutos enquanto houver pendências',informationReminderCards(rows),null);bindInformationReminders();
+ dialog('Informações das obras de amanhã','Obras de amanhã · lembretes a cada 15 minutos, das 16h às 17h',informationReminderCards(rows),null);bindInformationReminders();
  rows.forEach(a=>already.add(a.id));const record={bucket,ids:[...already]};informationReminderMemory.set(key,record);try{localStorage.setItem(key,JSON.stringify(record));}catch{}
 }
 

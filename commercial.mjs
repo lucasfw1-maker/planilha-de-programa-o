@@ -19,7 +19,7 @@ export async function withCustomerCodes(rows){
 }
 
 export async function bookingInformationSummary(user,now=new Date()){
- const {date,slot}=bookingInformation.clock(now);
+ const current=bookingInformation.clock(now),date=bookingInformation.nextDate(current.date),slot=current.slot;
  if(!['vendedor','controlador'].includes(user.role))return {date,slot:null,pending:0,rows:[]};
  const rows=await withCustomerCodes(await query(`SELECT a.*,u.name seller_name FROM appointments a JOIN users u ON u.id=a.seller_id WHERE a.date=? AND a.status NOT IN ('cancelado','remarcado') ${user.role==='vendedor'?'AND a.seller_id=?':''} ORDER BY a.start,a.id`,date,...(user.role==='vendedor'?[user.id]:[])));
  const pending=rows.filter(a=>!bookingInformation.complete(a)).map(a=>({id:a.id,customer:a.customer,work_name:a.work_name,work:a.work,date:a.date,start:a.start,seller_name:a.seller_name,missing:bookingInformation.missing(a)}));
