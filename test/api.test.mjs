@@ -385,7 +385,7 @@ test('unificar clientes mantém todos os endereços, códigos das obras e os dad
  const saved=await request(path,{method:'PATCH',cookie:admin,data:{...input,preview_token:preview.preview_token,merge_existing:true}});assert.equal(saved.status,200);assert.equal(saved.body.customer_id,destination.id);assert.equal(saved.body.merged,true);
  const clients=(await request('/customers?q=cliente destino',{cookie:other})).body;assert.equal(clients.length,1);assert.equal(clients[0].contact_name,'Contato Mais Recente');
  const addresses=(await request('/customers/'+destination.id+'/addresses',{cookie:other})).body;assert.deepEqual(new Set(addresses),new Set(['ENDEREÇO ORIGEM 1','ENDEREÇO ORIGEM 2','ENDEREÇO DESTINO 1']));
- for(const [id,code] of [[a,'111'],[b,'111'],[c,'222']]){const row=(await request('/appointments/'+id,{cookie:other})).body;assert.equal(row.customer,'CLIENTE DESTINO');assert.equal(row.seller_id,target);assert.equal(row.customer_code,code);}
+ for(const [id,code] of [[a,'111'],[b,''],[c,'222']]){const row=(await request('/appointments/'+id,{cookie:other})).body;assert.equal(row.customer,'CLIENTE DESTINO');assert.equal(row.seller_id,target);assert.equal(row.customer_code,code);}
  const audit=(await request('/audit',{cookie:admin})).body.find(e=>e.action==='editar cliente'&&e.entity_id===destination.id);assert.equal(JSON.parse(audit.detail).destination_before.id,destination.id);
 });
 

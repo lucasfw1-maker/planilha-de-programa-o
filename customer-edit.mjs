@@ -38,10 +38,8 @@ export async function editCustomer(id,input,actor){
   if(!preview.changed)reject('Altere o nome do cliente ou o vendedor responsável.');
   if(edit.destination&&input.merge_existing!==true)reject('Já existe um cadastro no destino. Confira a prévia para unificar os clientes.',409);
   const {customer,destination,proposed}=edit,stamp=new Date().toISOString();
-  const sourceWorks=edit.appointments.filter(a=>a.seller_id===customer.seller_id&&customerKey(a.customer)===customer.name_key),sourceIds=new Set(sourceWorks.map(a=>a.id));
-  const groups=[{rows:sourceWorks,code:customer.customer_code},{rows:edit.appointments.filter(a=>!sourceIds.has(a.id)),code:destination?.customer_code}];
-  // Preserve codes previously inherited from each customer before merging their default data.
-  for(const group of groups)for(const batch of chunks(group.rows.map(a=>a.id)))await run(`UPDATE appointments SET customer=?,seller_id=?,customer_code=CASE WHEN customer_code='' THEN ? ELSE customer_code END,information_version=information_version+1 WHERE id IN (${batch.map(()=>'?').join(',')})`,proposed.name,proposed.seller_id,group.code||'',...batch);
+  // Renaming or merging a customer preserves each work's own code, including blanks.
+  for(const batch of chunks(edit.appointments.map(a=>a.id)))await run(`UPDATE appointments SET customer=?,seller_id=?,information_version=information_version+1 WHERE id IN (${batch.map(()=>'?').join(',')})`,proposed.name,proposed.seller_id,...batch);
   for(const batch of chunks(edit.requests.map(r=>r.id)))await run(`UPDATE requests SET customer=?,seller_id=? WHERE id IN (${batch.map(()=>'?').join(',')})`,proposed.name,proposed.seller_id,...batch);
   // Current report attribution follows the client; original event snapshots and actors remain intact.
   for(const batch of chunks(edit.events.map(e=>e.id)))await run(`UPDATE appointment_events SET customer=?,customer_search=?,seller_id=? WHERE id IN (${batch.map(()=>'?').join(',')})`,proposed.name,searchName(proposed.name),proposed.seller_id,...batch);

@@ -150,7 +150,7 @@ async function createAppointment(b, u, requestId = null) {
   data.order_code=commercialCode(b.order_code,'Código do pedido');data.order_item=commercialCode(b.order_item,'Item do pedido');
   if (!Number.isInteger(data.trips)) fail('Viagens devem ser um número inteiro.');
   const seller = await checkSeller(b.seller_id);
-  const customerCode=await savedCustomerCode(data.customer,seller);
+  const customerCode=await savedCustomerCode(data.customer,seller,data.work);
   Object.assign(data,await detailsForCustomer(b,seller));
   const pump = await checkPump({
     ...data,
@@ -538,7 +538,7 @@ async function api(req, res, url) {
       const old=await one('SELECT * FROM appointments WHERE id=?',id);
       if(!old||(!manager(u)&&old.seller_id!==u.id))fail('Agendamento não encontrado.',404);
       if(!Number.isInteger(b.expected_version)||b.expected_version!==old.information_version)fail('As informações foram alteradas por outra pessoa. Abra a obra novamente para atualizar.',409);
-      const saved=await savedCustomerCode(old.customer,old.seller_id),previousCode=old.customer_code||saved;
+      const saved=await savedCustomerCode(old.customer,old.seller_id,old.work),previousCode=old.customer_code;
       const code=commercialCode(b.customer_code===undefined?previousCode:b.customer_code,'Código do cliente'),order=commercialCode(b.order_code===undefined?old.order_code:b.order_code,'Código do pedido'),item=commercialCode(b.order_item===undefined?old.order_item:b.order_item,'Item do pedido');
       const contact=contactFields(b,old),slump=slumpValue(b.slump===undefined?old.slump:b.slump);
       await run('UPDATE appointments SET customer_code=?,order_code=?,order_item=?,contact_name=?,contact_phone=?,slump=?,information_version=information_version+1 WHERE id=?',code,order,item,contact.contact_name,contact.contact_phone,slump,id);
