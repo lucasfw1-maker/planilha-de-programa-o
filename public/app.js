@@ -139,6 +139,7 @@ async function boot() {
     const session = await api('/session'); state.user = session.user;
     if (!state.user) return authScreen(session.needsSetup);
     if(state.user.mustChangePassword)return passwordChange(true);
+    if(state.user.canTestInformationNotifications){const correction=await api('/appointments/normalize-work-codes',{method:'POST',body:JSON.stringify({campaign:'work-codes-by-address-20261110'})});if(!correction.already_applied&&correction.updated)toast(correction.works+' obras com códigos separados por endereço.');}
     if(state.user.role==='programador'&&/\blucas\b/i.test(state.user.name)&&/wiebbelling/i.test(state.user.name)){const demo=await api('/presentation-seed',{method:'POST',body:JSON.stringify({campaign:'presentation-20261030-15'})});if(!demo.already_created)toast('Apresentação: 15 CBs e 15 motoristas fictícios cadastrados.');}
     await load(); seen=new Map(state.requests.map(r=>[r.id,r.status])); render(); startPolling();
   } catch(error) {app.innerHTML=`<div class="empty">Não foi possível carregar a central.<br>${esc(error.message)}<br><button id="retry">Tentar novamente</button></div>`; $('#retry').onclick=boot;}

@@ -1,3 +1,4 @@
+import {normalizeWorkCodes} from './work-code-normalization.mjs';
 import {pumpProgramsApi} from './pump-programs.mjs';
 import {recurringBookingsApi} from './recurring-bookings.mjs';
 import {volumeValue} from './volume.mjs';
@@ -369,6 +370,7 @@ async function api(req, res, url) {
     const summary=await bookingInformationSummary({...u,role:'controlador'});
     return {rows:summary.rows.length?summary.rows:[{customer:'OBRA DE EXEMPLO',work_name:'Demonstração da notificação',date:summary.date,start:'13:30',seller_name:'Vendedor responsável',missing:['Código do cliente','Código do pedido','Item do pedido','Nome do contato','Telefone do contato','Slump'],demo:true}]};
   }
+  if(path==='/api/appointments/normalize-work-codes'&&method==='POST')return normalizeWorkCodes(u,(await body(req)).campaign);
   if(path==='/api/presentation-seed'&&method==='POST')return seedPresentation(u,await body(req));
   if(path.startsWith('/api/appointment-change-requests'))return appointmentChangesApi({path,method,url,u,body:()=>body(req),manager,normalize:normalizeRequestedChanges,apply:updateAppointment,audit});
   if(path==='/api/shifts'||path.startsWith('/api/shifts/'))return shiftRosterApi({path,method,url,u,body:()=>body(req,220000)});
