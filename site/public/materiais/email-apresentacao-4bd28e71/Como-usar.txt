@@ -1,8 +1,8 @@
 ConcretLog — apresentação comercial
 
 1. Substitua [Nome], [Nome da empresa], [Telefone / WhatsApp] e [E-mail comercial] no texto antes de enviar.
-2. Insira concretlog-apresentacao-email.jpg no corpo do e-mail, logo após o parágrafo que apresenta Lucas e a ConcretLog.
-3. Exiba a imagem com 600 pixels de largura e mantenha a proporção (600 × 300). O JPG tem 1200 × 600 para boa definição.
+2. Insira concretlog-sistema-completo-email.jpg no corpo do e-mail, logo após o parágrafo que apresenta Lucas e a ConcretLog.
+3. Exiba a imagem com 600 pixels de largura e mantenha a proporção (600 × 400). O JPG tem 1200 × 800 para boa definição.
 4. Mantenha o link https://concretlog.com.br também em texto na assinatura.
 5. O ZIP serve somente para você baixar o material. Ao destinatário, envie o e-mail com a imagem inserida no corpo.
 
