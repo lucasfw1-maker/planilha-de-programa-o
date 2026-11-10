@@ -1,0 +1,8 @@
+ConcretLog — Programação dos equipamentos
+Versão final com a narração enviada.
+36 segundos · vertical · 30 fps.
+Voz em velocidade original. Cenas e pausas ajustadas para sincronização.
+Áudio nivelado, sem música de fundo. Dados fictícios.
+SRT separado; não há legendas sobrepostas ao vídeo.
+A legenda para publicar está em Legenda-para-postar.txt.
+As versões salvas do relatório preservam o documento gerado: mudanças na agenda exigem gerar uma nova versão. O compartilhamento com o operador é feito pelo usuário.

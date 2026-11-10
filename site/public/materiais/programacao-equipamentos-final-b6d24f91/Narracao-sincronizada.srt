@@ -1,0 +1,31 @@
+1
+00:00:00,350 --> 00:00:03,296
+Cada equipamento. Sua programação do dia.
+
+2
+00:00:03,974 --> 00:00:07,134
+Escolha a data e gere os relatórios dos equipamentos.
+
+3
+00:00:07,780 --> 00:00:11,700
+As programações ficam salvas por equipamento e por data.
+
+4
+00:00:12,209 --> 00:00:15,841
+Consulte os atendimentos da manhã e da tarde em sequência.
+
+5
+00:00:16,384 --> 00:00:20,997
+Confira endereço, contato, volume e orientações de cada obra.
+
+6
+00:00:21,571 --> 00:00:25,525
+Baixe em imagem ou PDF e compartilhe com o operador.
+
+7
+00:00:26,197 --> 00:00:30,137
+Gere novas versões e consulte o histórico sempre que precisar.
+
+8
+00:00:30,789 --> 00:00:34,955
+Mais organização para a equipe. Conheça a ConcretLog.
