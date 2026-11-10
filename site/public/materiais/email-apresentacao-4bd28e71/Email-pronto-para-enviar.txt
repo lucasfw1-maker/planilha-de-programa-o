@@ -1,31 +1,34 @@
-Assunto: ConcretLog | Da programação das entregas ao acompanhamento da operação
+Assunto: Conheça a ConcretLog — gestão e programação para usinas de concreto
 
 Olá, [Nome]. Tudo bem?
 
-Da confirmação de um pedido à entrega do concreto, diferentes áreas precisam acompanhar horários, equipamentos, equipes e informações de cada obra.
+Sou Lucas Wiebbelling, da ConcretLog, um sistema desenvolvido para conectar as áreas da usina de concreto e centralizar as informações da operação.
 
-Sou Lucas Wiebbelling, responsável pela ConcretLog, uma plataforma desenvolvida para conectar essas etapas e apoiar a gestão operacional de usinas de concreto.
+Gostaria de apresentar nossa solução à equipe da [Nome da empresa] e entender como vocês organizam hoje a programação das obras, as entregas e a disponibilidade dos equipamentos.
 
-Gostaria de apresentar à equipe da [Nome da empresa] uma solução que reúne:
+Na prática, com a ConcretLog, a equipe pode:
 
-• Programação e solicitações comerciais: agenda por dia, semana ou mês, agendamentos recorrentes e acompanhamento das solicitações dos vendedores, com análise e aprovação pela logística.
+• Organizar obras e entregas: consultar a programação por dia, semana ou mês e acompanhar as solicitações dos vendedores e as aprovações da logística.
 
-• Equipamentos e equipes: consulta de disponibilidade e organização das escalas de motoristas, operadores e ajudantes, com as informações dos atendimentos previstos.
+• Planejar equipamentos e equipes: conferir disponibilidades e montar escalas de motoristas, operadores e ajudantes.
 
-• Manutenção integrada às entregas: planejamento dos serviços junto à agenda operacional, permitindo visualizar os períodos de indisponibilidade e identificar conflitos que precisam de ajuste.
+• Integrar manutenção e programação: planejar as manutenções considerando a agenda de entregas e os períodos de indisponibilidade dos equipamentos.
 
-• Produção e relatórios: registro dos volumes entregues e acompanhamento das informações da programação para apoiar o planejamento e a gestão.
+• Acompanhar produção e resultados: registrar os volumes entregues e consultar relatórios.
 
-• Atendimento e controle técnico: chamados técnicos e comerciais com mensagens, documentos e histórico, além dos registros do laboratório, corpos de prova, rompimentos e resultados dos ensaios.
+• Centralizar os atendimentos: acompanhar chamados técnicos e comerciais, com mensagens, documentos e histórico.
 
-A proposta é dar às áreas responsáveis uma visão compartilhada da operação, com acesso conforme o perfil de cada usuário e informações organizadas para consulta e acompanhamento.
+• Organizar o laboratório: registrar corpos de prova, acompanhar rompimentos e consultar resultados dos ensaios.
 
-Podemos agendar uma demonstração online de aproximadamente 15 minutos? A apresentação pode ser direcionada às atividades e aos módulos de maior interesse para a equipe da [Nome da empresa].
+A proposta é facilitar o planejamento e manter as áreas trabalhando com informações atualizadas, reduzindo o retrabalho e os desencontros na rotina.
+
+Podemos agendar uma demonstração online de aproximadamente 15 minutos, com foco nas necessidades da sua usina de concreto?
+
+Conheça a ConcretLog: https://concretlog.com.br
 
 Atenciosamente,
 Lucas Wiebbelling
 Comercial | ConcretLog
 [Telefone / WhatsApp]
 [E-mail comercial]
-https://concretlog.com.br
 Tecnologia que move o concreto.
