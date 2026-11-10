@@ -1,0 +1,9 @@
+Como usar as imagens no e-mail comercial
+
+1. Insira 01-apresentacao-concretlog.jpg no corpo do e-mail, logo após a apresentação da ConcretLog.
+2. Insira 02-manutencao-e-entregas.jpg perto do trecho sobre manutenção integrada à agenda de entregas.
+3. Exiba as imagens com largura de aproximadamente 600 px, preservando a proporção. No celular, deixe ajustar à largura da mensagem.
+4. Mantenha também um link em texto separado: https://concretlog.com.br
+5. Revise o nome do contato, o nome da concreteira e sua assinatura antes de enviar.
+
+O arquivo ZIP serve apenas para você baixar o material. Não precisa enviar o ZIP ao destinatário; use as duas imagens diretamente no corpo do e-mail.
