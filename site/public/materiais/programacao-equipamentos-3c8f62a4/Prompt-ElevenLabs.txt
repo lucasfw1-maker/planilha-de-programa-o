@@ -1,0 +1,33 @@
+Crie uma narração publicitária em português brasileiro para um vídeo vertical de 36 segundos sobre Programação dos equipamentos na ConcretLog, um sistema de gestão operacional para usinas de concreto.
+
+ENTREGA: um único arquivo de áudio contínuo em WAV ou MP3 de alta qualidade. Não dividir a narração em arquivos separados por cena.
+
+Voz adulta, natural, clara e confiante, com energia moderada. Tom profissional e próximo, sem exagero comercial. Pronuncie a marca como “Concret Log”, mantendo o nome ConcretLog. Sem música, efeitos sonoros ou outras vozes.
+
+Leia somente as falas abaixo, na ordem indicada. Não leia horários, nomes de cenas, aspas ou instruções. Não acrescente palavras. Use os intervalos como referência para pequenas pausas entre as cenas; preserve a velocidade natural da fala. Procure concluir a última fala até 35,6 segundos.
+
+00:00:00,400 — 00:00:03,100
+“Cada equipamento. Sua programação do dia.”
+
+00:00:03,750 — 00:00:07,450
+“Escolha a data e gere os relatórios dos equipamentos.”
+
+00:00:08,100 — 00:00:11,600
+“As programações ficam salvas por equipamento e por data.”
+
+00:00:12,200 — 00:00:17,300
+“Consulte os atendimentos da manhã e da tarde em sequência.”
+
+00:00:18,000 — 00:00:21,550
+“Confira endereço, contato, volume e orientações de cada obra.”
+
+00:00:22,350 — 00:00:26,000
+“Baixe em imagem ou PDF e compartilhe com o operador.”
+
+00:00:26,800 — 00:00:31,000
+“Gere novas versões e consulte o histórico sempre que precisar.”
+
+00:00:31,800 — 00:00:35,600
+“Mais organização para a equipe. Conheça a ConcretLog.”
+
+Dê ênfase suave a “por equipamento e por data”, “imagem ou PDF” e “Mais organização para a equipe”. Faça uma finalização limpa, sem reverberação prolongada. Entregue a leitura inteira em um único áudio.

@@ -1,0 +1,15 @@
+Cada equipamento. Sua programação do dia.
+
+Escolha a data e gere os relatórios dos equipamentos.
+
+As programações ficam salvas por equipamento e por data.
+
+Consulte os atendimentos da manhã e da tarde em sequência.
+
+Confira endereço, contato, volume e orientações de cada obra.
+
+Baixe em imagem ou PDF e compartilhe com o operador.
+
+Gere novas versões e consulte o histórico sempre que precisar.
+
+Mais organização para a equipe. Conheça a ConcretLog.

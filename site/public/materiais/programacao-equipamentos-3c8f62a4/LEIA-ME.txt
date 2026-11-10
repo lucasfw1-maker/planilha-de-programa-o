@@ -1,0 +1,20 @@
+CONCRETLOG — PROGRAMAÇÃO DOS EQUIPAMENTOS
+Vídeo-base vertical de 36 segundos, 30 quadros por segundo, sem voz e sem música.
+
+ConcretLog-Programacao-Equipamentos-Instagram.mp4: 1080 × 1920.
+ConcretLog-Programacao-Equipamentos-4K.mp4: 2160 × 3840, para edição em alta resolução.
+
+NARRAÇÃO
+Use Prompt-ElevenLabs.txt em uma ferramenta que aceite instruções e peça um único arquivo de áudio.
+No modo Texto para Fala, cole somente Texto-para-voz.txt. Não cole o prompt nesse campo, pois as instruções poderão ser lidas em voz alta.
+Os tempos são referências: a duração gerada depende da voz e do ritmo. Envie o áudio completo para ajustar a sincronização na montagem.
+Narracao.srt é um guia inicial, separado do vídeo; as falas não estão sobrepostas às imagens.
+
+PUBLICAÇÃO
+Use Legenda-para-postar.txt como descrição da publicação.
+As telas da demonstração usam dados fictícios em ambiente isolado, sem alterar a produção.
+
+FUNCIONAMENTO MOSTRADO
+A programação pode ser gerada para um equipamento ou para todos os equipamentos com atendimento na data escolhida. Os cards e documentos ficam salvos por equipamento e por data.
+O relatório reúne os atendimentos da manhã e da tarde. A geração salva uma versão do documento; alterações posteriores da agenda não mudam essa versão automaticamente. Gere uma nova versão para refletir as alterações.
+É possível baixar a programação como imagem ou PDF. O compartilhamento com o operador é feito pelo usuário; o vídeo não mostra envio automático.
