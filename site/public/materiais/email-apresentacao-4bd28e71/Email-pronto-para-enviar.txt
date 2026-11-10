@@ -1,0 +1,31 @@
+Assunto: ConcretLog | Da programação das entregas ao acompanhamento da operação
+
+Olá, [Nome]. Tudo bem?
+
+Da confirmação de um pedido à entrega do concreto, diferentes áreas precisam acompanhar horários, equipamentos, equipes e informações de cada obra.
+
+Sou Lucas Wiebbelling, responsável pela ConcretLog, uma plataforma desenvolvida para conectar essas etapas e apoiar a gestão operacional de usinas de concreto.
+
+Gostaria de apresentar à equipe da [Nome da empresa] uma solução que reúne:
+
+• Programação e solicitações comerciais: agenda por dia, semana ou mês, agendamentos recorrentes e acompanhamento das solicitações dos vendedores, com análise e aprovação pela logística.
+
+• Equipamentos e equipes: consulta de disponibilidade e organização das escalas de motoristas, operadores e ajudantes, com as informações dos atendimentos previstos.
+
+• Manutenção integrada às entregas: planejamento dos serviços junto à agenda operacional, permitindo visualizar os períodos de indisponibilidade e identificar conflitos que precisam de ajuste.
+
+• Produção e relatórios: registro dos volumes entregues e acompanhamento das informações da programação para apoiar o planejamento e a gestão.
+
+• Atendimento e controle técnico: chamados técnicos e comerciais com mensagens, documentos e histórico, além dos registros do laboratório, corpos de prova, rompimentos e resultados dos ensaios.
+
+A proposta é dar às áreas responsáveis uma visão compartilhada da operação, com acesso conforme o perfil de cada usuário e informações organizadas para consulta e acompanhamento.
+
+Podemos agendar uma demonstração online de aproximadamente 15 minutos? A apresentação pode ser direcionada às atividades e aos módulos de maior interesse para a equipe da [Nome da empresa].
+
+Atenciosamente,
+Lucas Wiebbelling
+Comercial | ConcretLog
+[Telefone / WhatsApp]
+[E-mail comercial]
+https://concretlog.com.br
+Tecnologia que move o concreto.
