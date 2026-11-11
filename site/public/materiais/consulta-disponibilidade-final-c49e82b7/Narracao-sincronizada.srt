@@ -1,0 +1,31 @@
+1
+00:00:00,152 --> 00:00:03,987
+Antes de combinar o horário com o cliente, consulte a disponibilidade.
+
+2
+00:00:04,557 --> 00:00:07,975
+O vendedor acompanha a ocupação dos equipamentos no calendário.
+
+3
+00:00:08,732 --> 00:00:12,278
+Selecione a data e confira as faixas livres para atendimento.
+
+4
+00:00:13,133 --> 00:00:17,018
+Informe o início e a duração para consultar o intervalo desejado.
+
+5
+00:00:17,732 --> 00:00:21,140
+Preencha os dados da obra, o volume e as orientações.
+
+6
+00:00:22,335 --> 00:00:26,083
+Envie a solicitação de agendamento diretamente para a logística.
+
+7
+00:00:26,930 --> 00:00:30,399
+A reserva depende da análise e aprovação da logística.
+
+8
+00:00:31,704 --> 00:00:36,166
+Mais agilidade para vender. Mais organização com a ConcretLog.

@@ -1,0 +1,8 @@
+ConcretLog — Consultar disponibilidade
+Versão final com a narração enviada.
+38 segundos · vertical · 30 fps.
+Voz em velocidade original. Pausas ajustadas para sincronização; imagens e transições originais preservadas.
+Áudio nivelado, sem música de fundo. Dados fictícios.
+SRT separado; não há legendas sobrepostas ao vídeo.
+A legenda para publicar está em Legenda-para-postar.txt.
+A consulta não reserva o horário. A solicitação enviada pelo vendedor fica pendente até a análise e aprovação da logística.
