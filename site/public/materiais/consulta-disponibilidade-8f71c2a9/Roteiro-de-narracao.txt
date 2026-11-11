@@ -1,0 +1,31 @@
+CONCRETLOG — CONSULTAR DISPONIBILIDADE
+Vídeo vertical de 38 segundos. Tempos de referência para a montagem.
+
+00:00:00,400 — 00:00:03,950 | Abertura
+Antes de combinar o horário com o cliente, consulte a disponibilidade.
+
+00:00:04,550 — 00:00:08,000 | Consulta pelo vendedor
+O vendedor acompanha a ocupação dos equipamentos no calendário.
+
+00:00:08,750 — 00:00:12,400 | Data e faixas livres
+Selecione a data e confira as faixas livres para atendimento.
+
+00:00:13,150 — 00:00:17,000 | Consulta do intervalo
+Informe o início e a duração para consultar o intervalo desejado.
+
+00:00:17,750 — 00:00:21,600 | Dados da obra
+Preencha os dados da obra, o volume e as orientações.
+
+00:00:22,350 — 00:00:26,200 | Envio da solicitação
+Envie a solicitação de agendamento diretamente para a logística.
+
+00:00:26,950 — 00:00:30,950 | Análise pela logística
+A reserva depende da análise e aprovação da logística.
+
+00:00:31,850 — 00:00:36,600 | Encerramento
+Mais agilidade para vender. Mais organização com a ConcretLog.
+
+Gravar em um único arquivo de áudio. Não ler horários, nomes das cenas ou instruções.
+Pronúncia da marca: Concret Log.
+Os tempos são referências; a sincronização será ajustada após a geração da voz.
+Uma consulta não reserva o horário. O envio da solicitação também não bloqueia o horário: depende da aprovação da logística.

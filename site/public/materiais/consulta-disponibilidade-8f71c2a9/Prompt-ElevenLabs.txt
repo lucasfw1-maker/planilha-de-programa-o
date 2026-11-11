@@ -1,0 +1,33 @@
+Crie uma narração publicitária em português brasileiro para um vídeo vertical de aproximadamente 38 segundos sobre Consultar disponibilidade na ConcretLog, um sistema de gestão operacional para usinas de concreto.
+
+ENTREGA: um único arquivo de áudio contínuo em WAV ou MP3 de alta qualidade. Não dividir a narração por cena.
+
+Voz adulta, natural, clara e confiante, com energia moderada. Tom profissional e próximo, sem exagero comercial. Pronuncie a marca como “Concret Log”, mantendo o nome ConcretLog. Sem música, efeitos sonoros ou outras vozes.
+
+Leia somente as falas abaixo, na ordem indicada. Não leia os horários, nomes das cenas, aspas ou instruções. Não acrescente palavras. Use os intervalos como referência para pequenas pausas entre as cenas, preservando a velocidade natural da fala. Procure concluir a última fala até 36,6 segundos e finalize de forma limpa.
+
+00:00:00,400 — 00:00:03,950
+“Antes de combinar o horário com o cliente, consulte a disponibilidade.”
+
+00:00:04,550 — 00:00:08,000
+“O vendedor acompanha a ocupação dos equipamentos no calendário.”
+
+00:00:08,750 — 00:00:12,400
+“Selecione a data e confira as faixas livres para atendimento.”
+
+00:00:13,150 — 00:00:17,000
+“Informe o início e a duração para consultar o intervalo desejado.”
+
+00:00:17,750 — 00:00:21,600
+“Preencha os dados da obra, o volume e as orientações.”
+
+00:00:22,350 — 00:00:26,200
+“Envie a solicitação de agendamento diretamente para a logística.”
+
+00:00:26,950 — 00:00:30,950
+“A reserva depende da análise e aprovação da logística.”
+
+00:00:31,850 — 00:00:36,600
+“Mais agilidade para vender. Mais organização com a ConcretLog.”
+
+Dê ênfase suave a “consulte a disponibilidade”, “início e a duração” e “análise e aprovação da logística”. Entregue a leitura inteira em um único áudio.

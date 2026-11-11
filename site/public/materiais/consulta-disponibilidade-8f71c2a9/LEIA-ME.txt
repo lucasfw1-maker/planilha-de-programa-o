@@ -1,0 +1,22 @@
+CONCRETLOG — CONSULTAR DISPONIBILIDADE
+Vídeo-base vertical de 38 segundos, 30 quadros por segundo, sem voz e sem música.
+
+VERSÕES
+Instagram: 1080 × 1920.
+4K: 2160 × 3840, para edição em alta resolução.
+
+NARRAÇÃO
+Use Prompt-ElevenLabs.txt em uma ferramenta que aceite instruções e peça um único arquivo de áudio.
+No modo Texto para Fala, cole somente Texto-para-voz.txt. Não cole o prompt nesse campo, pois as instruções poderão ser lidas em voz alta.
+Os tempos são referências: a duração gerada depende da voz e do ritmo. Envie o áudio completo para ajustar a sincronização na montagem.
+Narracao.srt é um guia inicial, separado do vídeo; as falas não estão sobrepostas às imagens.
+
+PUBLICAÇÃO
+Use Legenda-para-postar.txt como descrição da publicação.
+As telas da demonstração usam dados fictícios em ambiente isolado, sem alterar a produção.
+
+FUNCIONAMENTO MOSTRADO
+O vendedor consulta o calendário mensal, seleciona uma data, confere a programação e as faixas livres por equipamento. Pode informar início e duração e consultar a disponibilidade no intervalo.
+As cores do calendário indicam a ocupação das bombas ativas na jornada consultada; não significam garantia de atendimento para qualquer intervalo. A disponibilidade de CBs por período, quando exibida na tela, é uma estimativa de frota e não uma reserva individual de caminhões.
+A consulta não reserva horário. A solicitação enviada pelo vendedor fica pendente e também não bloqueia o horário. A logística analisa o pedido e a aprovação cria o agendamento, com a verificação de disponibilidade feita novamente ao salvar.
+O vídeo não mostra aprovação automática nem envio de mensagens fora do sistema.
