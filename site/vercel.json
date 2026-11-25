@@ -148,6 +148,75 @@
           "value": "noindex, nofollow, noarchive"
         }
       ]
+    },
+    {
+      "source": "/materiais/documento-5802a7500e3078cbe2b26458f10feb83",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow, noarchive"
+        }
+      ]
+    },
+    {
+      "source": "/materiais/documento-5802a7500e3078cbe2b26458f10feb83/(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow, noarchive"
+        }
+      ]
+    },
+    {
+      "source": "/materiais/documento-5802a7500e3078cbe2b26458f10feb83/Proposta-ConcretLog-Concresuper.docx",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        },
+        {
+          "key": "Content-Disposition",
+          "value": "attachment; filename=\"Proposta-ConcretLog-Concresuper.docx\""
+        },
+        {
+          "key": "Cache-Control",
+          "value": "private, no-store"
+        }
+      ]
+    },
+    {
+      "source": "/materiais/documento-5802a7500e3078cbe2b26458f10feb83/Proposta-ConcretLog-Word.zip",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/zip"
+        },
+        {
+          "key": "Content-Disposition",
+          "value": "attachment; filename=\"Proposta-ConcretLog-Word.zip\""
+        },
+        {
+          "key": "Cache-Control",
+          "value": "private, no-store"
+        }
+      ]
+    },
+    {
+      "source": "/materiais/documento-5802a7500e3078cbe2b26458f10feb83/Proposta-ConcretLog-Concresuper.pdf",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/pdf"
+        },
+        {
+          "key": "Content-Disposition",
+          "value": "attachment; filename=\"Proposta-ConcretLog-Concresuper.pdf\""
+        },
+        {
+          "key": "Cache-Control",
+          "value": "private, no-store"
+        }
+      ]
     }
   ]
 }
